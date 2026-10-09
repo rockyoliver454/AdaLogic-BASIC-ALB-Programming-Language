@@ -1,0 +1,33 @@
+# Build outputs and local scratch. Sources, project, docs and
+# legal files (NOTICE, LICENSE, licenses/, docs/, third-party/,
+# README/CONTRIBUTING/CODE_OF_CONDUCT/SECURITY) are versioned.
+# Everything generated stays out.
+
+# GNAT/GPRbuild outputs
+obj/
+bin/
+*.o
+*.ali
+*.bexch
+b__*.ad?
+b~*.ad?
+
+# Logs and scratch
+*.log
+*.tmp
+*.bak
+*~
+
+# Alire / toolchain state (pinned toolchains live outside git)
+/.alire/
+/deps/
+
+# Editors, OS noise
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+desktop.ini

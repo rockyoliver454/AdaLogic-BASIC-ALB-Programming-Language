@@ -1,0 +1,17 @@
+project Adalogic_Basic_Dist is
+
+   for Source_Dirs use ("src/LOADERS/", "src/MATH/", "src/SECURITY/",
+                        "src/EMITTER/", "src/TYPES/", "src/INTERPRETER/",
+                        "src/ALBA", "src/COMPILER/", "src/TESTS/",
+                        "src/CORE/",
+                        "src");
+   for Object_Dir use "obj";
+   for Exec_Dir use "bin";
+   package Builder is
+      for Executable ("alb_pkg.adb") use "alb-pkg.exe";
+   end Builder;
+   for Main use ("alb.adb", "albt.adb", "albf.adb", "alb_65.adb", "albj.adb", "albn.adb",
+                 "alba.adb", "albw.adb", "albl.adb", "albm.adb", "albnasm.adb", "albgd.adb", "albp.adb", "albr.adb", "albh.adb", "albo.adb", "albc3.adb",
+                 "alb_player.adb", "alb_pkg.adb");
+
+end Adalogic_Basic_Dist;
