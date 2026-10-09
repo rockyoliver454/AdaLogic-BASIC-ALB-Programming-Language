@@ -1,0 +1,9 @@
+AdaLogic BASIC - License Pointer
+
+All AdaLogic BASIC backends are open source under the Apache License,
+Version 2.0.
+
+Full license text: see LICENSE in the release root.
+Attributions: see NOTICE in the release root.
+Websites: https://alb-lang.org, https://alb-lang.com, https://alb-lang.dev
+Contact: contact@alb-lang.org

@@ -1,0 +1,152 @@
+AdaLogic BASIC SDK Third-Party Credits
+======================================
+
+AdaLogic BASIC, ALB, the ALB compiler drivers, emitters, runtime support, and
+all first-party compiler source code are copyright Oliver Softworks and licensed under the Apache License, Version 2.0 (see LICENSE in the release root).
+Bundled third-party components remain governed by their own licenses.
+This notice does not relicense ALB or programs written by SDK users.
+
+Assembler/runtime components
+----------------------------
+
+Flat Assembler (FASM)
+  Copyright (c) 1999-2026 Tomasz Grysztar
+  License: BSD 2-Clause
+  https://flatassembler.net/
+  Bundled license: deps\fasm\LICENSE.TXT
+
+asm6f
+  License: public domain
+  Project: https://github.com/parasyte/asm6f
+
+NASM
+  License: BSD 2-Clause
+  https://www.nasm.us/
+  Bundled license: deps\NASM\LICENSE
+
+SDL3 runtime support
+  Copyright (c) 1997-2026 Sam Lantinga and contributors
+  License: zlib
+  https://www.libsdl.org/
+  License text: third-party\licenses\SDL_copying.h
+
+Version-locked offline toolchains
+---------------------------------
+
+The following compiler and runtime toolchains are included for reproducible
+offline builds. Their binaries remain under their respective upstream licenses.
+Use of these tools to compile user programs does not change the license of the
+user's source code. Where an upstream runtime-library exception applies, it is
+governed by the upstream license text included in the component or listed below.
+
+deps\fasm                   FASM 1.73.35
+deps\asm6f                  asm6f 1.6 fork
+deps\NASM                   NASM 3.02rc13
+deps\w64devkit              w64devkit 2.6.0 / GCC 15.2.0 / MinGW-w64
+deps\gnat_native_15.2.1    GNAT native toolchain 15.2.0
+deps\gprbuild_25.0.1       GPRbuild 25.0.0
+deps\node                   Node.js 24.21.0 and TypeScript 6.0.3
+deps\dotnet                 Microsoft .NET SDK 10.0.400
+deps\graalvm                GraalVM Community Edition for JDK 25.0.2
+deps\python                 CPython 3.14.2
+
+GPL-covered toolchains and source-code offers
+---------------------------------------------
+
+w64devkit / GCC / MinGW-w64
+  The bundled GCC, binutils, GDB, MinGW-w64, and related components are
+  distributed under the GNU General Public License version 3 and related
+  licenses, including the GCC Runtime Library Exception and MinGW-w64 runtime
+  terms where applicable.
+  License text: deps\w64devkit\COPYING.GPL3.txt
+  Runtime exception: deps\w64devkit\COPYING.RUNTIME.txt
+  MinGW-w64 runtime notice: deps\w64devkit\COPYING.MinGW-w64-runtime.txt
+  Complete source and build recipe:
+    https://github.com/skeeto/w64devkit
+    https://github.com/skeeto/w64devkit/releases/tag/v2.6.0
+    https://gcc.gnu.org/git/gcc.git
+    https://ftp.gnu.org/gnu/gcc/gcc-15.2.0/
+
+GNAT 15.2.0 (in deps\gnat_native_15.2.1)
+  The bundled GNAT Ada compiler and related GCC components are distributed
+  under the GNU General Public License version 3, including the GCC Runtime
+  Library Exception where applicable.
+  License text: deps\gnat_native_15.2.1\COPYING.GPL3.txt
+  Runtime exception: deps\gnat_native_15.2.1\COPYING.RUNTIME.txt
+  Complete source:
+    https://gcc.gnu.org/git/gcc.git
+    https://github.com/gcc-mirror/gcc/tree/master/gcc/ada
+    https://ftp.gnu.org/gnu/gcc/gcc-15.2.0/
+
+GPRbuild 25.0.0 (in deps\gprbuild_25.0.1)
+  GPRbuild is distributed under the GNU General Public License version 3 or
+  later, including the GCC Runtime Library Exception where applicable.
+  License text: deps\gprbuild_25.0.1\COPYING.GPL3.txt
+  Runtime exception: deps\gprbuild_25.0.1\COPYING.RUNTIME.txt
+  Complete source:
+    https://github.com/AdaCore/gprbuild
+    https://github.com/AdaCore/gprbuild/tree/v25.0.0
+
+GraalVM Community Edition
+  GraalVM Community Edition is distributed under the GNU General Public
+  License version 2 with the Classpath Exception. Some included components are
+  distributed under the UPL, BSD, or other licenses identified by Oracle.
+  Bundled license and third-party notices:
+    deps\graalvm\LICENSE.txt
+    deps\graalvm\LICENSE_NATIVEIMAGE.txt
+    deps\graalvm\THIRD_PARTY_LICENSE.txt
+  Complete source:
+    https://github.com/oracle/graal/tree/jdk-25.0.2
+    https://github.com/graalvm/graalvm-ce-builds/releases/tag/jdk-25.0.2
+
+For GPL-covered components listed above, complete corresponding source code is
+available from the stated upstream repositories. If the exact corresponding
+source package for the binaries shipped in this SDK is not available from those
+repositories, Oliver Softworks will provide it at no additional charge on
+request through the support contact supplied with your licensed copy. This
+offer is valid for at least three years from the date the SDK copy is received.
+
+Permissive bundled toolchains
+-----------------------------
+
+Node.js / TypeScript
+  License: MIT / Apache-2.0
+  https://nodejs.org/
+  https://www.typescriptlang.org/
+  Bundled licenses:
+    deps\node\LICENSE
+    deps\node\node_modules\typescript\LICENSE.txt
+    deps\node\node_modules\typescript\ThirdPartyNoticeText.txt
+
+Microsoft .NET SDK
+  License: MIT and third-party licenses in deps\dotnet\ThirdPartyNotices.txt
+  https://dotnet.microsoft.com/
+  Bundled license: deps\dotnet\LICENSE.txt
+
+CPython
+  License: Python Software Foundation License
+  https://www.python.org/
+  Bundled license: deps\python\LICENSE.txt
+
+External Microsoft C++ Build Tools
+----------------------------------
+
+Microsoft Visual Studio Build Tools and MSVC compiler binaries are not
+included in this SDK and are not redistributed by Oliver Softworks.
+
+Features that specifically require MSVC, including GraalVM Native Image on
+Windows, require a user-installed Microsoft C++ Build Tools or Visual Studio
+2022 (or newer) installation. `bin\alb.exe doctor` checks for a system
+`vcvars64.bat`; when none is found it reports Microsoft's official download
+page. `ALB_VCVARS64` or `ALBJ_VCVARS64` may point to a nonstandard
+`vcvars64.bat` installation:
+
+  https://visualstudio.microsoft.com/visual-cpp-build-tools/
+
+Microsoft C/C++ runtime DLLs that are present inside unmodified upstream
+.NET, GraalVM, and CPython distributions remain part of those components and
+are covered by their bundled licenses and notices. They are not the Visual
+Studio Build Tools compiler toolchain.
+
+Any use of Microsoft Visual Studio, MSVC, or Build Tools is governed directly
+by the user's applicable Microsoft license.
