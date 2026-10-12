@@ -116,7 +116,8 @@ def check_success(target: str | None) -> tuple[bool, str]:
     return bool(res.get("success")), json.dumps(res, indent=2)[:4000]
 
 
-def run_aider(task_text: str, diagnostics: str, attempt: int) -> None:
+def run_aider(task_text: str, diagnostics: str, attempt: int,
+              target: str | None) -> None:
     quickref = QUICKREF.read_text(encoding="utf-8", errors="replace")
     prompt = (
         "CRITICAL: .alb and .albi files contain AdaLogic BASIC — a custom "
@@ -136,6 +137,8 @@ def run_aider(task_text: str, diagnostics: str, attempt: int) -> None:
         "--read", str(CONVENTIONS),
         "--read", str(QUICKREF),
         "--message-file", str(msg),
+        "--map-tokens", "256",
+        "--subtree-only",
         "--yes-always",
         "--no-auto-commits",
         "--no-show-model-warnings",
@@ -149,10 +152,23 @@ def run_aider(task_text: str, diagnostics: str, attempt: int) -> None:
     # BROWSER must name an executable — point it at a no-op
     env["BROWSER"] = "cmd /c exit 0"
     env["AIDER_ANALYTICS"] = "false"
+
+    # Scope aider to the target's directory so it can't wander the repo
+    # hoovering files into a small context window.
+    work_dir = REPO
+    files = []
+    if target:
+        t = REPO / target
+        if t.suffix.lower() in (".alb", ".albi"):
+            work_dir = t.parent
+            t.touch(exist_ok=True)          # let aider create it if missing
+            files.append(t.name)
+        elif t.is_dir():
+            work_dir = t
     try:
         subprocess.run(
-            cmd,
-            cwd=REPO,
+            cmd + files,
+            cwd=work_dir,
             stdin=subprocess.DEVNULL,   # EOF -> defaults, never blocks on Enter
             env=env,
             timeout=AIDER_TIMEOUT,
@@ -186,7 +202,7 @@ def main() -> int:
     last_diag = "no diagnostics yet — first attempt"
     for attempt in range(1, retries + 1):
         print(f"[swarm] === attempt {attempt}/{retries} ===")
-        run_aider(task_text, last_diag, attempt)
+        run_aider(task_text, last_diag, attempt, target)
         ok, last_diag = check_success(target)
         if ok:
             print("[swarm] SUCCESS: target verified.")
