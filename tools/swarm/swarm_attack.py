@@ -97,10 +97,30 @@ def parse_target(task_text: str) -> str | None:
     return candidates[0] if candidates else None
 
 
+def _alb_sane(path: Path) -> tuple[bool, str]:
+    """Guard against trivial success: the file must exist and look like
+    ALB (a BEGIN..END body or module/subprogram structure)."""
+    if not path.exists():
+        return False, f"{path.name} does not exist yet"
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if len(text.strip()) < 10:
+        return False, f"{path.name} is empty or trivial"
+    if not re.search(r"(?im)^\s*(BEGIN|DECLAREMODULE|MODULE|PROCEDURE|FUNCTION)\b", text):
+        return False, f"{path.name} has no ALB structure (BEGIN/MODULE/PROCEDURE)"
+    # lowercase-only match: python 'import'/'def' vs ALB 'IMPORT'/'FUNCTION'
+    if re.search(r"(?m)^\s*(import [a-z_]|def |from [a-z_]|print\()", text):
+        return False, f"{path.name} looks like Python, not ALB"
+    return True, ""
+
+
 def check_success(target: str | None) -> tuple[bool, str]:
     """Run the MCP verification for the task target. Returns (ok, diagnostics)."""
     if target:
         t = REPO / target
+        if t.suffix.lower() in (".alb", ".albi"):
+            sane, why = _alb_sane(t)
+            if not sane:
+                return False, json.dumps({"success": False, "gate": why}, indent=2)
         if t.suffix.lower() == ".albi":
             res = json.loads(mcp_tools.validate_syntax(str(t)))
         elif t.is_dir():
@@ -138,7 +158,6 @@ def run_aider(task_text: str, diagnostics: str, attempt: int,
         "--read", str(QUICKREF),
         "--message-file", str(msg),
         "--map-tokens", "256",
-        "--subtree-only",
         "--yes-always",
         "--no-auto-commits",
         "--no-show-model-warnings",
@@ -153,22 +172,18 @@ def run_aider(task_text: str, diagnostics: str, attempt: int,
     env["BROWSER"] = "cmd /c exit 0"
     env["AIDER_ANALYTICS"] = "false"
 
-    # Scope aider to the target's directory so it can't wander the repo
-    # hoovering files into a small context window.
-    work_dir = REPO
+    # Scope via positional file + .aiderignore (running from a subdir
+    # breaks aider's git reader on Windows).
     files = []
     if target:
         t = REPO / target
         if t.suffix.lower() in (".alb", ".albi"):
-            work_dir = t.parent
             t.touch(exist_ok=True)          # let aider create it if missing
-            files.append(t.name)
-        elif t.is_dir():
-            work_dir = t
+            files.append(str(t))
     try:
         subprocess.run(
             cmd + files,
-            cwd=work_dir,
+            cwd=REPO,
             stdin=subprocess.DEVNULL,   # EOF -> defaults, never blocks on Enter
             env=env,
             timeout=AIDER_TIMEOUT,
