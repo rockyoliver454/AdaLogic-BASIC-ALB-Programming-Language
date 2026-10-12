@@ -70,18 +70,38 @@ def git_changed() -> list[str]:
 
 def git_revert(paths: list[str]) -> None:
     for p in paths:
+        subprocess.run(["git", "-C", str(REPO), "checkout", "HEAD", "--", p],
+                       capture_output=True)
         full = REPO / p
         if full.exists():
-            subprocess.run(["git", "-C", str(REPO), "checkout", "--", p])
+            subprocess.run(["git", "-C", str(REPO), "checkout", "--", p],
+                           capture_output=True)
         else:
-            subprocess.run(["git", "-C", str(REPO), "clean", "-fd", "--", p])
+            subprocess.run(["git", "-C", str(REPO), "clean", "-fd", "--", p],
+                           capture_output=True)
+
+
+def parse_target(task_text: str) -> str | None:
+    """Extract a TARGET: line. Prefer .alb files or directories; a bare
+    .albi target only gets validate_syntax (it can't be executed)."""
+    m = re.search(r"(?im)^TARGET:\s*(.+)$", task_text)
+    if not m:
+        return None
+    candidates = re.findall(r"[\w./\\-]+\.(?:albi|alb)\b|[\w./\\-]+", m.group(1))
+    for c in candidates:
+        p = (REPO / c)
+        if p.is_dir() or p.suffix.lower() == ".alb":
+            return c
+    return candidates[0] if candidates else None
 
 
 def check_success(target: str | None) -> tuple[bool, str]:
     """Run the MCP verification for the task target. Returns (ok, diagnostics)."""
     if target:
         t = REPO / target
-        if t.is_dir():
+        if t.suffix.lower() == ".albi":
+            res = json.loads(mcp_tools.validate_syntax(str(t)))
+        elif t.is_dir():
             res = json.loads(mcp_tools.run_test_suite(str(t)))
         else:
             res = json.loads(mcp_tools.compile_target(str(t), "fasm"))
@@ -110,9 +130,23 @@ def run_aider(task_text: str, diagnostics: str, attempt: int) -> None:
         "--message-file", str(msg),
         "--yes-always",
         "--no-auto-commits",
-        "--no-git" if not (REPO / ".git").exists() else "--git",
+        "--no-show-model-warnings",
+        "--no-suggest-shell-commands",
+        "--no-fancy-input",
+        "--no-pretty",
+        "--no-analytics",
     ]
-    subprocess.run([c for c in cmd if c != "--no-git"], cwd=REPO)
+    env = dict(os.environ)
+    # aider/webbrowser can pop a browser tab (model-warning links etc.);
+    # BROWSER must name an executable — point it at a no-op
+    env["BROWSER"] = "cmd /c exit 0"
+    env["AIDER_ANALYTICS"] = "false"
+    subprocess.run(
+        cmd,
+        cwd=REPO,
+        stdin=subprocess.DEVNULL,   # EOF -> defaults, never blocks on Enter
+        env=env,
+    )
 
 
 def main() -> int:
@@ -129,9 +163,9 @@ def main() -> int:
         target = args[args.index("--target") + 1]
 
     task_text = task_file.read_text(encoding="utf-8", errors="replace")
-    m = re.search(r"(?m)^TARGET:\s*(\S+)", task_text)
-    if m and not target:
-        target = m.group(1)
+    if not target:
+        target = parse_target(task_text)
+    print(f"[swarm] task={task_file.name} target={target or 'default test suite'}")
 
     baseline = set(git_changed())
     if not llm_alive():
