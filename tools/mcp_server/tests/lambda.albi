@@ -1,0 +1,20 @@
+-- file: lambda.albi
+DECLARE MODULE Lambda
+    PROCEDURE Add(x AS S32, y AS S32)
+        PRINT$ "Result: " | (x + y)
+    END PROCEDURE
+
+    PROCEDURE Multiply(x AS S32, y AS S32)
+        PRINT$ "Result: " | (x * y)
+    END PROCEDURE
+END DECLARE MODULE
+
+MODULE Lambda
+    PROCEDURE Add(x AS S32, y AS S32)
+        PRINT$ "Result: " | (x + y)
+    END PROCEDURE
+
+    PROCEDURE Multiply(x AS S32, y AS S32)
+        PRINT$ "Result: " | (x * y)
+    END PROCEDURE
+END MODULE

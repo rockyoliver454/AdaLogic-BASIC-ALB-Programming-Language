@@ -105,12 +105,45 @@ def _alb_sane(path: Path) -> tuple[bool, str]:
     text = path.read_text(encoding="utf-8", errors="replace")
     if len(text.strip()) < 10:
         return False, f"{path.name} is empty or trivial"
-    if not re.search(r"(?im)^\s*(BEGIN|DECLAREMODULE|MODULE|PROCEDURE|FUNCTION)\b", text):
+    if not re.search(r"(?im)^\s*(BEGIN|DECLARE\s+MODULE|MODULE|PROCEDURE|FUNCTION)\b", text):
         return False, f"{path.name} has no ALB structure (BEGIN/MODULE/PROCEDURE)"
     # lowercase-only match: python 'import'/'def' vs ALB 'IMPORT'/'FUNCTION'
     if re.search(r"(?m)^\s*(import [a-z_]|def |from [a-z_]|print\()", text):
         return False, f"{path.name} looks like Python, not ALB"
     return True, ""
+
+
+def relocate_strays(target: str | None) -> None:
+    """Small models emit bare filenames, so aider writes new files to the
+    repo root instead of next to the target. Move stray .alb/.albi files
+    into the target's directory; drop garbage pseudo-filenames like
+    'compile_target(lambda_test.alb, "fasm")'."""
+    if not target:
+        return
+    dest_dir = (REPO / target).parent
+    for p in git_changed():
+        f = REPO / p
+        if f.suffix.lower() not in (".alb", ".albi") or not f.exists():
+            continue
+        if f.parent == dest_dir:
+            continue
+        if "(" in f.name or ")" in f.name:
+            subprocess.run(["git", "-C", str(REPO), "rm", "-f", "-q",
+                            "--ignore-unmatch", p], capture_output=True)
+            f.unlink(missing_ok=True)
+            continue
+        dest = dest_dir / f.name
+        if dest.exists() and dest.stat().st_size > 10:
+            continue  # real content already there; don't clobber
+        if not f.name:
+            continue
+        # aider git-adds files it creates, so prefer git mv (index+worktree)
+        r = subprocess.run(["git", "-C", str(REPO), "mv", "-f", p,
+                            str(dest.relative_to(REPO))],
+                           capture_output=True)
+        if r.returncode != 0 and f.exists():
+            f.rename(dest)
+        print(f"[swarm] relocated {p} -> {dest.relative_to(REPO)}")
 
 
 def check_success(target: str | None) -> tuple[bool, str]:
@@ -138,14 +171,28 @@ def check_success(target: str | None) -> tuple[bool, str]:
 
 def run_aider(task_text: str, diagnostics: str, attempt: int,
               target: str | None) -> None:
+    # NOTE: conventions/quickref are inlined into the message, NOT passed via
+    # --read. aider's choose_fence() scans --read file contents for ``` and
+    # escalates to a 4-backtick fence, which the model then ignores -> zero
+    # edits applied, silently (aider #2879). Inlining avoids the scan.
     quickref = QUICKREF.read_text(encoding="utf-8", errors="replace")
+    conventions = CONVENTIONS.read_text(encoding="utf-8", errors="replace")
     prompt = (
         "CRITICAL: .alb and .albi files contain AdaLogic BASIC — a custom "
         "compiled language. DO NOT write Python, JavaScript, or any other "
-        "language in them. Follow this reference exactly:\n\n"
-        f"{quickref}\n\n"
+        "language in them. Follow these references exactly:\n\n"
+        f"{quickref}\n\n{conventions}\n\n"
         f"=== TASK ===\n{task_text}\n\n"
-        f"--- ATTEMPT {attempt} ---\n"
+        "OUTPUT FORMAT (strict): for each file you create or change, print "
+        "the repo-relative path ALONE on its own line — no 'File:' prefix, "
+        "no '#' or '###' headers, no backticks, and NEVER a placeholder like "
+        "'path/to/' — immediately followed by a "
+        "```alb code block containing the ENTIRE file contents.\n"
+        + (f"The main file MUST be written to: {target}\n"
+           f"Any module it INCLUDEs must live in the same directory: "
+           f"{REPO.joinpath(target).parent.relative_to(REPO).as_posix()}/\n\n"
+           if target else "\n")
+        + f"--- ATTEMPT {attempt} ---\n"
         f"Latest compiler/test diagnostics (fix THIS, do not rewrite blindly):\n"
         f"{diagnostics}\n"
     )
@@ -154,8 +201,6 @@ def run_aider(task_text: str, diagnostics: str, attempt: int,
     cmd = [
         str(AIDER),
         "--config", str(AIDER_CONF),
-        "--read", str(CONVENTIONS),
-        "--read", str(QUICKREF),
         "--message-file", str(msg),
         "--map-tokens", "256",
         "--yes-always",
@@ -178,7 +223,9 @@ def run_aider(task_text: str, diagnostics: str, attempt: int,
     if target:
         t = REPO / target
         if t.suffix.lower() in (".alb", ".albi"):
-            t.touch(exist_ok=True)          # let aider create it if missing
+            # do NOT pre-create: aider git-adds whatever file arg it gets,
+            # and a pre-existing empty target makes aider write the real
+            # content to a bare-name file at the repo root instead.
             files.append(str(t))
     try:
         subprocess.run(
@@ -218,6 +265,7 @@ def main() -> int:
     for attempt in range(1, retries + 1):
         print(f"[swarm] === attempt {attempt}/{retries} ===")
         run_aider(task_text, last_diag, attempt, target)
+        relocate_strays(target)
         ok, last_diag = check_success(target)
         if ok:
             print("[swarm] SUCCESS: target verified.")

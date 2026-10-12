@@ -1,0 +1,8 @@
+-- file: lambda_test.alb
+INCLUDE "lambda.albi"
+IMPORT Lambda
+
+BEGIN
+    Lambda.Add(5, 3);
+    Lambda.Multiply(4, 2);
+END

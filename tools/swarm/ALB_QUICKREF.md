@@ -11,18 +11,23 @@ BEGIN
 END
 ```
 
-## Module + include
+## Module + include (VERIFIED — compiles)
+
+A module has two parts: a `DECLARE MODULE` spec block listing public
+signatures (no bodies), and a `MODULE` block with the implementations.
+Both may live in one `.albi` file:
 
 ```alb
 -- file: MathKit.ALBI
-DECLAREMODULE MathKit
-VERSION 1.0
+DECLARE MODULE MathKit
+    PROCEDURE AddTwo(x AS S32)
+END DECLARE MODULE
 
-PROCEDURE AddTwo(x AS S32)
-BEGIN
-    PRINT$ "Result: " | (x + 2)
-END PROCEDURE
-ENDMODULE
+MODULE MathKit
+    PROCEDURE AddTwo(x AS S32)
+        PRINT$ "Result: " | (x + 2)
+    END PROCEDURE
+END MODULE
 ```
 
 ```alb
@@ -34,6 +39,12 @@ BEGIN
     MathKit.AddTwo(5);
 END
 ```
+
+- `DECLAREMODULE`/`ENDMODULE` are NOT valid — use the two-word forms.
+- Procedure bodies have NO `BEGIN` — statements go directly after the
+  signature line.
+- Calls are namespaced: `Module.Proc(args);` requires the matching
+  `MODULE` implementation block, else "Unknown Target Procedure".
 
 ## Rules (violating any = compile breach)
 
