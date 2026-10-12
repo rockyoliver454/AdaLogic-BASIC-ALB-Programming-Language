@@ -1,4 +1,4 @@
-# Keep the swarm focused — heavy/binary dirs stay out of aider's context
+# Keep the swarm focused - heavy/binary dirs stay out of aider context
 sdk/bin/
 sdk/models/
 sdk/support/
