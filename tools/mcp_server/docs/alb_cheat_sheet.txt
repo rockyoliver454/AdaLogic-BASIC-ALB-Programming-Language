@@ -1,0 +1,1124 @@
+ADALOGIC BASIC (ALB) CHEAT SHEET
+Verified source forms for AI code generation
+
+This guide is based on the current parser and active native backend paths. It
+is meant to be safe surface syntax, not internal compiler theory.
+
+GENERAL RULES
+- Keywords are case-insensitive.
+- Use `--` for single-line comments.
+- Most commands are statement-style, not function-call style.
+- Arrays are currently 1-based. Literal index `0` is out of bounds.
+- For new executable `.alb` programs, always put `VERSION 0.0.0.1` immediately
+  after `BEGIN`.
+- Do not use reserved keywords as identifiers, field names, group names, or
+  procedure names.
+
+PROGRAM SKELETON
+```alb
+BEGIN
+    VERSION 0.0.0.1 - Should be incremented up
+
+    CREATE_WINDOW "ALB APP", 960, 640
+
+    ON TICK
+        -- update logic
+    END
+
+    ON PAINT
+        -- draw logic
+    END
+
+    LISTEN
+END
+```
+
+COMMENTS, CONSTANTS, AND DECLARATIONS
+```alb
+-- comment
+
+#MAX_ENTITIES = 64
+
+LET score = 0
+LET hp AS U16 = 100
+LET name AS STRING = "ALB"
+
+score = 0
+hp AS U16 = 100
+lives AS U16
+name AS STRING = "ALB"
+
+TYPE SmallHealth IS U16 RANGE 1 .. 255
+
+TEMPORAL LET px AS I32 HISTORY 16 = 140
+TEMPORAL LET py AS S32 HISTORY 16 = 86
+```
+
+SAFE DECLARATION TYPES
+- `U0` this is void essentially
+- `U8`
+- `U16`
+- `U32`
+- `U64`
+- `U128`
+- `S8` (aliases: `I8`, `INT8`)
+- `S16` (aliases: `I16`, `INT16`)
+- `S32` (aliases: `I32`, `INT32`)
+- `S64` (aliases: `I64`, `INT64`)
+- `S128` (Soft on most hosts; honest 16-byte on FASM)
+- `F32` (aliases: `SINGLE`, soft `FLOAT`)
+- `F64`
+- `REAL` (alias of `F64`; soft also `DOUBLE`, `NUMBER`)
+- `F128` (Soft: accepted AS; host may widen/narrow)
+- `PURE`
+- `RATIONAL` (alias of `PURE`)
+- `FLOAT2` (alias: `F32X2`)
+- `FLOAT4` (alias: `F32X4`)
+- `MAT2` (alias: `MAT2X2`)
+- `MAT3` (alias: `MAT3X3`)
+- `MAT4` (alias: `MAT4X4`)
+- `BOOLEAN` or `BOOL`
+- `STRING` or `BINARY`
+- `CHAR`
+- `HW8`
+- `HW16`
+- `HW32`
+- `HW64`
+
+Notes:
+- `STRING` and `BINARY` map to the same current binary/string storage model.
+- `REAL` and `RATIONAL` are just friendly surface aliases for `F64` and
+  `PURE`. Soft aliases `DOUBLE` / `NUMBER` also resolve to `F64`.
+- `FLOAT2`, `FLOAT4`, `MAT2`, `MAT3`, and `MAT4` are valid in globals,
+  locals, and struct fields (FASM reserves full element width).
+- Range types created with `TYPE Name IS Base RANGE A .. B` can be used after
+  `AS`.
+- For AI authoring, prefer the list above for declarations unless you have a
+  very specific backend reason to do otherwise.
+
+CLASS C (RETRO 8/16) SUBSET
+Targets: C64, FASM16/DOS. Prefer only:
+
+- `U8`, `U16`, `S8`/`I8`, `S16`/`I16`
+- `HW8`, `HW16`
+- `BOOLEAN`/`BOOL`, `STRING`/`BINARY`
+- `CHAR` (Soft)
+
+Do NOT expect honest `U32`/`U64`/`F32`/`F64`/`U128`/`PURE`/`FLOAT*`/`MAT*`
+on Class C -- the toolchain rejects or normalizes those as OUT. See
+`TYPES_BACKEND_PLAN.md` for the full Belongs matrix.
+
+STRUCTS
+```alb
+STRUCT Vec2
+    x AS S32
+    y AS S32
+END STRUCT
+
+STRUCT PackedThing
+    id AS U16
+    BITFIELD flags : 8
+END STRUCT
+```
+
+PROCEDURES, FUNCTIONS, MODULES, IMPORTS
+```alb
+PROCEDURE Step(IN dx AS S32, OUT done AS BOOL) REQUIRE dx > 0
+    LET done = TRUE
+END PROCEDURE
+
+FUNCTION Twice(x AS U32) AS U32
+    RETURN x + x
+END FUNCTION
+
+PROCEDURE StopNow()
+    RETURN()
+END PROCEDURE
+
+MODULE MathKit BEGIN
+    FUNCTION Add2(x AS U32) AS U32
+        RETURN x + 2
+    END FUNCTION
+END MODULE
+
+DECLARE MODULE RenderKit BEGIN
+    PROCEDURE Paint()
+    END PROCEDURE
+END DECLARE MODULE
+
+IMPORT MathKit
+IMPORT(MathKit)
+
+IMPORT_C FUNCTION GetTickCount() AS U32 FROM "kernel32.dll"
+IMPORT_C FUNCTION GetTickCount() AS U32 FROM("kernel32.dll")
+IMPORT_C(FUNCTION GetTickCount() AS U32 FROM("kernel32.dll"))
+IMPORT_C PROCEDURE KernelSleep(ms AS U32) FROM "kernel32.dll"
+IMPORT_C PROCEDURE FillBuffer(REF ptr AS U32, buffer_len AS U32) FROM "mylib.dll"
+
+IMPORT_DLL FUNCTION MessageBeep(kind AS U64) AS U64 FROM ("user32.dll")
+IMPORT_SO FUNCTION PretendSO(kind AS U64) AS U64 FROM ("libpretend.so")
+IMPORT_DYLIB FUNCTION PretendDylib(kind AS U64) AS U64 FROM ("libpretend.dylib")
+
+EXPORT_DLL PROCEDURE ExportedPulse()
+EXPORT_SO PROCEDURE ExportedSO()
+EXPORT_DYLIB FUNCTION ExportedValue() AS U64
+```
+
+Notes:
+- `BEGIN` after `MODULE`, `DECLARE MODULE`, `PROCEDURE`, and `FUNCTION` is
+  optional.
+- In `.albi` library/interface files, prefer `DECLARE MODULE Name ...
+  END DECLARE MODULE`.
+- In `.alb` implementation files, use `MODULE Name ... END MODULE`.
+- Spaced `DECLARE MODULE` and legacy `DECLAREMODULE` are both accepted.
+- `END DECLARE MODULE`, `END DECLAREMODULE`, `END MODULE`, and legacy
+  `ENDMODULE` are accepted where appropriate.
+- New executable `.alb` files should start with `BEGIN` followed by
+  `VERSION 1.0`.
+- Normal procedure/function parameters may use `IN` or `OUT`.
+- `IMPORT_C` parameters currently support optional `REF` and optional `AS Type`.
+- `IMPORT_C ... FROM "lib.dll"` and `IMPORT_C ... FROM("lib.dll")` are both
+  valid.
+- `IMPORT_C(...)` may wrap the whole foreign declaration when you want a more
+  uniform call-style look.
+- `IMPORT_DLL`, `IMPORT_SO`, `IMPORT_DYLIB`, `EXPORT_DLL`, `EXPORT_SO`, and
+  `EXPORT_DYLIB` currently lower on `-t fasm` and `-t c`.
+- `EXPORT_*` declarations should name a real top-level `PROCEDURE` or
+  `FUNCTION` implementation with the same ALB name.
+- `albt -t fasm --dll --build --outdir .\build_name` stages and builds a PE64
+  DLL instead of a PE64 console EXE.
+- On `-t fasm`, `EXPORT_DLL` / `EXPORT_SO` / `EXPORT_DYLIB` also auto-enable
+  DLL output mode even without the explicit `--dll` flag.
+- `IMPORT_DLL` / `IMPORT_SO` / `IMPORT_DYLIB` currently reuse the native FASM
+  and native C dynamic-loader lanes. `SO` and `DYLIB` spellings compile on
+  both backends, but runtime loading still depends on the host OS being able
+  to load the named library.
+- Function return expressions should resolve cleanly to the declared return
+  type. For mixed arithmetic, especially with `VIRTUAL_WIDTH` or
+  `VIRTUAL_HEIGHT`, cast the full returned value with `CAST(... AS Type)`.
+- IMPORTANT: functions/procedures can be executed several ways:
+    1. CALL FuncName x, y, z
+    2. FuncName(x, y, z)
+    3. FuncName(x, y, z);
+    4. Any combo of the above with snake_case or PascalCase
+  Preferred (C-style) authoring:
+    - namespaced modules: `FuncName(x, y, z);` / `Module.FuncName(x, y, z);`
+    - same-source modules: `func_name(x, y, z);`
+  Prefer trailing `;` on call statements when writing new ALB.
+- IMPORTANT: `LET` is optional after declaration and should NOT be overused.
+  Declare with `LET` (case-insensitive). Reassign without `LET`:
+  ```alb
+  LET var1 = 1
+  LET var2 = 1
+  sum = var1 + var2
+  Print(sum)
+  ```
+  Prefer typed first declarations (`LET hp AS S32 = 0`) then plain
+  `hp = ...` for later updates.
+
+Safe return example:
+```alb
+FUNCTION PCT_X(percent AS S32) AS S32
+    RETURN CAST((S32(VIRTUAL_WIDTH) * percent) / 100 AS S32)
+END FUNCTION
+```
+
+Strict call-site example:
+```alb
+LET score AS U32 = 0
+score = Twice(score)
+
+LET query_value AS U32 = 0
+query_value = U32(SafePctX(50))
+```
+
+If a value will flow into a typed parameter later, declare it with that width
+up front. If a helper returns `S32` and the destination is `U32`, cast at the
+assignment boundary instead of relying on implicit coercion.
+
+ARRAYS AND DATA LAYOUT
+STRICT arrays:
+```alb
+STRICT cells[64] AS U16
+STRICT grid[32, 32] AS U8
+
+LET cells[1] = 10
+LET v = grid[i, j]
+```
+
+SLIDE arrays:
+```alb
+SLIDE queue[64, 8] AS U16
+LET queue[1] = 99
+```
+
+PARALLEL groups (native FASM / FASM16 / C):
+```alb
+PARALLEL swarm[128]
+    x AS S32
+    y AS S32
+    hp AS U16
+END PARALLEL
+
+LET swarm[1].x = 100
+LET swarm[i].hp = swarm[i].hp - 1
+```
+
+Dense removal sugar (native FASM / FASM16 / C):
+```alb
+SWAPPOP swarm[dead_slot], active_count
+```
+
+Important:
+- Array indexing is 1-based.
+- Current `PARALLEL` access form is `group[i].field`.
+- `SWAPPOP group[idx], count` expects a 1D parallel group slot and a scalar
+  count variable.
+- `SWAPPOP` does not preserve order. It copies the last live slot into `idx`
+  and decrements `count`.
+- Do not use reserved words as field names. Example: `fill` is illegal because
+  `FILL` is a keyword.
+
+NETWORKING AND MEMORY FIREWALL (native FASM / C)
+```alb
+NETWORK_SOCKET ServerSocket
+    PROTOCOL TCP
+    PORT 8080
+    BUFFER_SIZE 128
+END_SOCKET
+
+STRICT rx_buffer[128] AS U8
+STRICT tx_buffer[128] AS U8
+LET ActiveClient AS U64 = 0
+
+MEMORY_FIREWALL NetSandbox
+    PERMIT_READ ServerSocket
+    PERMIT_WRITE ServerSocket
+    PERMIT_READ ActiveClient
+    PERMIT_WRITE ActiveClient
+    PERMIT_READ rx_buffer
+    PERMIT_WRITE rx_buffer
+    PERMIT_READ tx_buffer
+    PERMIT_WRITE tx_buffer
+    DENY_ALL
+END_FIREWALL
+
+PROCEDURE ExerciseNetwork() BOUND_TO NetSandbox
+    NETWORK_LISTEN ServerSocket
+    NETWORK_ACCEPT ServerSocket INTO ActiveClient
+    NETWORK_RECEIVE ActiveClient INTO rx_buffer
+    NETWORK_SEND ActiveClient FROM tx_buffer
+    NETWORK_CLOSE ActiveClient
+    NETWORK_CLOSE ServerSocket
+END PROCEDURE
+```
+
+Notes:
+- `NETWORK_SOCKET`, `NETWORK_LISTEN`, `NETWORK_ACCEPT`, `NETWORK_RECEIVE`,
+  `NETWORK_SEND`, `NETWORK_CLOSE`, `MEMORY_FIREWALL`, and `BOUND_TO` currently
+  lower on `-t fasm` and `-t c`.
+- The current firewall model is additive. Combine `PERMIT_READ` and
+  `PERMIT_WRITE` lines for the same object when a sandboxed routine needs both.
+- Current verified paths treat these declarations as top-level authoring forms.
+
+MARKOV AND FIXED NEURAL TOPOLOGIES (native FASM / C)
+```alb
+MARKOV_MODEL WeatherPredictor
+    STATES 3
+    TRANSITION_MATRIX
+        [0.7, 0.2, 0.1]
+        [0.3, 0.4, 0.3]
+        [0.2, 0.5, 0.3]
+    END_MATRIX
+END_MODEL
+
+NEURAL_TOPOLOGY EnemyAI
+    LAYER Input SIZE 4
+    LAYER Dense SIZE 8 ACTIVATION ReLU
+    LAYER Output SIZE 2 ACTIVATION Sigmoid
+END_TOPOLOGY
+
+LET CurrentState AS U64 = 1
+LET NextState AS U64 = 0
+STRICT SensorData[4] AS U64
+STRICT ActionProbabilities[2] AS U64
+STRICT TrainingSet[4] AS U64
+STRICT TargetData[2] AS U64
+
+PREDICT_MARKOV WeatherPredictor FROM CurrentState INTO NextState
+INFER_NETWORK EnemyAI FROM SensorData INTO ActionProbabilities
+TRAIN_NETWORK EnemyAI WITH TrainingSet EXPECTED TargetData EPOCHS 2
+```
+
+Notes:
+- `MARKOV_MODEL`, `PREDICT_MARKOV`, `NEURAL_TOPOLOGY`, `INFER_NETWORK`, and
+  `TRAIN_NETWORK` currently lower on `-t fasm`.
+- Markov transition entries accept compile-time integers or decimal literals.
+- Markov state selection is currently 1-based and returns the highest-weight
+  transition in the chosen row.
+- The current native FASM runtime uses fixed-topology static storage for neural
+  metadata, weights, biases, scratch neurons, and outputs.
+- The current neural runtime uses integer weights/biases and activation codes.
+  For probability-like results, prefer explicit output activations such as
+  `Sigmoid`.
+
+EMOTION MODIFIERS (native FASM64 only; FASM16 fails loud)
+```alb
+EMOTION Hero
+    AXES Joy Fear Anger Calm
+END_EMOTION
+
+SET_AXIS Hero Joy 40
+ADD_AXIS Hero Anger 15
+BLEND_EMOTION Hero TO Calm BY 10
+DECAY_EMOTION Hero BY 1
+GET_AXIS Hero Joy INTO joy
+DOMINANT_EMOTION Hero INTO dom
+
+PREDICT_MARKOV Walk FROM State INTO Next WITH EMOTION Hero
+INFER_NETWORK Net FROM Sensors INTO Out WITH EMOTION Hero
+```
+
+Notes:
+- Fixed axes at declare time, max 8, each axis U8 0..255, per named entity.
+- Hard bias: read axes / dominant index in ordinary IF logic.
+- Soft bias: `WITH EMOTION` additively biases Markov column weights and neural
+  input cells (axis i added to weight/input i).
+- Temporal binders for emotion are not wired yet.
+- See `src/emotion_tests/` for smokes.
+
+CONTROL FLOW
+IF:
+```alb
+IF hp > 0 THEN
+    LET alive = TRUE
+END IF
+
+IF hp = 0 THEN LET alive = FALSE END IF
+
+IF hp > 0 THEN LET alive = TRUE LET flash = 1 END IF
+
+IF hp > 0 THEN LET alive = TRUE ELSE LET alive = FALSE LET flash = 0 END IF
+
+IF hp > 0 THEN LET alive = TRUE
+ELSE LET alive = FALSE END IF
+```
+
+WHILE:
+```alb
+WHILE hp > 0
+    LET hp = hp - 1
+END WHILE
+```
+
+REPEAT:
+```alb
+REPEAT
+    LET hp = hp - 1
+UNTIL hp = 0
+
+REPEAT
+    LET hp = hp - 1
+UNTIL hp = 0
+END REPEAT
+```
+
+FOR:
+```alb
+FOR i = 1 TO 10 THEN
+    PRINT i
+END FOR
+
+FOR i = 1 TO 10 STEP 2 THEN
+    PRINT i
+END FOR
+```
+
+FOREACH:
+```alb
+FOREACH item IN collection THEN
+    PRINT item
+END
+```
+
+MATCH:
+```alb
+MATCH mode
+    0 =>
+        state = 1
+        flash = 0
+    1 => state = 2
+    ELSE => state = 99
+END MATCH
+```
+
+SELECT:
+```alb
+SELECT mode
+    CASE 0
+        state = 1
+        flash = 0
+    CASE 1 => state = 2
+    CASE ELSE => state = 99
+END SELECT
+```
+
+Loop control:
+```alb
+BREAK
+CONTINUE
+```
+
+Important:
+- `MATCH` arms use `value => body`.
+- `MATCH` does not use `CASE`.
+- `SELECT` arms use `CASE value body`, and `=>` after the value is optional.
+- `MATCH` supports `ELSE => ...` as a default arm.
+- `SELECT` supports both `ELSE => ...` and `CASE ELSE => ...` as default arms.
+- `MATCH` and `SELECT` case bodies may be a single statement or a multiline
+  block that runs until the next arm or `END`.
+- Plain assignment is accepted; `LET` is optional for reassignment or typed
+  forms like `x = 1`, `hp AS U16 = 100`, and bare typed declarations like
+  `lives AS U16`.
+- Single-line `IF ... THEN ... END IF` may contain a same-line statement chain.
+- A branch may start on the `THEN` line and still terminate with `ELSE` or
+  `END IF` on a later line.
+- `IF` and `FOR` will still parse if `THEN` is omitted; the parser warns and
+  infers the missing delimiter. `FOREACH` is now treated the same way.
+- `FOREACH` accepts both `END` and `END FOREACH`.
+- `REPEAT ... UNTIL expr` may optionally be followed by `END REPEAT` for
+  readability.
+- In practice, prefer multiline `IF` blocks once a branch contains more than
+  one action, because they are easier to read and less fragile.
+
+LOGIC / PROLOG / KNOWLEDGE
+```alb
+ASSERT(score >= 0)
+ASSERT(VideoBuffer <> 0)
+
+ASSERT danger(1)
+RETRACT danger(1)
+UPDATE danger(1) TO 0
+UPDATE danger(1), 0
+
+IF ?- danger(1) THEN
+    PRINT "danger"
+END IF
+
+LET found = FIND danger(X)
+FINDALL danger(X) INTO hits
+FINDALL danger(X), hits
+FINDALL(danger(X), hits)
+
+KNOWS Mode IS 3
+
+RULE risky(X) :- danger(X), charged(1).
+CONSTRAINT safe(X) :- danger(X).
+```
+
+Notes:
+- `ASSERT(expr)` is the real runtime assertion form. On native FASM and native
+  C, a failed runtime assert traps or exits non-zero immediately.
+- `?- pred(...)` is valid inside expressions and `IF`.
+- `ASSERT pred(...)` is the logic knowledge-base assertion form.
+- `RETRACT` and `UPDATE` accept both statement-style and call-style outer
+  wrappers. Prefer `ASSERT pred(...)` without the outer wrapper when you mean
+  a logic fact, because `ASSERT(expr)` now means runtime assertion.
+- `PROVE(pred(...))` is also valid.
+- Facts and Horn-clause forms may end with `.`; a clean end of line also
+  terminates a `RULE` or `CONSTRAINT`.
+- `FINDALL` accepts `INTO`, a soft comma form, and an outer parenthesized
+  wrapper.
+
+ENUMS
+```alb
+ENUM Color
+    Red,
+    Green,
+    Blue
+END ENUM
+```
+
+Notes:
+- ENUM members are names only in current ALB syntax.
+- Members may be comma-separated or newline-separated.
+- On FASM/NASM, members lower to sequential integer equates (0, 1, 2, ...)
+  registered as compile-time constants (same vault as `CONST`).
+- Junk tokens inside an `ENUM` block are treated as errors instead of
+  being silently skipped.
+
+TEMPORAL AND STATE
+```alb
+TEMPORAL LET fuel AS U16 HISTORY 8 = 100
+
+LET now_fuel = fuel@NOW
+LET old_fuel = fuel@PAST
+LET next_fuel = fuel@FUTURE
+LET timeline_fuel = fuel@TIMELINE
+
+ADVANCE
+ADVANCE()
+ADVANCE 2
+ADVANCE(2)
+
+SAVE_STATE
+SAVE_STATE()
+LOAD_STATE
+LOAD_STATE()
+```
+
+EVENTS
+```alb
+ON TICK
+    -- simulation
+END
+
+ON PAINT
+    -- rendering
+END
+
+ON KEY
+    -- key event block
+END
+
+ON KNOWS_CHANGE danger(X)
+    PRINT X
+END
+```
+
+GRAPHICS AND UI
+```alb
+CREATE_WINDOW "Demo", 320, 200
+CREATE_WINDOW("Demo", 320, 200)
+SETFULLSCREEN TRUE
+SETFULLSCREEN(FALSE)
+SETRESIZABLE TRUE
+SETRESIZABLE(FALSE)
+SETSTRETCHY TRUE
+SETSTRETCHY(FALSE)
+
+CLEAR $050511
+CLEAR($050511)
+COLOR $FF3300
+COLOR($FF3300)
+
+DRAW RECT x, y, w, h
+DRAW RECT(x, y, w, h)
+FILL RECT x, y, w, h
+
+DRAW LINE x1, y1, x2, y2
+
+DRAW CIRCLE cx, cy, r
+FILL CIRCLE cx, cy, r
+
+DRAW TRIANGLE x1, y1, x2, y2, x3, y3
+
+PLOT x, y
+
+TEXT x, y, "HELLO"
+TEXT(x, y, "HELLO")
+DRAW TEXT x, y, "HELLO"
+DRAW TEXT(x, y, "HELLO")
+
+SET_ALPHA 1, 255
+SET_ALPHA(1, 255)
+SET_CLIP x, y, w, h
+SET_CLIP(x, y, w, h)
+SET_ORIGIN x, y
+SET_ORIGIN(x, y)
+
+LOCATE 1, 1
+LOCATE(1, 1)
+MSG_BOX "Hello", "ALB"
+MSG_BOX("Hello", "ALB")
+```
+
+Notes:
+- For `CREATE_WINDOW`, `COLOR`, `CLEAR`, `DRAW ...`, `FILL ...`, `TEXT`,
+  `DRAW TEXT`, `SET_ALPHA`, `SET_CLIP`, `SET_ORIGIN`, `SETFULLSCREEN`,
+  `SETRESIZABLE`, `SETSTRETCHY`, `LOCATE`, `MSG_BOX`, and `TICK`, both
+  command-style and parenthesized statement forms are accepted.
+- `TEXT x, y, "msg"` and `DRAW TEXT x, y, "msg"` are both accepted.
+- The third argument to `TEXT` or `DRAW TEXT` must be `STRING`/`BINARY`
+  text data.
+- Numeric expressions are not auto-formatted for `DRAW TEXT`. For values like
+  scores or labels, convert them to text first or select from string literals.
+- `SETFULLSCREEN`, `SETRESIZABLE`, and `SETSTRETCHY` are window-policy hints.
+  Native FASM and native C both implement them. Backends that do not implement
+  them should ignore them safely.
+
+STATIC ASSETS, LUTS, VIEWPORTS, AND SAFE BLITS
+```alb
+SetShoebox "assets"
+
+StaticSprite RomanIdle
+    Source "roman_idle.bmp"
+    Format Indexed8Bit
+    Width 16
+    Height 16
+    Frames 1
+End StaticSprite
+
+StaticSurface VideoBuffer
+    Width 320
+    Height 200
+    Format Rgb565
+End StaticSurface
+
+ColorLut TeamRed
+    Entry 0 Is $000000
+    Entry 1 Is $FF0000
+    Entry 2 Is $E0E0E0
+End ColorLut
+
+VisualRule RomanUnitVisual(UnitId)
+    When Knows IsMoving(UnitId) Use RomanIdle Frame 0
+    Default Use RomanIdle Frame 0
+End VisualRule
+
+RenderViewport MainCamera
+    Bounds 0, 0, 320, 200
+End RenderViewport
+
+ApplyLut TeamRed To RomanUnitVisual With 1
+BlitSafe RomanUnitVisual With 1 To VideoBuffer At 150, 100 ConstrainTo MainCamera Mode AlphaMask
+```
+
+Notes:
+- PascalCase and underscore spellings are both accepted, case-insensitively:
+  `StaticSprite` / `Static_Sprite`, `ColorLut` / `Color_Lut`, and so on.
+- `SetShoebox` currently acts as a compile-time asset-root directive on
+  native FASM and native C. It does not yet imply full embedded `.ALBZ`
+  packing by itself.
+- Current verified static-graphics path supports `Indexed8Bit` sprite baking,
+  `Rgb565` static surfaces, and `Mode AlphaMask` safe blits on native FASM and
+  native C.
+- `VisualRule` evaluates `When` clauses in order. The first true clause wins,
+  and `Default` is required.
+- `ApplyLut` binds a palette/LUT to a visual before drawing. `With` passes the
+  rule context argument when the visual is parameterized.
+- `RenderViewport` provides a named clipping rectangle for `BlitSafe`.
+- `BlitSafe` resolves the visual, applies the active LUT, clips to the target
+  surface and optional viewport, and then draws safely.
+
+INPUT, DISPLAY, AND ENVIRONMENT
+```alb
+PRINT score
+PRINT(score)
+PRINT "HP=" | hp
+PRINT("HP=" | hp)
+PRINT$ "STRING PIPE" | name
+PRINT$("STRING PIPE" | name)
+
+INPUT value
+INPUT(value)
+INPUT "Name", player_name
+INPUT prompt_text, player_name
+INPUT("Name", player_name)
+INPUT(prompt_text, player_name)
+
+LET pressed = KEY(4)
+LET click = MOUSE_CLICK(0)
+
+LET mx = MOUSE_X
+LET my = MOUSE_Y
+LET wheel = MOUSE_WHEEL
+LET vmx = VMOUSE_X
+LET vmy = VMOUSE_Y
+
+LET sw = SCREEN_WIDTH
+LET sh = SCREEN_HEIGHT
+LET vw = VIRTUAL_WIDTH
+LET vh = VIRTUAL_HEIGHT
+
+LET c = READ_PIXEL(x, y)
+```
+
+Important:
+- Use `KEY(code)`, not `KEY_STATE(code)`.
+- `READ_PIXEL(x, y)` is expression-style and does use parentheses.
+- `PRINT`, `PRINT$`, and `INPUT` accept both command-style and outer
+  parenthesized statement forms.
+- Command-style `INPUT prompt_expr, target` accepts a real prompt expression,
+  not just a raw string literal.
+- Parenthesized `INPUT(prompt_expr, target)` accepts a real prompt expression,
+  not just a raw string literal.
+
+FILE I/O
+```alb
+LET h = OPEN("data.bin", "r")
+LET n = FILELEN("data.bin")
+LET pos = FILESEEK(h, 0)
+LET chunk = READ(h, 128)
+
+WRITE h, "hello"
+WRITE(h, "hello")
+CLOSE h
+CLOSE(h)
+
+LOAD "save.bin" INTO blob
+LOAD("save.bin", blob)
+FLUSH blob INTO "save.bin"
+FLUSH(blob, "save.bin")
+
+READLINE
+READLINE line
+READLINE(line)
+```
+
+Notes:
+- `OPEN(...)`, `READ(...)`, `FILELEN(...)`, and `FILESEEK(...)` are expression-style.
+- `FILELEN(path)` returns the 64-bit file size (0 if missing). It does not load the file.
+- `FILESEEK(handle, offset)` seeks from the start of the file and returns the new position.
+- `WRITE`, `CLOSE`, `LOAD`, `FLUSH`, and `READLINE` are statements.
+- For `WRITE`, `CLOSE`, `LOAD`, `FLUSH`, and `READLINE`, both command-style
+  and parenthesized statement forms are accepted.
+- `LOAD path INTO var` and `LOAD(path, var)` are both valid.
+- `FLUSH data, path` is accepted, but `FLUSH data INTO path` is the clearer
+  form to prefer.
+
+MEMORY / SYSTEM / BARE METAL
+```alb
+LET b = PEEK(addr)
+LET v = DEREF(ptr)
+POKE addr, value
+POKE(addr, value)
+
+CLAIM obj
+CLAIM(obj)
+DROP obj
+DROP(obj)
+SWEEP 64
+SWEEP(64)
+BIND parent TO child1, child2
+BIND(parent, child1, child2)
+
+CALL Worker(1, 2)
+SPAWN Worker(1, 2)
+SPAWN(Worker(1, 2))
+SPAWN(RenderKit.Paint())
+SYNC
+SYNC()
+
+DELAY 16
+DELAY(16)
+
+PLAY SOUND "intro.wav"
+PLAY SOUND("intro.wav")
+
+ATOMIC
+    LET counter = counter + 1
+END ATOMIC
+
+CEASE
+CEASE()
+LISTEN
+LISTEN()
+```
+
+Notes:
+- `POKE`, `CLAIM`, `DROP`, and `SWEEP` accept both command-style and
+  parenthesized statement forms.
+- `BIND parent TO child1, child2` and `BIND(parent, child1, child2)` are both
+  valid.
+- `ADVANCE`, `SAVE_STATE`, `LOAD_STATE`, `SYNC`, `CEASE`, and `LISTEN` accept
+  their normal command forms and optional call-like forms such as `ADVANCE()`
+  or `SYNC()`.
+
+STRING OPERATORS
+- In ALB the `|` operator is the STRING CONCATENATION operator. It is NOT
+  bitwise OR. The pipe auto-stringifies any non-string operand.
+- `&` is a QBASIC / Visual Basic-style alias for `|`. Both compile to the
+  exact same AST node and runtime call. Use whichever reads better.
+- For bitwise OR use the keyword `OR`. For bitwise XOR use `XOR`. For
+  bitwise AND use `AND`.
+- The compiler emits a `PIPE-AS-CONCAT WARNING` if a `|` expression is the
+  right-hand side of a numeric assignment and both operands are integers
+  (the unambiguous "wrong operator" signal). Suppress it on the same line
+  with a trailing `-- PIPE_OK` comment.
+
+```alb
+-- Canonical pipe usage (lifted from ColonySim):
+DRAW TEXT(8,  8, "TIME: "      | hour_s | ":" | min_s)
+DRAW TEXT(8, 24, "FOOD: "      | food_s)
+DRAW TEXT(8, 40, "LEVEL: "     | lvl_s)
+DRAW TEXT(8, 56, "COLONISTS: " | a_s)
+PRINT "FRAME=" | frame_idx | "  SAMPLE=" | nebula[32, 32, 1]
+
+-- Ampersand alias (B2): byte-identical output to the | form
+DRAW TEXT(8,  8, "TIME: "  & hour_s & ":" & min_s)
+PRINT "HP=" & hp & "/" & max_hp
+
+-- Bitwise OR (NOT what | does):
+LET mask = flags OR 0x04
+LET mask = flags XOR 0xFF
+
+-- Legitimate numeric concat into a STRING -- no warning (LHS is string):
+LET combo_str AS STRING = a_val | b_val
+
+-- Numeric LET RHS that DOES warn -- silence the warning explicitly:
+LET both_bits AS U32 = flag_a | flag_b   -- PIPE_OK
+```
+
+BUILTIN EXPRESSION CALLS
+String and binary:
+```alb
+LET n = LEN(s)
+LET a = LEFT(s, 4)
+LET b = RIGHT(s, 4)
+LET c = MID(s, 2, 3)
+
+LET a2 = LEFT$(s, 4)
+LET b2 = RIGHT$(s, 4)
+LET c2 = MID$(s, 2, 3)
+LET code = ASC(s)
+
+LET both = CONCAT(a, b)
+```
+
+Math and utility:
+```alb
+LET r = RND(10)
+LET y = CHOOSE(flag, 100, 200)
+LET ok = COLLIDE_RECT(x1, y1, w1, h1, x2, y2, w2, h2)
+
+LET s = SIN(v)
+LET c = COS(v)
+LET q = SQRT(v)
+LET e = EXP(v)
+
+LET pow1 = 2 ^ 8
+LET pow2 = 2 ** 8
+LET root = 81.0 ^ 0.5
+
+LET sci1 AS REAL = 1e3
+LET sci2 AS REAL = 2.5e-1
+LET sci3 AS REAL = 1_000.25e+2
+LET sci4 AS REAL = 6.25E-2
+```
+
+Notes:
+- `^` and `**` are the language power operators.
+- Integer power uses integer semantics. Example: `2 ^ -3` is `0`.
+- If either side is `F64` / `REAL`, power uses real semantics. Example:
+  `4.0 ^ -1.0` is `0.25`.
+- Scientific literals accept `_` separators plus `e` / `E` exponents with an
+  optional `+` or `-`.
+
+Casts and introspection:
+```alb
+LET a = CAST(expr AS U32)
+LET b = U8(expr)
+LET c = U16(expr)
+LET d = U32(expr)
+LET e = U64(expr)
+LET f = U128(expr)
+LET g = S32(expr)
+LET h = F64(expr)
+LET i = HW8(expr)
+LET j = HW16(expr)
+LET k = HW32(expr)
+
+LET sz = SIZEOF(expr)
+LET ty = TYPEOF(expr)
+LET off = OFFSETOF(MyStruct, field)
+```
+
+PURE FRACTION HELPERS
+```alb
+LET p = PURE(1, 2)
+LET s = PURE_ADD(a, b)
+LET d = PURE_SUB(a, b)
+LET m = PURE_MUL(a, b)
+LET q = PURE_DIV(a, b)
+LET pw = PURE_POW(a, b)
+LET exact_pw = PURE_POW(RATIONAL(1, 2), RATIONAL(3, 1))
+LET num = PURE_NUM(p)
+LET den = PURE_DEN(p)
+
+CALL PRINT_PURE(p)
+```
+
+Notes:
+- `PURE_POW` is separate from `^` / `**`.
+- `RATIONAL(...)` is the same constructor family as `PURE(...)`.
+- The verified cross-backend exact lane is `PURE_POW(rational, RATIONAL(integer, 1))`.
+
+COMPTIME, INCLUDE, TRY/CATCH, REVERSIBLE OPS
+```alb
+COMPTIME
+    PRINT "compile time"
+END COMPTIME
+
+INCLUDE "shared.albi"
+INCLUDE("shared.albi")
+
+TRY
+    THROW "boom"
+    THROW("boom")
+CATCH err
+    PRINT err
+END TRY
+
+REVADD cell, 5
+REVSUB cell, 2
+REVXOR cell, 1
+REVROL cell, 1
+REVROR cell, 1
+REVSWAP a, b
+REVNOT cell
+REVNEG cell
+```
+
+Native C escape hatches:
+```alb
+ENABLEC
+    raw_counter = 123;
+END ENABLE
+
+LET probe = INLINEC
+    (uint64_t)321
+END ENABLE
+```
+
+Native FASM / Win64 assembly (`ENABLEASM_X64`, `ASM ... END ASM`):
+```alb
+ENABLEASM_X64
+
+ON PAINT
+    CLEAR $101018
+    ASM
+        ; call ALB runtime helpers with ALBT's pushed-arg Win64 pattern
+        mov rax, 0FF0000h
+        push rax
+        sub rsp, 40
+        mov rcx, qword [rsp + 40]
+        call ALB_Set_Color
+        add rsp, 48
+        ; 4-arg call (Fill_Rect, Draw_Line): 4 pushes, sub rsp, 32, load [56,48,40,32]
+    END ASM
+END
+
+DISABLEASM
+```
+
+Notes:
+- `ENABLEC ... END ENABLE` only lowers on `-t c`; other backends ignore it.
+- `INLINEC ... END ENABLE` is expression-style and only lowers on `-t c`.
+- `ENABLEASM` / `ENABLEASM_X64` open inline native assembly on FASM backends.
+  Pair with `DISABLEASM` when done. Use `ASM ... END ASM` for statement blocks.
+- **Win64 stack alignment (critical):** before every `call`, `RSP mod 16` must
+  equal 8. ALBT's generated `ON PAINT` / `ON TICK` prologue already reserves
+  shadow space for ALB/SDL calls. **Do not `push` callee-saved registers
+  (`rbx`, `rbp`, `rdi`, `rsi`, `r12`–`r15`) at the top of handler ASM** to
+  "save" them — that extra 8-byte push misaligns the stack and causes
+  `0xC0000005` access violations (black screen, then instant exit). Let ebx
+  hold loop counters (ALB callees preserve it); read globals like `[Frame]`
+  from memory; compute draw coords **after** `ALB_Set_Color` (color calls
+  clobber caller-saved regs `r8`–`r11`, `r10`, `rax`, `rcx`, `rdx`).
+- Hand-written calls into ALB helpers must match ALBT's stack slots:
+  1-arg `sub rsp, 40` → `rcx` from `[rsp+40]`; 4-arg `sub rsp, 32` →
+  `[rsp+56]`..`[rsp+32]`; 3-arg `sub rsp, 40` → `[rsp+56]`..`[rsp+40]`;
+  6-arg `sub rsp, 48` → `[rsp+88]`..`[rsp+64]` plus stack args at
+  `[rsp+32]` and `[rsp+40]`. Prefer copying emitted call sites from a
+  working `-t fasm` build over guessing offsets.
+
+AI-SAFE GOTCHAS
+- Use `KEY(code)`, not `KEY_STATE(code)`.
+- `TEXT x, y, "msg"` and `TEXT(x, y, "msg")` are both valid.
+- The third argument to `TEXT`/`DRAW TEXT` must be text, not a raw number.
+- `SET_ALPHA a, b` and `SET_ALPHA(a, b)` are both valid.
+- `CREATE_WINDOW "Title", w, h` and `CREATE_WINDOW("Title", w, h)` are both
+  valid.
+- `LOAD src INTO var` and `LOAD(src, var)` are both valid; prefer `INTO` when
+  you want the intent to read like a statement instead of a call.
+- Use `STRICT name[...] AS Type` and `SLIDE name[..., ...] AS Type`.
+- Use `PARALLEL group[n] ... END PARALLEL`, then access with `group[i].field`.
+- Use 1-based indexes for arrays and parallel groups.
+- Use `SWAPPOP group[idx], active_count` for dense O(1) removal on the native
+  FASM, FASM16, and C backends.
+- `SETSHOEBOX`, `STATICSPRITE`, `STATICSURFACE`, `COLORLUT`, `VISUALRULE`,
+  `RENDERVIEWPORT`, `APPLYLUT`, and `BLITSAFE` currently lower on the native
+  FASM and native C backends.
+- `NETWORK_*`, `MEMORY_FIREWALL`, `BOUND_TO`, `MARKOV_MODEL`,
+  `PREDICT_MARKOV`, `NEURAL_TOPOLOGY`, `INFER_NETWORK`, and `TRAIN_NETWORK`
+  now lower on ALBW as well as native FASM and native C.
+- On ALBW, networking is browser-safe transport rather than raw UDP, and
+  firewall enforcement applies to bound browser/runtime accesses.
+- `IMPORT_ES`, `EXPORT_ES`, `IMPORT_WASM`, and `EXPORT_WASM` are ALBW/browser
+  interop paths. `IMPORT_DLL`, `IMPORT_SO`, `IMPORT_DYLIB`, `EXPORT_DLL`,
+  `EXPORT_SO`, and `EXPORT_DYLIB` remain native backend paths.
+- In `FUNCTION ... AS S32` or similar, do not assume a mixed arithmetic
+  `RETURN` will infer to the right type.
+- Prefer `RETURN CAST(expr AS S32)` over `RETURN S32(expr)` for typed
+  expression results in current ALB parser paths.
+- Identifier names only need to avoid ALB reserved keywords.
+- Names like `dx`, `ax`, `rax`, or `r8` are legal ALB identifiers even though
+  they are assembler register names.
+- Compiler/backend note: any direct FASM symbol emission must go through
+  `Scoped_Lexeme(...)` or `FASM_Safe_Symbol(...)` so register-like user names
+  are mangled into safe labels instead of emitted raw.
+- If an `IF` branch has multiple actions, multiline form is still the safest
+  authoring style even though same-line chaining is supported.
+- `MATCH` supports both one-line arms and multiline `=>` bodies.
+- `MATCH` default arms use `ELSE => ...`.
+- `SELECT` supports both legacy `CASE value statement` and multiline bodies.
+- `SELECT` default arms use `ELSE => ...` or `CASE ELSE => ...`.
+- For `.albi` interfaces, use `DECLARE MODULE ... END DECLARE MODULE`.
+- For `.alb` implementations, use `MODULE ... END MODULE`.
+- Legacy `DECLAREMODULE`, `END DECLAREMODULE`, and `ENDMODULE` are still accepted.
+- New executable `.alb` files should include `VERSION 1.0` right after `BEGIN`.
+- `IMPORT MathKit` and `IMPORT(MathKit)` are both valid.
+- `IMPORT_C(FUNCTION Name() AS U32 FROM("lib.dll"))` is accepted.
+- `ASSERT(expr)` is runtime assert syntax. `ASSERT p(x)` is logic-assert
+  syntax. Do not use `ASSERT(p(x))` when you mean a KB mutation.
+- `RETRACT p(x)`, `RETRACT(p(x))`, `UPDATE p(x), y`, and `UPDATE(p(x), y)` are
+  all accepted.
+- `SPAWN target`, `SPAWN target(args)`, and `SPAWN(target(args))` are all
+  accepted.
+- Prefer the verified declaration types listed earlier.
+
+RESERVED KEYWORDS
+Do not use any of these as identifiers or field names.
+
+A: ADVANCE, AND, APPLY_LUT, AS, ASM, ASSERT, ATOMIC
+B: BEGIN, BIND, BITFIELD, BLEND, BLIT_SAFE, BOUNDS, BREAK
+C: CALL, CASE, CAST, CATCH, CEASE, CHOOSE, CIRCLE, CLAIM, CLAMP,
+   CLEAR, CLOSE, COLOR, COLOR_LUT, COMPTIME, CONSTRAINT, CONSTRAIN_TO,
+   CONTINUE, CREATE_WINDOW, CROSS
+D: DECLAREMODULE, DEFAULT, DEFINE, DELAY, DEREF, DISABLEASM, DOT, DRAW, DROP
+E: ELSE, ENABLEASM, ENABLEC, END, ENDMODULE, ENDIF, ENSURE, ENTRY, ENUM
+F: FALSE, FILL, FIND, FINDALL, FLUSH, FLOAT2, FLOAT4, FMA, FOR,
+   FOREACH, FORMAT, FRAME, FRAMES, FROM, FUNCTION, FUTURE
+H: HEIGHT, HISTORY
+I: IF, IMPORT, IMPORT_C, IN, INCLUDE, INLINEC, INPUT, INTO, IS
+K: KEY, KNOWS, KNOWS_CHANGE
+L: LEFT$, LEN, LERP, LET, LINE, LISTEN, LOAD, LOAD_STATE, LOCATE
+M: MATCH, MAT2, MAT3, MAT4, MID$, MOD, MODULE, MOUSE_CLICK,
+   MODE, MOUSE_X, MOUSE_Y, MOUSE_WHEEL, MSG_BOX
+N: NORMALIZE, NOT, NOW
+O: OFFSETOF, ON, OPEN, OR, OUT
+P: PAINT, PARALLEL, PAST, PEEK, PIXEL, PLAY, PLOT, POKE, POLY,
+   PREDICATE, PRINT, PRINT$, PROCEDURE, PROVE
+R: RANGE, READ, READLINE, READ_PIXEL, RECT, REF, RENDER_VIEWPORT, REPEAT,
+   REQUIRE, RETRACT, RETURN, REVADD, REVERSIBLE, REVNEG, REVNOT, REVROL,
+   REVROR, REVSUB, REVSWAP, REVXOR, RND, RULE
+S: SAVE_STATE, SELECT, SET_ALPHA, SET_CLIP, SET_ORIGIN, SETFULLSCREEN,
+   SETRESIZABLE, SETSHOEBOX, SETSTRETCHY, SHL, SHR,
+   SIZEOF, SLIDE, SOUND, SOURCE, SPAWN, SPLAT, STATIC_SPRITE,
+   STATIC_SURFACE, STEP, STRICT, STRING, SWAPPOP, STRUCT, SWEEP, SYNC,
+   SYS_RENDERER
+T: TEMPORAL, THEN, THROW, TICK, TIMELINE, TO, TRIANGLE, TRUE, TRY,
+   TYPE, TYPEOF
+U: UNTIL, UPDATE, USE
+V: VERSION, VIRTUAL_HEIGHT, VIRTUAL_WIDTH, VISUAL_RULE, VMOUSE_X, VMOUSE_Y
+W: WHEN, WHILE, WIDTH, WITH, WRITE
+X: XOR
+
+FINAL AUTHORING ADVICE FOR AI
+- Prefer concrete statement syntax over invented function-call syntax.
+- Prefer the examples in this sheet over intuition.
+- If a feature touches arrays or `PARALLEL`, remember that the current source
+  model is 1-based.
+- If a name looks like a command (`FILL`, `DRAW`, `MATCH`, `PARALLEL`, etc.),
+  do not use it as an identifier.

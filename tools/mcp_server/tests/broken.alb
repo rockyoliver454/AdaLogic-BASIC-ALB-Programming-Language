@@ -1,0 +1,4 @@
+BEGIN
+    VERSION 0.0.0.1
+    PRINT$ "oops " | 1 |
+END
