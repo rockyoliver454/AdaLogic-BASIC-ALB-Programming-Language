@@ -1,0 +1,4 @@
+INCLUDE "input.albi"
+BEGIN
+    PRINT$ "proj include works"
+END

@@ -181,6 +181,46 @@ _TARGET_EXT = {
 
 _FASM_TARGETS = {"fasm", "fasm16"}
 
+# ------------------------------------------------------------- .albproj
+#
+# Project files live at a directory root (any ancestor of the .alb file).
+# Line-based, Rust/Ada-manifest style:
+#
+#   # my game project
+#   name = fruit_fractals
+#   include_dir = ..              (relative to the .albproj file)
+#   include_dir = sdk/stdlib/lang (absolute or .albproj-relative)
+#
+# Every listed directory is scanned for .alb/.albi files, which are made
+# visible to INCLUDE "name.albi" without hardcoded paths. Nearest ancestor
+# .albproj wins; files already present next to the source are never
+# overridden.
+
+
+def _find_albproj(src: Path) -> Path | None:
+    d = src.parent.resolve()
+    while True:
+        cand = d / ".albproj"
+        if cand.is_file():
+            return cand
+        if d == ALB_WORKSPACE or d.parent == d:
+            return ALB_WORKSPACE / ".albproj" if (ALB_WORKSPACE / ".albproj").is_file() else None
+        d = d.parent
+
+
+def _albproj_include_dirs(proj_file: Path) -> list[Path]:
+    dirs = []
+    for raw in proj_file.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw.split("#", 1)[0].strip()
+        m = re.match(r"include_dir\s*=\s*(.+)", line, re.IGNORECASE)
+        if m:
+            p = Path(m.group(1).strip().strip('"').strip("'"))
+            if not p.is_absolute():
+                p = proj_file.parent / p
+            if p.is_dir():
+                dirs.append(p.resolve())
+    return dirs
+
 
 def _stage_job_dir(src: Path, job_dir: Path) -> Path:
     """Copy the source tree into a scratch dir so albt's SDK bootstrap
@@ -200,6 +240,15 @@ def _stage_job_dir(src: Path, job_dir: Path) -> Path:
         for anc in grand.iterdir():
             if anc.suffix.lower() in (".alb", ".albi"):
                 shutil.copy2(anc, job_dir / anc.name)
+
+    # .albproj: inject include_dir contents so INCLUDE "name.albi" resolves
+    proj_file = _find_albproj(src)
+    if proj_file:
+        for inc_dir in _albproj_include_dirs(proj_file):
+            for f in inc_dir.iterdir():
+                dst = proj / f.name
+                if f.suffix.lower() in (".alb", ".albi") and not dst.exists():
+                    shutil.copy2(f, dst)
     return proj / src.name
 
 

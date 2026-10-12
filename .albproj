@@ -1,0 +1,6 @@
+# ALB workspace project
+# include_dir entries are relative to this file (or absolute).
+name = adalogic_basic
+include_dir = sdk/stdlib/lang
+include_dir = sdk/stdlib/io
+include_dir = examples
