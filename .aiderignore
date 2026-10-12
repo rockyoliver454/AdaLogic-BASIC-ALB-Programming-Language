@@ -1,0 +1,16 @@
+# Keep the swarm focused — heavy/binary dirs stay out of aider's context
+sdk/bin/
+sdk/models/
+sdk/support/
+sdk/stdlib/vendor/
+sdk/deps/
+deps/
+examples/
+**/*_build/
+**/fasm_*/
+*.exe
+*.albm
+*.gguf
+*.zip
+docs/
+CHANGELOG.md
