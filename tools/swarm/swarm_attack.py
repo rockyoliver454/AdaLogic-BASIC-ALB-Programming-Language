@@ -35,6 +35,8 @@ AIDER_CONF = LOCAL / "aider.conf.yml"
 CONVENTIONS = Path(__file__).parent / "CONVENTIONS.md"
 HELP_FILE = REPO / "HELP_NEEDED.md"
 MAX_RETRIES_DEFAULT = 5
+AIDER_TIMEOUT = int(os.environ.get("SWARM_AIDER_TIMEOUT", "900"))  # seconds
+QUICKREF = Path(__file__).parent / "ALB_QUICKREF.md"
 
 
 def llm_alive() -> bool:
@@ -115,8 +117,13 @@ def check_success(target: str | None) -> tuple[bool, str]:
 
 
 def run_aider(task_text: str, diagnostics: str, attempt: int) -> None:
+    quickref = QUICKREF.read_text(encoding="utf-8", errors="replace")
     prompt = (
-        f"{task_text}\n\n"
+        "CRITICAL: .alb and .albi files contain AdaLogic BASIC — a custom "
+        "compiled language. DO NOT write Python, JavaScript, or any other "
+        "language in them. Follow this reference exactly:\n\n"
+        f"{quickref}\n\n"
+        f"=== TASK ===\n{task_text}\n\n"
         f"--- ATTEMPT {attempt} ---\n"
         f"Latest compiler/test diagnostics (fix THIS, do not rewrite blindly):\n"
         f"{diagnostics}\n"
@@ -127,6 +134,7 @@ def run_aider(task_text: str, diagnostics: str, attempt: int) -> None:
         str(AIDER),
         "--config", str(AIDER_CONF),
         "--read", str(CONVENTIONS),
+        "--read", str(QUICKREF),
         "--message-file", str(msg),
         "--yes-always",
         "--no-auto-commits",
@@ -141,12 +149,16 @@ def run_aider(task_text: str, diagnostics: str, attempt: int) -> None:
     # BROWSER must name an executable — point it at a no-op
     env["BROWSER"] = "cmd /c exit 0"
     env["AIDER_ANALYTICS"] = "false"
-    subprocess.run(
-        cmd,
-        cwd=REPO,
-        stdin=subprocess.DEVNULL,   # EOF -> defaults, never blocks on Enter
-        env=env,
-    )
+    try:
+        subprocess.run(
+            cmd,
+            cwd=REPO,
+            stdin=subprocess.DEVNULL,   # EOF -> defaults, never blocks on Enter
+            env=env,
+            timeout=AIDER_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"[swarm] aider exceeded {AIDER_TIMEOUT}s — killing attempt {attempt}")
 
 
 def main() -> int:

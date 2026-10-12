@@ -42,3 +42,4 @@ sdk/tmp/
 !sdk/bin/
 !sdk/bin/**
 .aider*
+tools/swarm/_swarm_msg.md
