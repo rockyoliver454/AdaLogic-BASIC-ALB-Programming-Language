@@ -1,0 +1,28 @@
+-- This is a package/module and you can declare procedures or functions here
+-- there are two ways you can do this
+-- you can have everything in one file, or separate by body and spec.
+-- So I could declare the procedures/functions in here, and then create a .alb body 
+-- that implements them privately.
+-- This is useful for API's and public level access to something that is normally private.
+-- and vice versa
+
+DECLARE MODULE Extras
+   -- procedure declarations are public and contain no implementation/logic 
+   PROCEDURE CalculateLength(IN x as REAL, IN y AS REAL, OUT d AS REAL)
+
+END DECLARE MODULE
+
+
+-- now this is where it gets interesting
+-- I could write this: 
+MODULE Extras
+
+   -- implementation logic goes here
+   PROCEDURE CalculateLength(IN x AS REAL, IN y AS REAL, OUT d AS REAL)
+       -- Calculate hypnotenuse/displacement
+       d = SQRT((x ** 2.0) + (y ** 2.0))
+   END PROCEDURE
+
+END MODULE
+
+

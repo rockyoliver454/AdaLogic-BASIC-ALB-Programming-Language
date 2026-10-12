@@ -1,0 +1,40 @@
+-- ====================================================================
+-- ZDEPTH.ALBI
+-- Spatial bounding and Z-Depth Priority Rules
+-- ====================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ZDepth
+    FUNCTION Overlaps(ax AS S32, ay AS S32, az AS S32, aw AS S32, ah AS S32, ad AS S32, bx AS S32, by AS S32, bz AS S32, bw AS S32, bh AS S32, bd AS S32) AS BOOL
+    FUNCTION GetRenderPriority(pos_y AS S32, pos_z AS S32) AS S32
+    FUNCTION IsPointInside(px AS S32, py AS S32, pz AS S32, bx AS S32, by AS S32, bz AS S32, bw AS S32, bh AS S32, bd AS S32) AS BOOL
+END DECLARE MODULE
+
+MODULE ZDepth
+
+    FUNCTION Overlaps(ax AS S32, ay AS S32, az AS S32, aw AS S32, ah AS S32, ad AS S32, bx AS S32, by AS S32, bz AS S32, bw AS S32, bh AS S32, bd AS S32) AS BOOL
+        IF ax < bx + bw AND ax + aw > bx AND ay < by + bh AND ay + ah > by AND az < bz + bd AND az + ad > bz THEN
+            RETURN TRUE
+        END IF
+        RETURN FALSE
+    END FUNCTION
+
+    FUNCTION GetRenderPriority(pos_y AS S32, pos_z AS S32) AS S32
+        LET floor_off AS S32 = pos_z * 100000
+        RETURN floor_off + pos_y
+    END FUNCTION
+
+    FUNCTION IsPointInside(px AS S32, py AS S32, pz AS S32, bx AS S32, by AS S32, bz AS S32, bw AS S32, bh AS S32, bd AS S32) AS BOOL
+        IF px >= bx AND px <= bx + bw THEN
+            IF py >= by AND py <= by + bh THEN
+                IF pz >= bz AND pz <= bz + bd THEN
+                    RETURN TRUE
+                END IF
+            END IF
+        END IF
+        
+        RETURN FALSE
+    END FUNCTION
+
+END MODULE

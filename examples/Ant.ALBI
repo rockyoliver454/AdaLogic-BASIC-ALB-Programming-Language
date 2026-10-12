@@ -1,0 +1,232 @@
+-- ====================================================================
+-- ANT.ALBI
+-- Reusable 3D Low-Poly Ant Model and Software Rasterizer.
+-- ====================================================================
+
+VERSION 1.0
+
+INCLUDE "ALBMATH_PURE.ALBI"
+IMPORT ALBMathPure
+
+DECLARE MODULE Ant
+    PROCEDURE Setup()
+    PROCEDURE FillTriangle(x1 AS S32, y1 AS S32, x2 AS S32, y2 AS S32, x3 AS S32, y3 AS S32, ccol AS S32)
+    PROCEDURE Render(cam_z AS S32, scale AS S32, rot_yaw AS S32, rot_pitch AS S32, cx AS S32, cy AS S32)
+END DECLARE MODULE
+
+MODULE Ant
+
+    LET ANT_v_count AS S32 = 36
+    STRICT ANT_v_x[64] AS S32
+    STRICT ANT_v_y[64] AS S32
+    STRICT ANT_v_z[64] AS S32
+
+    LET ANT_f_count AS S32 = 30
+    STRICT ANT_f_p1[64] AS S32
+    STRICT ANT_f_p2[64] AS S32
+    STRICT ANT_f_p3[64] AS S32
+    STRICT ANT_f_col[64] AS S32
+
+    STRICT ANT_proj_x[64] AS S32
+    STRICT ANT_proj_y[64] AS S32
+    STRICT ANT_proj_z[64] AS S32
+
+    STRICT ANT_sort_z[64] AS S32
+    STRICT ANT_sort_id[64] AS S32
+
+    PROCEDURE FillTriangle(x1 AS S32, y1 AS S32, x2 AS S32, y2 AS S32, x3 AS S32, y3 AS S32, ccol AS S32)
+        COLOR ccol
+        FILL TRIANGLE x1, y1, x2, y2, x3, y3
+    END PROCEDURE
+
+    PROCEDURE Setup()
+        LET f_idx AS S32 = 1
+
+        -- 1. THORAX
+        ANT_v_x[1]=0   ANT_v_y[1]=-10 ANT_v_z[1]=0
+        ANT_v_x[2]=0   ANT_v_y[2]=-2  ANT_v_z[2]=0
+        ANT_v_x[3]=-4  ANT_v_y[3]=-6  ANT_v_z[3]=0
+        ANT_v_x[4]=4   ANT_v_y[4]=-6  ANT_v_z[4]=0
+        ANT_v_x[5]=0   ANT_v_y[5]=-6  ANT_v_z[5]=5
+        ANT_v_x[6]=0   ANT_v_y[6]=-6  ANT_v_z[6]=-5
+
+        -- 2. ABDOMEN
+        ANT_v_x[7]=0   ANT_v_y[7]=-10 ANT_v_z[7]=-12
+        ANT_v_x[8]=0   ANT_v_y[8]=-2  ANT_v_z[8]=-12
+        ANT_v_x[9]=-6  ANT_v_y[9]=-6  ANT_v_z[9]=-12
+        ANT_v_x[10]=6  ANT_v_y[10]=-6 ANT_v_z[10]=-12
+        ANT_v_x[11]=0  ANT_v_y[11]=-6 ANT_v_z[11]=-7
+        ANT_v_x[12]=0  ANT_v_y[12]=-6 ANT_v_z[12]=-20
+
+        -- 3. HEAD
+        ANT_v_x[13]=0  ANT_v_y[13]=-10 ANT_v_z[13]=9
+        ANT_v_x[14]=0  ANT_v_y[14]=-2  ANT_v_z[14]=9
+        ANT_v_x[15]=-3 ANT_v_y[15]=-6  ANT_v_z[15]=9
+        ANT_v_x[16]=3  ANT_v_y[16]=-6  ANT_v_z[16]=9
+        ANT_v_x[17]=0  ANT_v_y[17]=-6  ANT_v_z[17]=13
+        ANT_v_x[18]=0  ANT_v_y[18]=-6  ANT_v_z[18]=6
+
+        -- 4. LEGS
+        ANT_v_x[19]=-3 ANT_v_y[19]=-4 ANT_v_z[19]=3  
+        ANT_v_x[20]=-8 ANT_v_y[20]=-12 ANT_v_z[20]=5  
+        ANT_v_x[21]=-10 ANT_v_y[21]=0 ANT_v_z[21]=6   
+        
+        ANT_v_x[22]=3  ANT_v_y[22]=-4 ANT_v_z[22]=3
+        ANT_v_x[23]=8  ANT_v_y[23]=-12 ANT_v_z[23]=5
+        ANT_v_x[24]=10 ANT_v_y[24]=0 ANT_v_z[24]=6
+        
+        ANT_v_x[25]=-3 ANT_v_y[25]=-4 ANT_v_z[25]=0
+        ANT_v_x[26]=-9 ANT_v_y[26]=-11 ANT_v_z[26]=0
+        ANT_v_x[27]=-12 ANT_v_y[27]=0 ANT_v_z[27]=0
+        
+        ANT_v_x[28]=3  ANT_v_y[28]=-4 ANT_v_z[28]=0
+        ANT_v_x[29]=9  ANT_v_y[29]=-11 ANT_v_z[29]=0
+        ANT_v_x[30]=12 ANT_v_y[30]=0 ANT_v_z[30]=0
+        
+        ANT_v_x[31]=-3 ANT_v_y[31]=-4 ANT_v_z[31]=-3
+        ANT_v_x[32]=-8 ANT_v_y[32]=-12 ANT_v_z[32]=-5
+        ANT_v_x[33]=-10 ANT_v_y[33]=0 ANT_v_z[33]=-6
+        
+        ANT_v_x[34]=3  ANT_v_y[34]=-4 ANT_v_z[34]=-3
+        ANT_v_x[35]=8  ANT_v_y[35]=-12 ANT_v_z[35]=-5
+        ANT_v_x[36]=10 ANT_v_y[36]=0 ANT_v_z[36]=-6
+
+        f_idx = 1
+
+        -- Thorax
+        ANT_f_p1[f_idx]=1 ANT_f_p2[f_idx]=3 ANT_f_p3[f_idx]=5 ANT_f_col[f_idx]=$331111 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=1 ANT_f_p2[f_idx]=5 ANT_f_p3[f_idx]=4 ANT_f_col[f_idx]=$221111 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=1 ANT_f_p2[f_idx]=4 ANT_f_p3[f_idx]=6 ANT_f_col[f_idx]=$331111 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=1 ANT_f_p2[f_idx]=6 ANT_f_p3[f_idx]=3 ANT_f_col[f_idx]=$221111 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=2 ANT_f_p2[f_idx]=5 ANT_f_p3[f_idx]=3 ANT_f_col[f_idx]=$110A0A f_idx=f_idx+1
+        ANT_f_p1[f_idx]=2 ANT_f_p2[f_idx]=4 ANT_f_p3[f_idx]=5 ANT_f_col[f_idx]=$0A0505 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=2 ANT_f_p2[f_idx]=6 ANT_f_p3[f_idx]=4 ANT_f_col[f_idx]=$110A0A f_idx=f_idx+1
+        ANT_f_p1[f_idx]=2 ANT_f_p2[f_idx]=3 ANT_f_p3[f_idx]=6 ANT_f_col[f_idx]=$0A0505 f_idx=f_idx+1
+
+        -- Abdomen
+        ANT_f_p1[f_idx]=7 ANT_f_p2[f_idx]=9 ANT_f_p3[f_idx]=11 ANT_f_col[f_idx]=$220A0A f_idx=f_idx+1
+        ANT_f_p1[f_idx]=7 ANT_f_p2[f_idx]=11 ANT_f_p3[f_idx]=10 ANT_f_col[f_idx]=$110505 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=7 ANT_f_p2[f_idx]=10 ANT_f_p3[f_idx]=12 ANT_f_col[f_idx]=$220A0A f_idx=f_idx+1
+        ANT_f_p1[f_idx]=7 ANT_f_p2[f_idx]=12 ANT_f_p3[f_idx]=9 ANT_f_col[f_idx]=$110505 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=8 ANT_f_p2[f_idx]=11 ANT_f_p3[f_idx]=9 ANT_f_col[f_idx]=$0A0000 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=8 ANT_f_p2[f_idx]=10 ANT_f_p3[f_idx]=11 ANT_f_col[f_idx]=$050000 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=8 ANT_f_p2[f_idx]=12 ANT_f_p3[f_idx]=10 ANT_f_col[f_idx]=$0A0000 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=8 ANT_f_p2[f_idx]=9 ANT_f_p3[f_idx]=12 ANT_f_col[f_idx]=$050000 f_idx=f_idx+1
+
+        -- Head
+        ANT_f_p1[f_idx]=13 ANT_f_p2[f_idx]=15 ANT_f_p3[f_idx]=17 ANT_f_col[f_idx]=$331111 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=13 ANT_f_p2[f_idx]=17 ANT_f_p3[f_idx]=16 ANT_f_col[f_idx]=$221111 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=13 ANT_f_p2[f_idx]=16 ANT_f_p3[f_idx]=18 ANT_f_col[f_idx]=$331111 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=13 ANT_f_p2[f_idx]=18 ANT_f_p3[f_idx]=15 ANT_f_col[f_idx]=$221111 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=14 ANT_f_p2[f_idx]=17 ANT_f_p3[f_idx]=15 ANT_f_col[f_idx]=$110A0A f_idx=f_idx+1
+        ANT_f_p1[f_idx]=14 ANT_f_p2[f_idx]=16 ANT_f_p3[f_idx]=17 ANT_f_col[f_idx]=$0A0505 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=14 ANT_f_p2[f_idx]=18 ANT_f_p3[f_idx]=16 ANT_f_col[f_idx]=$110A0A f_idx=f_idx+1
+        ANT_f_p1[f_idx]=14 ANT_f_p2[f_idx]=15 ANT_f_p3[f_idx]=18 ANT_f_col[f_idx]=$0A0505 f_idx=f_idx+1
+
+        -- Legs
+        ANT_f_p1[f_idx]=19 ANT_f_p2[f_idx]=20 ANT_f_p3[f_idx]=21 ANT_f_col[f_idx]=$332211 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=22 ANT_f_p2[f_idx]=23 ANT_f_p3[f_idx]=24 ANT_f_col[f_idx]=$221105 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=25 ANT_f_p2[f_idx]=26 ANT_f_p3[f_idx]=27 ANT_f_col[f_idx]=$332211 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=28 ANT_f_p2[f_idx]=29 ANT_f_p3[f_idx]=30 ANT_f_col[f_idx]=$221105 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=31 ANT_f_p2[f_idx]=32 ANT_f_p3[f_idx]=33 ANT_f_col[f_idx]=$332211 f_idx=f_idx+1
+        ANT_f_p1[f_idx]=34 ANT_f_p2[f_idx]=35 ANT_f_p3[f_idx]=36 ANT_f_col[f_idx]=$221105 f_idx=f_idx+1
+
+    END PROCEDURE
+
+    PROCEDURE Render(cam_z AS S32, scale AS S32, rot_yaw AS S32, rot_pitch AS S32, cx AS S32, cy AS S32)
+        LET u_yaw AS U64 = 0
+        IF rot_yaw < 0 THEN u_yaw = U64(360 + (rot_yaw MOD 360)) ELSE u_yaw = U64(rot_yaw MOD 360) END IF
+        LET u_pitch AS U64 = 0
+        IF rot_pitch < 0 THEN u_pitch = U64(360 + (rot_pitch MOD 360)) ELSE u_pitch = U64(rot_pitch MOD 360) END IF
+        
+        LET p_sin AS PURE = PURE(0, 1) LET p_cos AS PURE = PURE(0, 1)
+        LET y_sin AS PURE = ALBMathPure.PureSinDegApprox(u_yaw)
+        LET y_cos AS PURE = ALBMathPure.PureCosDegApprox(u_yaw)
+        LET ysn AS S32 = ALBMathPure.PureNum(y_sin) LET ysd AS S32 = S32(ALBMathPure.PureDen(y_sin))
+        LET ycn AS S32 = ALBMathPure.PureNum(y_cos) LET ycd AS S32 = S32(ALBMathPure.PureDen(y_cos))
+
+        p_sin = ALBMathPure.PureSinDegApprox(u_pitch)
+        p_cos = ALBMathPure.PureCosDegApprox(u_pitch)
+        LET psn AS S32 = ALBMathPure.PureNum(p_sin) LET psd AS S32 = S32(ALBMathPure.PureDen(p_sin))
+        LET pcn AS S32 = ALBMathPure.PureNum(p_cos) LET pcd AS S32 = S32(ALBMathPure.PureDen(p_cos))
+
+        LET i AS S32 = 1
+        LET tx AS S32 = 0 LET ty AS S32 = 0 LET tz AS S32 = 0
+        LET rx AS S32 = 0 LET ry AS S32 = 0 LET rz AS S32 = 0
+        LET z_depth AS S32 = 0
+        LET f AS S32 = 1
+        LET v1 AS S32 = 0 LET v2 AS S32 = 0 LET v3 AS S32 = 0
+        LET avg_z AS S32 = 0
+        LET swapped AS U64 = 1
+        LET temp_z AS S32 = 0 LET temp_id AS S32 = 0
+        LET s AS S32 = 1
+        LET p AS S32 = 1
+        LET real_id AS S32 = 0
+        LET px1 AS S32 = 0 LET py1 AS S32 = 0
+        LET px2 AS S32 = 0 LET py2 AS S32 = 0
+        LET px3 AS S32 = 0 LET py3 AS S32 = 0
+
+        i = 1
+        WHILE i <= ANT_v_count
+            -- 1. Apply Yaw
+            tx = ((ANT_v_x[i] * ycn) / ycd) - ((ANT_v_z[i] * ysn) / ysd)
+            tz = ((ANT_v_x[i] * ysn) / ysd) + ((ANT_v_z[i] * ycn) / ycd)
+            ty = ANT_v_y[i]
+
+            -- 2. Apply Pitch (Camera Tilt)
+            rx = tx
+            rz = ((ty * psn) / psd) + ((tz * pcn) / pcd)
+            ry = ((ty * pcn) / pcd) - ((tz * psn) / psd)
+
+            ANT_proj_z[i] = rz
+            z_depth = rz + cam_z
+            IF z_depth < 1 THEN z_depth = 1 END IF
+            
+            ANT_proj_x[i] = cx + ((rx * scale) / z_depth)
+            ANT_proj_y[i] = cy + ((ry * scale) / z_depth)
+            
+            i = i + 1
+        END WHILE
+
+        f = 1
+        WHILE f <= ANT_f_count
+            v1 = ANT_f_p1[f] v2 = ANT_f_p2[f] v3 = ANT_f_p3[f]
+            avg_z = (ANT_proj_z[v1] + ANT_proj_z[v2] + ANT_proj_z[v3]) / 3
+            ANT_sort_z[f] = avg_z
+            ANT_sort_id[f] = f
+            f = f + 1
+        END WHILE
+
+        swapped = 1
+        WHILE swapped = 1
+            swapped = 0
+            s = 1
+            WHILE s < ANT_f_count
+                IF ANT_sort_z[s] > ANT_sort_z[s + 1] THEN
+                    temp_z = ANT_sort_z[s]
+                    ANT_sort_z[s] = ANT_sort_z[s + 1]
+                    ANT_sort_z[s + 1] = temp_z
+                    
+                    temp_id = ANT_sort_id[s]
+                    ANT_sort_id[s] = ANT_sort_id[s + 1]
+                    ANT_sort_id[s + 1] = temp_id
+                    
+                    swapped = 1
+                END IF
+                s = s + 1
+            END WHILE
+        END WHILE
+
+        p = 1
+        WHILE p <= ANT_f_count
+            real_id = ANT_sort_id[p]
+            px1 = ANT_proj_x[ANT_f_p1[real_id]] py1 = ANT_proj_y[ANT_f_p1[real_id]]
+            px2 = ANT_proj_x[ANT_f_p2[real_id]] py2 = ANT_proj_y[ANT_f_p2[real_id]]
+            px3 = ANT_proj_x[ANT_f_p3[real_id]] py3 = ANT_proj_y[ANT_f_p3[real_id]]
+
+            CALL Ant.FillTriangle(px1, py1, px2, py2, px3, py3, ANT_f_col[real_id])
+            p = p + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

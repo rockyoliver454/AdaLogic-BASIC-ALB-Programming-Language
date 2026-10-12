@@ -1,0 +1,501 @@
+-- ============================================================================
+-- ALBImageExport.ALBI — PNG / BMP / PPM / FITS from an ALBCharGen canvas
+-- ============================================================================
+-- From release\examples\:
+--   INCLUDE "../stdlib/lang/ALBCharGen.ALBI"
+--   INCLUDE "../stdlib/lang/ALBImageExport.ALBI"
+--
+-- Format codes: 100 PNG  101 BMP  102 PPM  103 FITS.
+-- ExportCanvas(handle, fmt, bg_color, path) writes binary with
+--   FLUSH buf SIZE count INTO path
+-- bg_color is 0xRRGGBB (same convention as colors.albi). Return 1 ok, 0 fail.
+--
+-- Caps: ExportBuf 16384 bytes, raw raster 12352, FITS header 2880.
+-- STRICT buffers are 1-based. AND / SHR here are bitwise. | concatenates
+-- strings if you build paths yourself.
+--
+-- INCLUDE ALBCharGen first — this module reads CanvasW/H and cell ink.
+-- Not a general image library; pair with stdlib/io alb_png.albi if you
+-- need to *read* PNG.
+-- ============================================================================
+
+VERSION 0.0.0.1
+
+#ALBIMG_FMT_PNG  = 100
+#ALBIMG_FMT_BMP  = 101
+#ALBIMG_FMT_PPM  = 102
+#ALBIMG_FMT_FITS = 103
+#ALBIMG_FMT_IMG_COUNT = 4
+
+#ALBIMG_BUF_MAX   = 16384
+#ALBIMG_RAW_MAX   = 12352
+#ALBIMG_FITS_HDR  = 2880
+
+DECLARE MODULE ALBImageExport
+    FUNCTION FormatName(fmt AS U32) AS STRING
+    FUNCTION FormatExt(fmt AS U32) AS STRING
+    FUNCTION IsImageFormat(fmt AS U32) AS U8
+    FUNCTION ExportSize() AS U32
+    FUNCTION ExportCanvas(handle AS U32, fmt AS U32, bg_color AS U32, path AS STRING) AS U8
+END DECLARE MODULE
+
+MODULE ALBImageExport
+
+    -- 1-based write cursor WritePos. ExportByteCount is the FLUSH length.
+    STRICT ExportBuf[#ALBIMG_BUF_MAX] AS U8
+    STRICT RawBuf[#ALBIMG_RAW_MAX] AS U8
+    STRICT PngScratch[#ALBIMG_RAW_MAX] AS U8
+    LET ExportByteCount AS U32 = 0
+    LET WritePos AS U32 = 0
+    LET RawW AS U32 = 0
+    LET RawH AS U32 = 0
+
+    PROCEDURE ResetWrite()
+        WritePos = 0
+        ExportByteCount = 0
+    END PROCEDURE
+
+    PROCEDURE PutU8(v AS U8)
+        -- STRICT is 1-based: store at WritePos after increment.
+        IF WritePos >= #ALBIMG_BUF_MAX THEN RETURN END IF
+        WritePos = WritePos + 1
+        ExportBuf[WritePos] = v
+    END PROCEDURE
+
+    PROCEDURE PutU16LE(v AS U32)
+        PutU8(CAST(v MOD 256 AS U8))
+        PutU8(CAST((v SHR 8) MOD 256 AS U8))
+    END PROCEDURE
+
+    PROCEDURE PutU32LE(v AS U32)
+        PutU16LE(v MOD 65536)
+        PutU16LE((v SHR 16) MOD 65536)
+    END PROCEDURE
+
+    PROCEDURE PutU32BE(v AS U32)
+        PutU8(CAST((v SHR 24) MOD 256 AS U8))
+        PutU8(CAST((v SHR 16) MOD 256 AS U8))
+        PutU8(CAST((v SHR 8) MOD 256 AS U8))
+        PutU8(CAST(v MOD 256 AS U8))
+    END PROCEDURE
+
+    FUNCTION ColorR(c AS U32) AS U8
+        -- 0xRRGGBB: red in bits 16–23.
+        RETURN CAST((c SHR 16) AND $FF AS U8)
+    END FUNCTION
+
+    FUNCTION ColorG(c AS U32) AS U8
+        RETURN CAST((c SHR 8) AND $FF AS U8)
+    END FUNCTION
+
+    FUNCTION ColorB(c AS U32) AS U8
+        RETURN CAST(c AND $FF AS U8)
+    END FUNCTION
+
+    FUNCTION GrayFromRgb(r AS U8, g AS U8, b AS U8) AS U8
+        -- 30/59/11 integer luma (not a float Rec.709 convert).
+        RETURN CAST(((CAST(r AS U32) * 30) + (CAST(g AS U32) * 59) + (CAST(b AS U32) * 11)) / 100 AS U8)
+    END FUNCTION
+
+    FUNCTION RowStride24(w AS U32) AS U32
+        RETURN ((w * 3) + 3) - (((w * 3) + 3) MOD 4)
+    END FUNCTION
+
+    FUNCTION FormatName(fmt AS U32) AS STRING
+        IF fmt = #ALBIMG_FMT_BMP THEN RETURN "BMP" END IF
+        IF fmt = #ALBIMG_FMT_PPM THEN RETURN "PPM" END IF
+        IF fmt = #ALBIMG_FMT_FITS THEN RETURN "FITS" END IF
+        RETURN "PNG"
+    END FUNCTION
+
+    FUNCTION FormatExt(fmt AS U32) AS STRING
+        IF fmt = #ALBIMG_FMT_BMP THEN RETURN "bmp" END IF
+        IF fmt = #ALBIMG_FMT_PPM THEN RETURN "ppm" END IF
+        IF fmt = #ALBIMG_FMT_FITS THEN RETURN "fits" END IF
+        RETURN "png"
+    END FUNCTION
+
+    FUNCTION IsImageFormat(fmt AS U32) AS U8
+        IF fmt = #ALBIMG_FMT_PNG THEN RETURN 1 END IF
+        IF fmt = #ALBIMG_FMT_BMP THEN RETURN 1 END IF
+        IF fmt = #ALBIMG_FMT_PPM THEN RETURN 1 END IF
+        IF fmt = #ALBIMG_FMT_FITS THEN RETURN 1 END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION ExportSize() AS U32
+        RETURN ExportByteCount
+    END FUNCTION
+
+    FUNCTION ByteFromChar(ch AS STRING) AS U8
+        LET table AS STRING = ""
+        LET pos AS U32 = 1
+        LET c AS U32 = 32
+        WHILE c <= 126
+            table = table | CHR(c)
+            c = c + 1
+        END WHILE
+        WHILE pos <= 95
+            IF ch = MID$(table, pos, 1) THEN RETURN CAST(31 + pos AS U8) END IF
+            pos = pos + 1
+        END WHILE
+        RETURN 32
+    END FUNCTION
+
+    PROCEDURE WriteAscii(txt AS STRING)
+        LET pos AS U32 = 1
+        LET lim AS U32 = LEN(txt)
+        WHILE pos <= lim
+            PutU8(ByteFromChar(MID$(txt, pos, 1)))
+            pos = pos + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE FlushExport(path AS STRING)
+        IF ExportByteCount = 0 THEN RETURN END IF
+        FLUSH ExportBuf SIZE ExportByteCount INTO path
+    END PROCEDURE
+
+    FUNCTION BufCrc32(start AS U32, count AS U32) AS U32
+        LET crc AS U32 = $FFFFFFFF
+        LET i AS U32 = 0
+        LET b AS U32 = 0
+        LET bit AS U32 = 0
+        WHILE i < count
+            b = ExportBuf[start + i]
+            crc = crc XOR b
+            bit = 0
+            WHILE bit < 8
+                IF (crc MOD 2) = 1 THEN
+                    crc = (crc SHR 1) XOR $EDB88320
+                ELSE
+                    crc = crc SHR 1
+                END IF
+                bit = bit + 1
+            END WHILE
+            i = i + 1
+        END WHILE
+        RETURN crc XOR $FFFFFFFF
+    END FUNCTION
+
+    FUNCTION Adler32Buf(start AS U32, count AS U32) AS U32
+        LET a AS U32 = 1
+        LET b AS U32 = 0
+        LET i AS U32 = 0
+        LET v AS U32 = 0
+        WHILE i < count
+            v = PngScratch[start + i]
+            a = (a + v) MOD 65521
+            b = (b + a) MOD 65521
+            i = i + 1
+        END WHILE
+        RETURN (b SHL 16) + a
+    END FUNCTION
+
+    PROCEDURE PutPngChunkFromScratch(tag AS STRING, scratch_start AS U32, data_len AS U32)
+        LET crc_start AS U32 = WritePos + 1
+        LET i AS U32 = 0
+        PutU32BE(data_len)
+        WriteAscii(tag)
+        i = 0
+        WHILE i < data_len
+            PutU8(PngScratch[scratch_start + i])
+            i = i + 1
+        END WHILE
+        PutU32BE(BufCrc32(crc_start, 4 + data_len))
+    END PROCEDURE
+
+    PROCEDURE PutPngChunkInline(tag AS STRING, data_len AS U32)
+        LET crc_start AS U32 = WritePos + 1
+        PutU32BE(data_len)
+        WriteAscii(tag)
+        PutU32BE(BufCrc32(crc_start, 4 + data_len))
+    END PROCEDURE
+
+    PROCEDURE RasterizeCanvas(handle AS U32, bg_color AS U32, top AS U32, left AS U32, bot AS U32, right AS U32)
+        LET x AS U32 = 0
+        LET y AS U32 = 0
+        LET ch AS U8 = 32
+        LET col AS U32 = 0
+        LET r AS U8 = 0
+        LET g AS U8 = 0
+        LET b AS U8 = 0
+        LET idx AS U32 = 0
+        RawW = right - left + 1
+        RawH = bot - top + 1
+        IF RawW < 1 OR RawH < 1 THEN
+            RawW = 0
+            RawH = 0
+            RETURN
+        END IF
+        IF RawW * RawH * 3 > #ALBIMG_RAW_MAX THEN RETURN END IF
+        y = 1
+        WHILE y <= RawH
+            x = 1
+            WHILE x <= RawW
+                ch = ALBCharGen.CanvasGet(handle, left + x - 1, top + y - 1)
+                IF ch > 32 THEN
+                    col = ALBCharGen.CanvasGetColor(handle, left + x - 1, top + y - 1)
+                    r = ColorR(col)
+                    g = ColorG(col)
+                    b = ColorB(col)
+                ELSE
+                    r = ColorR(bg_color)
+                    g = ColorG(bg_color)
+                    b = ColorB(bg_color)
+                END IF
+                idx = ((y - 1) * RawW * 3) + ((x - 1) * 3)
+                RawBuf[idx + 1] = r
+                RawBuf[idx + 2] = g
+                RawBuf[idx + 3] = b
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION EncodeBmp() AS U8
+        LET row_stride AS U32 = RowStride24(RawW)
+        LET pixel_bytes AS U32 = row_stride * RawH
+        LET file_size AS U32 = 54 + pixel_bytes
+        LET y AS U32 = 0
+        LET x AS U32 = 0
+        LET src_row AS U32 = 0
+        LET dst_row AS U32 = 0
+        LET pad AS U32 = 0
+        LET idx AS U32 = 0
+        IF RawW = 0 OR RawH = 0 THEN RETURN 0 END IF
+        IF file_size > #ALBIMG_BUF_MAX THEN RETURN 0 END IF
+        ResetWrite()
+        PutU8($42)
+        PutU8($4D)
+        PutU32LE(file_size)
+        PutU32LE(0)
+        PutU32LE(54)
+        PutU32LE(40)
+        PutU32LE(RawW)
+        PutU32LE(RawH)
+        PutU16LE(1)
+        PutU16LE(24)
+        PutU32LE(0)
+        PutU32LE(pixel_bytes)
+        PutU32LE(0)
+        PutU32LE(0)
+        PutU32LE(0)
+        PutU32LE(0)
+        y = RawH
+        WHILE y >= 1
+            src_row = (y - 1) * RawW * 3
+            x = 1
+            WHILE x <= RawW
+                idx = src_row + ((x - 1) * 3)
+                PutU8(RawBuf[idx + 3])
+                PutU8(RawBuf[idx + 2])
+                PutU8(RawBuf[idx + 1])
+                x = x + 1
+            END WHILE
+            pad = row_stride - (RawW * 3)
+            WHILE pad > 0
+                PutU8(0)
+                pad = pad - 1
+            END WHILE
+            y = y - 1
+        END WHILE
+        ExportByteCount = WritePos
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION EncodePpm() AS U8
+        IF RawW = 0 OR RawH = 0 THEN RETURN 0 END IF
+        IF (32 + (RawW * RawH * 3)) > #ALBIMG_BUF_MAX THEN RETURN 0 END IF
+        ResetWrite()
+        WriteAscii("P6")
+        PutU8(10)
+        WriteAscii("" | RawW | " " | RawH)
+        PutU8(10)
+        WriteAscii("255")
+        PutU8(10)
+        LET i AS U32 = 1
+        LET lim AS U32 = RawW * RawH * 3
+        WHILE i <= lim
+            PutU8(RawBuf[i])
+            i = i + 1
+        END WHILE
+        ExportByteCount = WritePos
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION Pad80(txt AS STRING) AS STRING
+        LET built AS STRING = txt
+        WHILE LEN(built) < 80
+            built = built | " "
+        END WHILE
+        RETURN LEFT$(built, 80)
+    END FUNCTION
+
+    FUNCTION FitsCard(card_key AS STRING, val AS STRING, note_text AS STRING) AS STRING
+        LET card AS STRING = card_key
+        WHILE LEN(card) < 8
+            card = card | " "
+        END WHILE
+        card = card | "= " | val
+        WHILE LEN(card) < 30
+            card = card | " "
+        END WHILE
+        IF LEN(note_text) > 0 THEN
+            card = card | "/ " | note_text
+        END IF
+        RETURN Pad80(card)
+    END FUNCTION
+
+    FUNCTION EncodeFits() AS U8
+        LET cards AS STRING = ""
+        LET pos AS U32 = 1
+        LET data_bytes AS U32 = RawW * RawH
+        LET total AS U32 = #ALBIMG_FITS_HDR + data_bytes
+        LET x AS U32 = 0
+        LET y AS U32 = 0
+        LET idx AS U32 = 0
+        IF RawW = 0 OR RawH = 0 THEN RETURN 0 END IF
+        IF total > #ALBIMG_BUF_MAX THEN RETURN 0 END IF
+        ResetWrite()
+        cards = FitsCard("SIMPLE", "T", "ALB portrait export")
+        WriteAscii(cards)
+        cards = FitsCard("BITPIX", "8", "8-bit unsigned byte")
+        WriteAscii(cards)
+        cards = FitsCard("NAXIS", "2", "2D image")
+        WriteAscii(cards)
+        cards = FitsCard("NAXIS1", "" | RawW, "width")
+        WriteAscii(cards)
+        cards = FitsCard("NAXIS2", "" | RawH, "height")
+        WriteAscii(cards)
+        cards = Pad80("END")
+        WriteAscii(cards)
+        WHILE WritePos < #ALBIMG_FITS_HDR
+            PutU8(32)
+        END WHILE
+        y = 1
+        WHILE y <= RawH
+            x = 1
+            WHILE x <= RawW
+                idx = ((y - 1) * RawW * 3) + ((x - 1) * 3)
+                PutU8(GrayFromRgb(RawBuf[idx + 1], RawBuf[idx + 2], RawBuf[idx + 3]))
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+        ExportByteCount = WritePos
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION BuildPngRawScanlines() AS U32
+        LET out_len AS U32 = 0
+        LET y AS U32 = 0
+        LET x AS U32 = 0
+        LET idx AS U32 = 0
+        IF RawW = 0 OR RawH = 0 THEN RETURN 0 END IF
+        y = 1
+        WHILE y <= RawH
+            out_len = out_len + 1
+            PngScratch[out_len] = 0
+            x = 1
+            WHILE x <= RawW
+                idx = ((y - 1) * RawW * 3) + ((x - 1) * 3)
+                out_len = out_len + 1
+                PngScratch[out_len] = RawBuf[idx + 1]
+                out_len = out_len + 1
+                PngScratch[out_len] = RawBuf[idx + 2]
+                out_len = out_len + 1
+                PngScratch[out_len] = RawBuf[idx + 3]
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+        RETURN out_len
+    END FUNCTION
+
+    FUNCTION EncodePng() AS U8
+        LET raw_len AS U32 = 0
+        LET crc_start AS U32 = 0
+        LET zlib_len AS U32 = 0
+        LET adler AS U32 = 0
+        LET nlen AS U32 = 0
+        LET i AS U32 = 0
+        IF RawW = 0 OR RawH = 0 THEN RETURN 0 END IF
+        raw_len = BuildPngRawScanlines()
+        IF raw_len = 0 THEN RETURN 0 END IF
+        IF (raw_len + 256) > #ALBIMG_BUF_MAX THEN RETURN 0 END IF
+        ResetWrite()
+        PutU8(137)
+        PutU8(80)
+        PutU8(78)
+        PutU8(71)
+        PutU8(13)
+        PutU8(10)
+        PutU8(26)
+        PutU8(10)
+        crc_start = WritePos + 1
+        PutU32BE(13)
+        WriteAscii("IHDR")
+        PutU32BE(RawW)
+        PutU32BE(RawH)
+        PutU8(8)
+        PutU8(2)
+        PutU8(0)
+        PutU8(0)
+        PutU8(0)
+        PutU32BE(BufCrc32(crc_start, 17))
+        zlib_len = 0
+        i = raw_len
+        WHILE i >= 1
+            PngScratch[7 + i] = PngScratch[i]
+            i = i - 1
+        END WHILE
+        PngScratch[1] = $78
+        PngScratch[2] = $01
+        PngScratch[3] = 1
+        PngScratch[4] = CAST(raw_len MOD 256 AS U8)
+        PngScratch[5] = CAST((raw_len SHR 8) MOD 256 AS U8)
+        nlen = raw_len XOR $FFFF
+        PngScratch[6] = CAST(nlen MOD 256 AS U8)
+        PngScratch[7] = CAST((nlen SHR 8) MOD 256 AS U8)
+        zlib_len = 7 + raw_len
+        adler = Adler32Buf(8, raw_len)
+        PngScratch[zlib_len + 1] = CAST((adler SHR 24) MOD 256 AS U8)
+        PngScratch[zlib_len + 2] = CAST((adler SHR 16) MOD 256 AS U8)
+        PngScratch[zlib_len + 3] = CAST((adler SHR 8) MOD 256 AS U8)
+        PngScratch[zlib_len + 4] = CAST(adler MOD 256 AS U8)
+        zlib_len = zlib_len + 4
+        PutPngChunkFromScratch("IDAT", 1, zlib_len)
+        crc_start = WritePos + 1
+        PutU32BE(0)
+        WriteAscii("IEND")
+        PutU32BE(BufCrc32(crc_start, 4))
+        ExportByteCount = WritePos
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION ExportCanvas(handle AS U32, fmt AS U32, bg_color AS U32, path AS STRING) AS U8
+        -- 1 ok, 0 fail. bg_color is 0xRRGGBB. Requires a live CharGen handle with ink.
+        LET top AS U32 = ALBCharGen.CanvasInkTop(handle)
+        LET bot AS U32 = 0
+        LET left AS U32 = 0
+        LET right AS U32 = 0
+        LET ok AS U8 = 0
+        IF handle = 0 THEN RETURN 0 END IF
+        IF top = 0 THEN RETURN 0 END IF
+        bot = ALBCharGen.CanvasInkBottom(handle)
+        left = ALBCharGen.CanvasInkLeft(handle)
+        right = ALBCharGen.CanvasInkRight(handle)
+        CALL RasterizeCanvas(handle, bg_color, top, left, bot, right)
+        IF RawW = 0 OR RawH = 0 THEN RETURN 0 END IF
+        IF fmt = #ALBIMG_FMT_BMP THEN ok = EncodeBmp() END IF
+        IF fmt = #ALBIMG_FMT_PPM THEN ok = EncodePpm() END IF
+        IF fmt = #ALBIMG_FMT_FITS THEN ok = EncodeFits() END IF
+        IF fmt = #ALBIMG_FMT_PNG THEN ok = EncodePng() END IF
+        IF ok = 0 THEN RETURN 0 END IF
+        CALL FlushExport(path)
+        RETURN 1
+    END FUNCTION
+
+END MODULE

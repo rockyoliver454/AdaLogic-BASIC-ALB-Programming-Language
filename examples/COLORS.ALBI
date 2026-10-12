@@ -1,0 +1,156 @@
+-- ====================================================================
+-- COLORS.ALBI
+-- Named color constants for ALB UI work.
+-- Hex values are 24-bit RGB in $RRGGBB form.
+-- ====================================================================
+
+-- --------------------------------------------------------------------
+-- BASIC COLORS
+-- --------------------------------------------------------------------
+#CLR_BLACK        = $000000
+#CLR_WHITE        = $FFFFFF
+#CLR_RED          = $FF0000
+#CLR_GREEN        = $00FF00
+#CLR_BLUE         = $0000FF
+#CLR_YELLOW       = $FFFF00
+#CLR_CYAN         = $00FFFF
+#CLR_MAGENTA      = $FF00FF
+#CLR_ORANGE       = $FF8800
+#CLR_BROWN        = $8B5A2B
+#CLR_GOLD         = $D4AF37
+#CLR_PINK         = $FF88CC
+#CLR_VIOLET       = $8844FF
+#CLR_LIME         = $99FF00
+#CLR_NAVY         = $001840
+#CLR_TEAL         = $004C4C
+#CLR_OLIVE        = $666600
+#CLR_MAROON       = $550000
+
+-- --------------------------------------------------------------------
+-- GRAYSCALE
+-- --------------------------------------------------------------------
+#GRAY_00          = $000000
+#GRAY_10          = $1A1A1A
+#GRAY_20          = $333333
+#GRAY_30          = $4D4D4D
+#GRAY_40          = $666666
+#GRAY_50          = $808080
+#GRAY_60          = $999999
+#GRAY_70          = $B3B3B3
+#GRAY_80          = $CCCCCC
+#GRAY_90          = $E6E6E6
+#GRAY_100         = $FFFFFF
+
+-- --------------------------------------------------------------------
+-- IBM PC / DOS / VGA 16-COLOR STYLE
+-- --------------------------------------------------------------------
+#DOS_BLACK        = $000000
+#DOS_BLUE         = $0000AA
+#DOS_GREEN        = $00AA00
+#DOS_CYAN         = $00AAAA
+#DOS_RED          = $AA0000
+#DOS_MAGENTA      = $AA00AA
+#DOS_BROWN        = $AA5500
+#DOS_LIGHT_GRAY   = $AAAAAA
+#DOS_DARK_GRAY    = $555555
+#DOS_LIGHT_BLUE   = $5555FF
+#DOS_LIGHT_GREEN  = $55FF55
+#DOS_LIGHT_CYAN   = $55FFFF
+#DOS_LIGHT_RED    = $FF5555
+#DOS_LIGHT_MAGENTA = $FF55FF
+#DOS_YELLOW       = $FFFF55
+#DOS_WHITE        = $FFFFFF
+
+-- --------------------------------------------------------------------
+-- CGA INSPIRED COLORS
+-- --------------------------------------------------------------------
+#CGA_BLACK        = $000000
+#CGA_BLUE         = $0000AA
+#CGA_GREEN        = $00AA00
+#CGA_CYAN         = $00AAAA
+#CGA_RED          = $AA0000
+#CGA_MAGENTA      = $AA00AA
+#CGA_BROWN        = $AA5500
+#CGA_LIGHT_GRAY   = $AAAAAA
+#CGA_BRIGHT_CYAN  = $55FFFF
+#CGA_BRIGHT_MAGENTA = $FF55FF
+#CGA_BRIGHT_WHITE = $FFFFFF
+#CGA_BRIGHT_GREEN = $55FF55
+#CGA_BRIGHT_RED   = $FF5555
+#CGA_BRIGHT_YELLOW = $FFFF55
+
+-- --------------------------------------------------------------------
+-- COMMODORE 64
+-- --------------------------------------------------------------------
+#C64_BLACK        = $000000
+#C64_WHITE        = $FFFFFF
+#C64_RED          = $813338
+#C64_CYAN         = $75CEC8
+#C64_PURPLE       = $8E3C97
+#C64_GREEN        = $56AC4D
+#C64_BLUE         = $2E2C9B
+#C64_YELLOW       = $EDF171
+#C64_ORANGE       = $8E5029
+#C64_BROWN        = $553800
+#C64_LIGHT_RED    = $C46C71
+#C64_DARK_GRAY    = $4A4A4A
+#C64_MID_GRAY     = $7B7B7B
+#C64_LIGHT_GREEN  = $A9FF9F
+#C64_LIGHT_BLUE   = $706DEB
+#C64_LIGHT_GRAY   = $B2B2B2
+
+-- --------------------------------------------------------------------
+-- APPLE II INSPIRED
+-- --------------------------------------------------------------------
+#APPLE2_BLACK     = $000000
+#APPLE2_WHITE     = $F6F6F6
+#APPLE2_GREEN     = $14F53C
+#APPLE2_PURPLE    = $D05BFF
+#APPLE2_ORANGE    = $FF6A3C
+#APPLE2_BLUE      = $2F7CFF
+#APPLE2_AQUA      = $7FFFFF
+#APPLE2_PINK      = $FF96D8
+#APPLE2_GOLD      = $FFC44A
+#APPLE2_DARK_GREEN = $0A7A22
+
+-- --------------------------------------------------------------------
+-- MONITOR / TERMINAL PHOSPHOR
+-- --------------------------------------------------------------------
+#AMBER_DARK       = $1A0A00
+#AMBER_MID        = $7A3A00
+#AMBER_LIGHT      = $FFB347
+#PHOSPHOR_DARK    = $001000
+#PHOSPHOR_MID     = $007A00
+#PHOSPHOR_LIGHT   = $55FF55
+#ICE_DARK         = $061018
+#ICE_MID          = $4A6A88
+#ICE_LIGHT        = $B8E8FF
+
+-- --------------------------------------------------------------------
+-- HANGMAN DOS THEME
+-- --------------------------------------------------------------------
+#HANG_CLEAR       = $061010
+#HANG_BG          = $102020
+#HANG_GROUND      = $102A1E
+#HANG_TITLE       = $E8E8A8
+#HANG_STATUS      = $B8E8FF
+#HANG_PROMPT      = $90A8C8
+#HANG_HINT        = $6C7A88
+#HANG_BUTTON_IDLE = $243040
+#HANG_BUTTON_WIN  = $204820
+#HANG_BUTTON_LOSE = $482020
+#HANG_BUTTON_TEXT = $A0C8FF
+#HANG_BUTTON_GOOD = $78FF78
+#HANG_BUTTON_BAD  = $FF8A8A
+#HANG_WOOD        = $7A5A22
+#HANG_BONE        = $F0F0F0
+#HANG_UNDERSCORE  = $8FA8A8
+#HANG_LETTER      = $F8F8F8
+#HANG_TILE_IDLE   = $162028
+#HANG_TILE_HOVER  = $24384C
+#HANG_TILE_GOOD   = $204C28
+#HANG_TILE_BAD    = $4C2020
+#HANG_TILE_EDGE   = $5A7088
+#HANG_TILE_HILITE = $8FC8FF
+#HANG_TILE_RIGHT  = $78FF90
+#HANG_TILE_WRONG  = $FF8F8F

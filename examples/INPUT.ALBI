@@ -1,0 +1,93 @@
+-- ====================================================================
+-- INPUT.ALBI
+-- Universal Input Abstraction for AdaLogic BASIC
+-- Standardizes SDL3 Scancodes across all hardware backends.
+-- ====================================================================
+
+-- --------------------------------------------------------------------
+-- RAW KEYBOARD SCANCODES
+-- --------------------------------------------------------------------
+-- Letters
+#K_A = 4
+#K_B = 5
+#K_C = 6
+#K_D = 7
+#K_E = 8
+#K_F = 9
+#K_G = 10
+#K_H = 11
+#K_I = 12
+#K_J = 13
+#K_K = 14
+#K_L = 15
+#K_M = 16
+#K_N = 17
+#K_O = 18
+#K_P = 19
+#K_Q = 20
+#K_R = 21
+#K_S = 22
+#K_T = 23
+#K_U = 24
+#K_V = 25
+#K_W = 26
+#K_X = 27
+#K_Y = 28
+#K_Z = 29
+
+-- Numbers (Top Row)
+#K_1 = 30
+#K_2 = 31
+#K_3 = 32
+#K_4 = 33
+#K_5 = 34
+#K_6 = 35
+#K_7 = 36
+#K_8 = 37
+#K_9 = 38
+#K_0 = 39
+
+-- Control & System Keys
+#K_ENTER  = 40
+#K_ESCAPE = 41
+#K_BACKSPACE = 42
+#K_TAB = 43
+#K_SPACE  = 44
+#K_MINUS = 45
+#K_EQUAL = 46
+#K_LEFTBRACKET = 47
+#K_RIGHTBRACKET = 48
+#K_BACKSLASH = 49
+#K_SEMICOLON = 51
+#K_APOSTROPHE = 52
+#K_GRAVE = 53
+#K_COMMA = 54
+#K_PERIOD = 55
+#K_SLASH = 56
+#K_LSHIFT = 225
+#K_LCTRL  = 224
+#K_LALT   = 226
+#K_RSHIFT = 229
+#K_RCTRL  = 228
+#K_RALT   = 230
+
+-- Directional Arrows
+#K_RIGHT = 79
+#K_LEFT  = 80
+#K_DOWN  = 81
+#K_UP    = 82
+
+-- --------------------------------------------------------------------
+-- VIRTUAL CONTROLLER MAPPING (PLAYER 1)
+-- Maps raw keys to semantic game actions for pure DOD logic.
+-- --------------------------------------------------------------------
+#BTN_UP    = 26   -- W
+#BTN_DOWN  = 22   -- S
+#BTN_LEFT  = 4    -- A
+#BTN_RIGHT = 7    -- D
+#BTN_A     = 44   -- Space (Accept/Jump)
+#BTN_B     = 225  -- LShift (Cancel/Run)
+#BTN_X     = 10   -- G (Action 1 / Shift Gear)
+#BTN_Y     = 9    -- F (Action 2)
+#BTN_START = 40   -- Enter
+#BTN_SELECT= 41   -- Escape

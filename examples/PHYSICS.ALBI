@@ -1,0 +1,67 @@
+-- ====================================================================
+-- PHYSICS.ALBI
+-- Shared 2D platformer physics helpers for ALB projects.
+-- Keeps movement math deterministic and backend-friendly.
+-- ====================================================================
+
+#PHYS_PLAYER_W           = 16
+#PHYS_PLAYER_H           = 16
+#PHYS_ENEMY_W            = 16
+#PHYS_ENEMY_H            = 16
+#PHYS_GOLD_W             = 16
+#PHYS_GOLD_H             = 16
+#PHYS_MAX_FALL_SPEED     = 6
+#PHYS_HIT_INVULN_TICKS   = 50
+#PHYS_HIT_PUSH_DISTANCE  = 18
+#PHYS_HIT_PUSH_SPEED     = 3
+#PHYS_HIT_LAUNCH_POWER   = 5
+
+FUNCTION PHYS_APPLY_GRAVITY(vel_y AS PURE, gravity AS PURE, terminal AS PURE) AS PURE
+    LET next_vel AS PURE = PURE_ADD(vel_y, gravity)
+    IF PURE_NUM(next_vel) > PURE_NUM(terminal) THEN
+        RETURN terminal
+    END IF
+    RETURN next_vel
+END FUNCTION
+
+FUNCTION PHYS_JUMP_IMPULSE(power AS PURE) AS PURE
+    RETURN PURE_SUB(PURE(0, 1), power)
+END FUNCTION
+
+FUNCTION PHYS_AABB(ax AS PURE, ay AS PURE, aw AS S32, ah AS S32, bx AS PURE, by AS PURE, bw AS S32, bh AS S32) AS BOOL
+    RETURN COLLIDE_RECT(PURE_NUM(ax), PURE_NUM(ay), aw, ah, PURE_NUM(bx), PURE_NUM(by), bw, bh)
+END FUNCTION
+
+FUNCTION PHYS_CLAMP_LEFT(pos AS PURE, min_value AS PURE) AS PURE
+    IF PURE_NUM(pos) < PURE_NUM(min_value) THEN
+        RETURN min_value
+    END IF
+    RETURN pos
+END FUNCTION
+
+FUNCTION PHYS_PUSH_AWAY(pos AS PURE, source_pos AS PURE, force AS PURE) AS PURE
+    IF PURE_NUM(pos) >= PURE_NUM(source_pos) THEN
+        RETURN PURE_ADD(pos, force)
+    END IF
+    RETURN PURE_SUB(pos, force)
+END FUNCTION
+
+FUNCTION PHYS_KNOCKBACK_VX(pos AS PURE, source_pos AS PURE, force AS PURE) AS PURE
+    IF PURE_NUM(pos) >= PURE_NUM(source_pos) THEN
+        RETURN force
+    END IF
+    RETURN PURE_SUB(PURE(0, 1), force)
+END FUNCTION
+
+FUNCTION PHYS_DRAW_X(world_x AS PURE, cam_x AS PURE) AS PURE
+    RETURN PURE_SUB(world_x, cam_x)
+END FUNCTION
+
+FUNCTION PHYS_VISIBLE_X(world_x AS PURE, cam_x AS PURE, width AS PURE, screen_w AS S32) AS BOOL
+    LET draw_x AS PURE = PHYS_DRAW_X(world_x, cam_x)
+    LET neg_w AS PURE = PURE_SUB(PURE(0, 1), width)
+    IF PURE_NUM(draw_x) > PURE_NUM(neg_w) AND PURE_NUM(draw_x) < screen_w THEN
+        RETURN TRUE
+    END IF
+    RETURN FALSE
+END FUNCTION

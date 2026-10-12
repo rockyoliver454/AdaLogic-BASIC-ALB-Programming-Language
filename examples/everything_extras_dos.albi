@@ -1,0 +1,36 @@
+-- ====================================================================
+-- EVERYTHING_EXTRAS_DOS.ALBI
+-- Interface-side coverage for DECLARE MODULE and shared declarations.
+-- DOS-safe twin for FASM16.
+-- ====================================================================
+
+TYPE GaugeRange IS U16 RANGE 0 .. 1024
+
+STRUCT ExtraVec2
+    x AS S32
+    y AS S32
+END STRUCT
+
+STRUCT ExtraPacked
+    id AS U16
+    flags AS U8
+END STRUCT
+
+ENUM ExtraMode
+    ExtraIdle,
+    ExtraTicking,
+    ExtraPainting,
+    ExtraDone
+END ENUM
+
+DECLARE MODULE EverythingExtras BEGIN
+    PROCEDURE ResetHarness()
+    PROCEDURE RenderOverlay(IN px AS S32, IN py AS S32, IN label_text AS STRING)
+    PROCEDURE TouchTemporal(IN base AS S32, OUT ready AS BOOL)
+    PROCEDURE SafeMessage(IN title_text AS STRING, IN body_text AS STRING)
+    PROCEDURE InteractiveCoverage()
+    PROCEDURE UnsafeMemoryCoverage(IN addr AS U32)
+    FUNCTION AddPair(x AS U32, y AS U32) AS U32
+    FUNCTION Banner() AS STRING
+    FUNCTION ClampTiny(value AS S32) AS S32
+END DECLARE MODULE

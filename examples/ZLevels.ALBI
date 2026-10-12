@@ -1,0 +1,67 @@
+-- ====================================================================
+-- ZLEVELS.ALBI
+-- Level slice and camera culling logic
+-- ====================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ZLevels
+    FUNCTION GetPlayerZ() AS S32
+    PROCEDURE SetPlayerZ(level AS S32)
+    
+    FUNCTION GetViewZ() AS S32
+    PROCEDURE SetViewZ(level AS S32)
+    
+    PROCEDURE ShiftViewUp()
+    PROCEDURE ShiftViewDown()
+    
+    FUNCTION GetVisibility(obj_z AS S32) AS S32
+END DECLARE MODULE
+
+MODULE ZLevels
+
+    LET cur_player_z AS S32 = 0
+    LET cur_view_z AS S32 = 0
+
+    FUNCTION GetPlayerZ() AS S32
+        RETURN cur_player_z
+    END FUNCTION
+
+    PROCEDURE SetPlayerZ(level AS S32)
+        cur_player_z = level
+    END PROCEDURE
+
+    FUNCTION GetViewZ() AS S32
+        RETURN cur_view_z
+    END FUNCTION
+
+    PROCEDURE SetViewZ(level AS S32)
+        cur_view_z = level
+    END PROCEDURE
+
+    PROCEDURE ShiftViewUp()
+        IF cur_view_z < 127 THEN
+            cur_view_z = cur_view_z + 1
+        END IF
+    END PROCEDURE
+
+    PROCEDURE ShiftViewDown()
+        IF cur_view_z > -128 THEN
+            cur_view_z = cur_view_z - 1
+        END IF
+    END PROCEDURE
+
+    FUNCTION GetVisibility(obj_z AS S32) AS S32
+        -- Visibility_State: 0=Hidden, 1=Translucent, 2=Opaque
+        IF obj_z > cur_view_z THEN
+            RETURN 0
+        END IF
+        
+        IF obj_z = cur_view_z THEN
+            RETURN 2
+        END IF
+        
+        RETURN 1
+    END FUNCTION
+
+END MODULE

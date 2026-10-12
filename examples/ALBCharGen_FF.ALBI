@@ -1,0 +1,395 @@
+-- FleshForge-compatible 48x48 procedural portrait (ff_portraits.c / ff_character_editor.c)
+
+#FF_MAT_SKIN   = 2
+#FF_MAT_HAIR   = 3
+#FF_MAT_BEARD  = 4
+#FF_MAT_CLOTH1 = 5
+#FF_MAT_CLOTH2 = 6
+#FF_MAT_EYE    = 7
+#FF_MAT_ACCENT = 8
+#FF_ARCH_PIRATE = 1
+
+FUNCTION FFNaturalSkin(idx AS U32) AS U32
+    IF idx = 0 THEN RETURN $FFDCB1 END IF
+    IF idx = 1 THEN RETURN $E5C298 END IF
+    IF idx = 2 THEN RETURN $E4B98E END IF
+    IF idx = 3 THEN RETURN $E3A173 END IF
+    IF idx = 4 THEN RETURN $D99164 END IF
+    IF idx = 5 THEN RETURN $CC8443 END IF
+    IF idx = 6 THEN RETURN $AD6452 END IF
+    IF idx = 7 THEN RETURN $8D5524 END IF
+    IF idx = 8 THEN RETURN $763C28 END IF
+    RETURN $4A2E1E
+END FUNCTION
+
+FUNCTION FFNaturalHair(idx AS U32) AS U32
+    IF idx = 0 THEN RETURN $141414 END IF
+    IF idx = 1 THEN RETURN $32281E END IF
+    IF idx = 2 THEN RETURN $5A3C28 END IF
+    IF idx = 3 THEN RETURN $A56B46 END IF
+    IF idx = 4 THEN RETURN $DCD0BA END IF
+    IF idx = 5 THEN RETURN $8D4A43 END IF
+    RETURN $969696
+END FUNCTION
+
+FUNCTION FFNaturalBeard(hair_idx AS U32) AS U32
+    LET c AS U32 = FFNaturalHair(hair_idx)
+    LET r AS U32 = (c / $10000) MOD $100
+    LET g AS U32 = (c / $100) MOD $100
+    LET b AS U32 = c MOD $100
+    r = (r * 85) / 100
+    g = (g * 85) / 100
+    b = (b * 85) / 100
+    RETURN (r * $10000) + (g * $100) + b
+END FUNCTION
+
+FUNCTION FFNaturalCloth(idx AS U32) AS U32
+    IF idx = 0 THEN RETURN $50463C END IF
+    IF idx = 1 THEN RETURN $786E64 END IF
+    IF idx = 2 THEN RETURN $323C28 END IF
+    IF idx = 3 THEN RETURN $A09682 END IF
+    IF idx = 4 THEN RETURN $5A3228 END IF
+    IF idx = 5 THEN RETURN $282832 END IF
+    RETURN $C8BEB4
+END FUNCTION
+
+FUNCTION FFNaturalAccent(idx AS U32) AS U32
+    IF idx = 0 THEN RETURN $8C2828 END IF
+    IF idx = 1 THEN RETURN $283C78 END IF
+    IF idx = 2 THEN RETURN $C8AA32 END IF
+    IF idx = 3 THEN RETURN $3C643C END IF
+    IF idx = 4 THEN RETURN $642850 END IF
+    RETURN $DCDCDC
+END FUNCTION
+
+FUNCTION FFSolveMaterial(mat AS U32, skin_i AS U32, hair_i AS U32, cloth1_i AS U32, cloth2_i AS U32, extra_i AS U32) AS U32
+    IF mat = #FF_MAT_SKIN THEN RETURN FFNaturalSkin(skin_i) END IF
+    IF mat = #FF_MAT_HAIR THEN RETURN FFNaturalHair(hair_i) END IF
+    IF mat = #FF_MAT_BEARD THEN RETURN FFNaturalBeard(hair_i) END IF
+    IF mat = #FF_MAT_CLOTH1 THEN RETURN FFNaturalCloth(cloth1_i) END IF
+    IF mat = #FF_MAT_CLOTH2 THEN RETURN FFNaturalCloth(cloth2_i) END IF
+    IF mat = #FF_MAT_EYE THEN RETURN $E6E6F0 END IF
+    IF mat = #FF_MAT_ACCENT THEN RETURN FFNaturalAccent(extra_i) END IF
+    RETURN $FF00FF
+END FUNCTION
+
+FUNCTION FFPortraitVariantMax(slot AS U32) AS U32
+    IF slot = #CG_HEAD THEN RETURN 10 END IF
+    IF slot = #CG_HAIR THEN RETURN 10 END IF
+    IF slot = #CG_BEARD THEN RETURN 7 END IF
+    IF slot = #CG_CLOTH THEN RETURN 6 END IF
+    IF slot = #CG_CHIN THEN RETURN 3 END IF
+    IF slot = #CG_BACK THEN RETURN 4 END IF
+    IF slot = #CG_BROWS THEN RETURN 7 END IF
+    IF slot = #CG_EYES THEN RETURN 7 END IF
+    IF slot = #CG_LIPS THEN RETURN 7 END IF
+    IF slot = #CG_DECO1 THEN RETURN 6 END IF
+    RETURN 1
+END FUNCTION
+
+FUNCTION FFPortraitSlotName(slot AS U32) AS STRING
+    IF slot = #CG_HEAD THEN RETURN "Skin" END IF
+    IF slot = #CG_HAIR THEN RETURN "Hair" END IF
+    IF slot = #CG_BEARD THEN RETURN "Beard" END IF
+    IF slot = #CG_CLOTH THEN RETURN "Top" END IF
+    IF slot = #CG_CHIN THEN RETURN "Body" END IF
+    IF slot = #CG_BACK THEN RETURN "Arch" END IF
+    IF slot = #CG_BROWS THEN RETURN "H.Col" END IF
+    IF slot = #CG_EYES THEN RETURN "C1.Col" END IF
+    IF slot = #CG_LIPS THEN RETURN "C2.Col" END IF
+    IF slot = #CG_DECO1 THEN RETURN "Acc" END IF
+    IF slot = #CG_NECK THEN RETURN "Neck" END IF
+    IF slot = #CG_NOSE THEN RETURN "Nose" END IF
+    IF slot = #CG_EARS THEN RETURN "Ears" END IF
+    IF slot = #CG_GLASS THEN RETURN "Glass" END IF
+    IF slot = #CG_DECO2 THEN RETURN "Deco" END IF
+    RETURN "Part"
+END FUNCTION
+
+PROCEDURE DocApplyFFPaletteColors()
+    LET skin_i AS U32 = DocGetVariant(#CG_HEAD) - 1
+    LET hair_i AS U32 = DocGetVariant(#CG_BROWS) - 1
+    LET cloth1_i AS U32 = DocGetVariant(#CG_EYES) - 1
+    LET cloth2_i AS U32 = DocGetVariant(#CG_LIPS) - 1
+    LET extra_i AS U32 = DocGetVariant(#CG_DECO1) - 1
+    IF skin_i > 9 THEN skin_i = 9 END IF
+    IF hair_i > 6 THEN hair_i = 6 END IF
+    IF cloth1_i > 6 THEN cloth1_i = 6 END IF
+    IF cloth2_i > 6 THEN cloth2_i = 6 END IF
+    IF extra_i > 5 THEN extra_i = 5 END IF
+    CALL DocSetColor(#CG_HEAD, FFNaturalSkin(skin_i))
+    CALL DocSetColor(#CG_EARS, FFNaturalSkin(skin_i))
+    CALL DocSetColor(#CG_NECK, FFNaturalSkin(skin_i))
+    CALL DocSetColor(#CG_CHIN, FFNaturalSkin(skin_i))
+    CALL DocSetColor(#CG_NOSE, FFNaturalSkin(skin_i))
+    CALL DocSetColor(#CG_LIPS, FFNaturalSkin(skin_i))
+    CALL DocSetColor(#CG_HAIR, FFNaturalHair(hair_i))
+    CALL DocSetColor(#CG_BEARD, FFNaturalBeard(hair_i))
+    CALL DocSetColor(#CG_BROWS, FFNaturalHair(hair_i))
+    CALL DocSetColor(#CG_CLOTH, FFNaturalCloth(cloth1_i))
+    CALL DocSetColor(#CG_BACK, FFNaturalCloth(cloth1_i))
+    CALL DocSetColor(#CG_DECO2, FFNaturalCloth(cloth2_i))
+    CALL DocSetColor(#CG_DECO1, FFNaturalAccent(extra_i))
+    CALL DocSetColor(#CG_GLASS, FFNaturalAccent(extra_i))
+    CALL DocSetColor(#CG_EYES, $E6E6F0)
+END PROCEDURE
+
+PROCEDURE FFPortraitPut(handle AS U32, px AS S32, py AS S32, mat AS U32, skin_i AS U32, hair_i AS U32, cloth1_i AS U32, cloth2_i AS U32, extra_i AS U32)
+    LET col AS U32 = 0
+    IF px < 0 OR py < 0 THEN RETURN END IF
+    IF px >= 48 OR py >= 48 THEN RETURN END IF
+    col = FFSolveMaterial(mat, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL CanvasSetInk(handle, CAST(px + 1 AS U32), CAST(py + 1 AS U32), #CG_PIXEL_INK, col)
+END PROCEDURE
+
+PROCEDURE FFPortraitSpan(handle AS U32, x0 AS S32, x1 AS S32, py AS S32, mat AS U32, skin_i AS U32, hair_i AS U32, cloth1_i AS U32, cloth2_i AS U32, extra_i AS U32)
+    LET x AS S32 = 0
+    LET tx0 AS S32 = x0
+    LET tx1 AS S32 = x1
+    IF tx0 > tx1 THEN
+        x = tx0
+        tx0 = tx1
+        tx1 = x
+    END IF
+    IF py < 0 OR py >= 48 THEN RETURN END IF
+    IF tx1 < 0 OR tx0 >= 48 THEN RETURN END IF
+    IF tx0 < 0 THEN tx0 = 0 END IF
+    IF tx1 >= 48 THEN tx1 = 47 END IF
+    x = tx0
+    WHILE x <= tx1
+        CALL FFPortraitPut(handle, x, py, mat, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+        x = x + 1
+    END WHILE
+END PROCEDURE
+
+PROCEDURE FFPortraitCircleFill(handle AS U32, cx AS S32, cy AS S32, rx AS S32, ry AS S32, mat AS U32, skin_i AS U32, hair_i AS U32, cloth1_i AS U32, cloth2_i AS U32, extra_i AS U32)
+    LET y AS S32 = 0
+    LET x AS S32 = 0
+    LET test AS S32 = 0
+    IF rx <= 0 OR ry <= 0 THEN RETURN END IF
+    y = 0 - ry
+    WHILE y <= ry
+        x = 0 - rx
+        WHILE x <= rx
+            test = ((x * x * 100) / (rx * rx)) + ((y * y * 100) / (ry * ry))
+            IF test <= 100 THEN
+                CALL FFPortraitPut(handle, cx + x, cy + y, mat, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+            END IF
+            x = x + 1
+        END WHILE
+        y = y + 1
+    END WHILE
+END PROCEDURE
+
+PROCEDURE FFGeneratePortrait(handle AS U32)
+    LET skin_i AS U32 = DocGetVariant(#CG_HEAD) - 1
+    LET hair_style AS U32 = DocGetVariant(#CG_HAIR) - 1
+    LET beard_style AS U32 = DocGetVariant(#CG_BEARD) - 1
+    LET top_style AS U32 = DocGetVariant(#CG_CLOTH) - 1
+    LET body_type AS U32 = DocGetVariant(#CG_CHIN) - 1
+    LET archetype AS U32 = DocGetVariant(#CG_BACK) - 1
+    LET hair_i AS U32 = DocGetVariant(#CG_BROWS) - 1
+    LET cloth1_i AS U32 = DocGetVariant(#CG_EYES) - 1
+    LET cloth2_i AS U32 = DocGetVariant(#CG_LIPS) - 1
+    LET extra_i AS U32 = DocGetVariant(#CG_DECO1) - 1
+    LET cx AS S32 = 24
+    LET cy AS S32 = 20
+    LET hr AS S32 = 9
+    LET hs AS U32 = hair_style
+    LET bs AS U32 = beard_style
+    LET sy AS S32 = 0
+    LET sw AS S32 = 14
+    LET chin_y AS S32 = 0
+    LET y AS S32 = 0
+    LET ey AS S32 = 0
+    LET ex AS S32 = 4
+    LET my AS S32 = 0
+    LET by AS S32 = 0
+    LET brx AS S32 = 0
+    LET bry AS S32 = 0
+    LET hy AS S32 = 0
+    LET back_len AS S32 = 0
+    LET earY0 AS S32 = 0
+    LET earY1 AS S32 = 0
+    LET ear_x_l AS S32 = 0
+    LET ear_x_r AS S32 = 0
+    LET mat_line AS U32 = #FF_MAT_ACCENT
+    LET mat_white AS U32 = #FF_MAT_EYE
+    LET mat_pupil AS U32 = #FF_MAT_ACCENT
+
+    IF skin_i > 9 THEN skin_i = 9 END IF
+    IF hair_style > 9 THEN hs = 9 END IF
+    IF beard_style > 6 THEN bs = 6 END IF
+    IF top_style > 5 THEN top_style = 5 END IF
+    IF body_type > 2 THEN body_type = 2 END IF
+    IF archetype > 3 THEN archetype = 3 END IF
+    IF hair_i > 6 THEN hair_i = 6 END IF
+    IF cloth1_i > 6 THEN cloth1_i = 6 END IF
+    IF cloth2_i > 6 THEN cloth2_i = 6 END IF
+    IF extra_i > 5 THEN extra_i = 5 END IF
+
+    CALL CanvasClear(handle, 32)
+    IF body_type = 2 THEN hr = hr + 1 END IF
+    IF archetype = 0 THEN cy = cy + 2 END IF
+
+    IF hs = 3 OR hs = 6 OR hs = 8 THEN
+        back_len = 18
+        IF hs = 6 THEN back_len = 12 END IF
+        CALL FFPortraitCircleFill(handle, cx, cy + 4, hr + 2, hr + (back_len / 2), #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+        IF hs = 6 THEN
+            CALL FFPortraitCircleFill(handle, cx, cy + hr + 8, 5, 7, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+        END IF
+    END IF
+
+    sy = cy + hr + 4
+    IF top_style = 0 THEN
+        CALL FFPortraitCircleFill(handle, cx, sy + 8, sw, 8, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    ELSE
+        CALL FFPortraitCircleFill(handle, cx, sy + 8, sw, 8, #FF_MAT_CLOTH1, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+        IF top_style = 1 THEN
+            CALL FFPortraitSpan(handle, cx - 6, cx + 6, sy, #FF_MAT_CLOTH1, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+            CALL FFPortraitSpan(handle, cx - 7, cx + 7, sy + 1, #FF_MAT_CLOTH1, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+        ELSE
+            IF top_style = 2 THEN
+                CALL FFPortraitSpan(handle, cx - 2, cx + 2, sy + 2, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+            END IF
+        END IF
+    END IF
+
+    CALL FFPortraitSpan(handle, cx - 3, cx + 3, cy + hr, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitSpan(handle, cx - 3, cx + 3, cy + hr + 1, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitSpan(handle, cx - 4, cx + 4, cy + hr + 2, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+
+    chin_y = cy + hr + 1
+    IF body_type = 2 THEN chin_y = chin_y + 1 END IF
+    CALL FFPortraitCircleFill(handle, cx, cy, hr, hr, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    y = cy + 1
+    WHILE y < chin_y
+        CALL FFPortraitSpan(handle, cx - hr + 1, cx + hr - 1, y, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+        y = y + 1
+    END WHILE
+    CALL FFPortraitSpan(handle, cx - hr + 2, cx + hr - 2, chin_y, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitSpan(handle, cx - hr + 4, cx + hr - 4, chin_y + 1, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+
+    ey = cy + 1
+    earY0 = ey - 1
+    earY1 = ey + 2
+    ear_x_l = cx - hr - 1
+    ear_x_r = cx + hr + 1
+    y = earY0
+    WHILE y <= earY1
+        CALL FFPortraitPut(handle, ear_x_l, y, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+        CALL FFPortraitPut(handle, ear_x_r, y, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+        y = y + 1
+    END WHILE
+    CALL FFPortraitPut(handle, ear_x_l + 1, ey, mat_line, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitPut(handle, ear_x_r - 1, ey, mat_line, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+
+    CALL FFPortraitSpan(handle, cx - ex - 1, cx - ex + 1, ey, mat_white, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitSpan(handle, cx + ex - 1, cx + ex + 1, ey, mat_white, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitPut(handle, cx - ex, ey + 1, mat_white, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitPut(handle, cx + ex, ey + 1, mat_white, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitPut(handle, cx - ex, ey, mat_pupil, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitPut(handle, cx + ex, ey, mat_pupil, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitSpan(handle, cx - ex - 2, cx - ex + 2, ey - 2, mat_line, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitSpan(handle, cx + ex - 2, cx + ex + 2, ey - 2, mat_line, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitPut(handle, cx, cy + 3, mat_line, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitPut(handle, cx - 1, cy + 4, mat_line, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitPut(handle, cx + 1, cy + 4, mat_line, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+
+    my = cy + 8
+    CALL FFPortraitSpan(handle, cx - 2, cx + 2, my, mat_line, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitPut(handle, cx - 3, my, mat_line, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    CALL FFPortraitPut(handle, cx + 3, my, mat_line, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    IF body_type = 0 THEN
+        CALL FFPortraitPut(handle, cx, my + 1, mat_line, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    END IF
+
+    IF bs > 0 THEN
+        by = cy + hr - 1
+        IF bs = 1 THEN
+            CALL FFPortraitSpan(handle, cx - 4, cx + 4, by, #FF_MAT_BEARD, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+            CALL FFPortraitSpan(handle, cx - 3, cx + 3, by + 1, #FF_MAT_BEARD, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+        ELSE
+            IF bs = 2 THEN
+                CALL FFPortraitCircleFill(handle, cx, by + 2, 3, 4, #FF_MAT_BEARD, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                CALL FFPortraitSpan(handle, cx - 2, cx + 2, my, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                CALL FFPortraitSpan(handle, cx - 2, cx + 2, my + 1, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                CALL FFPortraitSpan(handle, cx - 2, cx + 2, my, mat_line, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+            ELSE
+                brx = hr - 2
+                IF hr <= 2 THEN brx = hr END IF
+                bry = 5
+                CALL FFPortraitCircleFill(handle, cx, by + 4, brx, bry, #FF_MAT_BEARD, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                CALL FFPortraitSpan(handle, cx - 3, cx + 3, my - 1, #FF_MAT_BEARD, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                CALL FFPortraitSpan(handle, cx - 2, cx + 2, my, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                CALL FFPortraitSpan(handle, cx - 2, cx + 2, my + 1, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                CALL FFPortraitSpan(handle, cx - 2, cx + 2, my, mat_line, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                IF bs = 4 THEN
+                    CALL FFPortraitSpan(handle, cx - 2, cx + 2, by + 5, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                    CALL FFPortraitSpan(handle, cx - 1, cx + 1, by + 6, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                END IF
+                IF bs = 6 THEN
+                    CALL FFPortraitPut(handle, cx - 2, by + 8, #FF_MAT_BEARD, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                    CALL FFPortraitPut(handle, cx + 2, by + 8, #FF_MAT_BEARD, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                END IF
+            END IF
+        END IF
+    END IF
+
+    IF hs = 0 THEN
+        LET hy = 0
+    ELSE
+        IF hs = 7 THEN
+            LET hy = 0
+        ELSE
+        hy = cy - 6
+        IF hs = 1 THEN
+            CALL FFPortraitCircleFill(handle, cx, hy, hr + 1, 3, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+        ELSE
+            IF hs = 2 THEN
+                CALL FFPortraitCircleFill(handle, cx, hy, hr + 2, 5, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                CALL FFPortraitPut(handle, cx - 1, cy - 1, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                CALL FFPortraitPut(handle, cx + 1, cy - 2, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+            ELSE
+                IF hs = 4 THEN
+                    CALL FFPortraitSpan(handle, cx - 2, cx + 2, hy - 6, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                    CALL FFPortraitSpan(handle, cx - 2, cx + 2, hy - 3, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                    CALL FFPortraitSpan(handle, cx - 2, cx + 2, hy, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                ELSE
+                    IF hs = 5 THEN
+                        CALL FFPortraitCircleFill(handle, cx, cy - 3, hr + 3, hr + 2, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                    ELSE
+                        IF hs = 6 THEN
+                            CALL FFPortraitCircleFill(handle, cx, hy, hr + 1, 4, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                        ELSE
+                            IF hs = 8 THEN
+                                CALL FFPortraitCircleFill(handle, cx, hy, hr + 1, 4, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                                CALL FFPortraitPut(handle, cx, hy + 1, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                                CALL FFPortraitPut(handle, cx, hy + 2, #FF_MAT_SKIN, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                                CALL FFPortraitSpan(handle, cx - hr - 1, cx - hr + 1, cy + 1, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                                CALL FFPortraitSpan(handle, cx + hr - 1, cx + hr + 1, cy + 1, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                            ELSE
+                                IF hs = 9 THEN
+                                    CALL FFPortraitCircleFill(handle, cx, hy + 1, hr, 3, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                                    CALL FFPortraitCircleFill(handle, cx, hy - 5, 3, 3, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                                    CALL FFPortraitPut(handle, cx, hy - 3, #FF_MAT_ACCENT, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                                ELSE
+                                    CALL FFPortraitCircleFill(handle, cx, hy, hr + 1, 4, #FF_MAT_HAIR, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+                                END IF
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+        END IF
+        END IF
+    END IF
+
+    IF archetype = #FF_ARCH_PIRATE AND hs > 6 THEN
+        CALL FFPortraitSpan(handle, cx - hr - 1, cx + hr + 1, cy - 3, #FF_MAT_ACCENT, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+        CALL FFPortraitSpan(handle, cx - hr - 1, cx + hr + 1, cy - 4, #FF_MAT_ACCENT, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+        CALL FFPortraitSpan(handle, cx - hr - 1, cx + hr + 1, cy - 5, #FF_MAT_ACCENT, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+        CALL FFPortraitPut(handle, cx + hr + 2, cy - 3, #FF_MAT_ACCENT, skin_i, hair_i, cloth1_i, cloth2_i, extra_i)
+    END IF
+END PROCEDURE

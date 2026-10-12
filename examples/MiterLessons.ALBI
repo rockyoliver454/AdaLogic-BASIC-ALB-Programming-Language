@@ -1,0 +1,103 @@
+-- ====================================================================
+-- MITERLESSONS.ALBI
+-- Expansion module for the VHS Player system.
+-- Stores ghost positions, subtitles, and temporal metadata.
+-- ====================================================================
+
+VERSION 1.0
+
+INCLUDE "ALBMATH_PURE.ALBI"
+IMPORT ALBMathPure
+
+DECLARE MODULE MiterLessons
+    FUNCTION GetCount() AS U64
+    FUNCTION GetTargetFraction(id AS U64) AS PURE
+    FUNCTION GetTitle(id AS U64) AS STRING
+    FUNCTION GetMaxFrames(id AS U64) AS S32
+    FUNCTION GetSawPos(id AS U64, frame AS S32) AS S32
+    FUNCTION GetSubtitle(id AS U64, frame AS S32) AS STRING
+END DECLARE MODULE
+
+MODULE MiterLessons
+
+    FUNCTION GetCount() AS U64
+        RETURN 4
+    END FUNCTION
+
+    FUNCTION GetTargetFraction(id AS U64) AS PURE
+        IF id = 1 THEN RETURN PURE(1, 4) END IF
+        IF id = 2 THEN RETURN PURE(2, 4) END IF
+        IF id = 3 THEN RETURN PURE(3, 4) END IF
+        IF id = 4 THEN RETURN PURE(4, 4) END IF
+        RETURN PURE(1, 1)
+    END FUNCTION
+
+    -- FIXED: Using strictly static string returns instead of illegal concatenation
+    FUNCTION GetTitle(id AS U64) AS STRING
+        IF id = 1 THEN RETURN "LESSON 01: 1/4 CUT (24 INCHES)" END IF
+        IF id = 2 THEN RETURN "LESSON 02: 2/4 CUT (48 INCHES)" END IF
+        IF id = 3 THEN RETURN "LESSON 03: 3/4 CUT (72 INCHES)" END IF
+        IF id = 4 THEN RETURN "LESSON 04: 4/4 CUT (96 INCHES)" END IF
+        RETURN "UNKNOWN LESSON"
+    END FUNCTION
+
+    FUNCTION GetMaxFrames(id AS U64) AS S32
+        RETURN 600
+    END FUNCTION
+
+    FUNCTION GetSawPos(id AS U64, frame AS S32) AS S32
+        LET pos AS S32 = 1536 
+        LET target_pos AS S32 = 1536
+        
+        IF id = 1 THEN target_pos = 384 END IF   -- 24 inches
+        IF id = 2 THEN target_pos = 768 END IF   -- 48 inches
+        IF id = 3 THEN target_pos = 1152 END IF  -- 72 inches
+        IF id = 4 THEN target_pos = 1536 END IF  -- 96 inches
+
+        LET travel AS S32 = 1536 - target_pos
+
+        IF frame > 150 AND frame <= 300 THEN 
+            pos = 1536 - (((frame - 150) * travel) / 150)
+        END IF
+        
+        IF frame > 300 THEN 
+            pos = target_pos 
+        END IF
+
+        RETURN pos
+    END FUNCTION
+
+    -- FIXED: Static string branches to avoid parser breaches
+    FUNCTION GetSubtitle(id AS U64, frame AS S32) AS STRING
+        IF id = 1 THEN
+            IF frame < 150 THEN RETURN "Welcome! Let's make a 1/4 cut." END IF
+            IF frame < 300 THEN RETURN "Moving the blade to the 24-inch mark." END IF
+            IF frame < 450 THEN RETURN "Perfectly aligned at 24 inches (1/4)." END IF
+            RETURN "Plunge the blade to complete the 1/4 cut."
+        END IF
+        
+        IF id = 2 THEN
+            IF frame < 150 THEN RETURN "Welcome! Let's make a 2/4 cut." END IF
+            IF frame < 300 THEN RETURN "Moving the blade to the 48-inch mark." END IF
+            IF frame < 450 THEN RETURN "Perfectly aligned at 48 inches (2/4)." END IF
+            RETURN "Plunge the blade to complete the 2/4 cut."
+        END IF
+
+        IF id = 3 THEN
+            IF frame < 150 THEN RETURN "Welcome! Let's make a 3/4 cut." END IF
+            IF frame < 300 THEN RETURN "Moving the blade to the 72-inch mark." END IF
+            IF frame < 450 THEN RETURN "Perfectly aligned at 72 inches (3/4)." END IF
+            RETURN "Plunge the blade to complete the 3/4 cut."
+        END IF
+
+        IF id = 4 THEN
+            IF frame < 150 THEN RETURN "Welcome! Let's make a 4/4 cut." END IF
+            IF frame < 300 THEN RETURN "Moving the blade to the 96-inch mark." END IF
+            IF frame < 450 THEN RETURN "Perfectly aligned at 96 inches (4/4)." END IF
+            RETURN "Plunge the blade to complete the 4/4 cut."
+        END IF
+
+        RETURN ""
+    END FUNCTION
+
+END MODULE

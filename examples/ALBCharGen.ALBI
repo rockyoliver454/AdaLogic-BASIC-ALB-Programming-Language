@@ -1,0 +1,2799 @@
+-- ============================================================================
+-- ALBCharGen.ALBI — bounded ASCII / pixel canvas compositor
+-- ============================================================================
+-- From release\examples\:
+--   INCLUDE "../stdlib/lang/ALBCharGen.ALBI"
+--
+-- Raise #ALBCG_MAX_* before INCLUDE if you need more canvases or a
+-- larger grid (defaults: 4 canvases, 64×64, 16384 cells).
+--
+-- CanvasCreate returns a 1-based handle (0 = failed / full). Destroy
+-- before reuse. Cells are 1-based: (x,y) with x in 1..W, y in 1..H.
+--
+-- #CG_STYLE_ASCII vs #CG_STYLE_PIXEL. Slot IDs #CG_HEAD .. #CG_GLASS
+-- select portrait layers. Era / gender / biome constants pick packs.
+--
+-- RngMix / RngBump / RngRoll are self-contained (no platform random).
+-- AND / XOR here are bitwise. | concatenates strings (PRINT a glyph
+-- row with | if you build a STRING yourself).
+--
+-- Export the canvas with ALBImageExport.ALBI (PNG/BMP/PPM/FITS).
+-- ============================================================================
+
+VERSION 0.0.0.1
+
+#ALBCG_MAX_CANVASES = 4
+#ALBCG_MAX_W         = 64
+#ALBCG_MAX_H         = 64
+#ALBCG_CELL_TOTAL    = 16384
+#ALBCG_PART_COUNT    = 15
+#ALBCG_PART_W        = 21
+#ALBCG_FACE_W        = 21
+#ALBCG_FACE_H        = 15
+#ALBCG_PIXEL_PART_W  = 48
+#ALBCG_PIXEL_W       = 48
+#ALBCG_PIXEL_H       = 48
+#CG_PIXEL_INK        = 35
+
+-- Render style (ASCII glyphs vs colored pixel blocks)
+#CG_STYLE_ASCII      = 0
+#CG_STYLE_PIXEL      = 1
+
+-- Era preset IDs (studio / future part packs)
+#CG_ERA_DEFAULT = 0
+#CG_ERA_1900S   = 1
+#CG_ERA_1800S   = 2
+#CG_ERA_1700S   = 3
+#CG_ERA_1600S   = 4
+#CG_ERA_1500S   = 5
+
+-- Gender filter for era packs
+#CG_GENDER_ANY   = 0
+#CG_GENDER_MALE  = 1
+#CG_GENDER_FEMALE = 2
+
+-- Slot IDs (PixelMe-style rows)
+#CG_HEAD  = 1
+#CG_NECK  = 2
+#CG_CHIN  = 3
+#CG_EARS  = 4
+#CG_EYES  = 5
+#CG_NOSE  = 6
+#CG_LIPS  = 7
+#CG_HAIR  = 8
+#CG_BACK  = 9
+#CG_BROWS = 10
+#CG_BEARD = 11
+#CG_CLOTH = 12
+#CG_DECO1 = 13
+#CG_DECO2 = 14
+#CG_GLASS = 15
+
+-- Compose modes
+#CG_MODE_PORTRAIT  = 0
+#CG_MODE_FULLBODY  = 1
+#CG_MODE_OBJECT    = 2
+#CG_MODE_LANDSCAPE = 3
+#CG_MODE_PAINTING  = 4
+
+-- Biomes
+#CG_BIOME_GRASS = 0
+#CG_BIOME_DESERT = 1
+#CG_BIOME_SNOW  = 2
+#CG_BIOME_CAVE  = 3
+
+DECLARE MODULE ALBCharGen
+    FUNCTION RngMix(seed AS U32, salt AS U32) AS U32
+    FUNCTION RngBump(state AS U32) AS U32
+    FUNCTION RngRoll(state AS U32, lo AS U32, hi AS U32) AS U32
+
+    FUNCTION CanvasCreate(w AS U32, h AS U32) AS U32
+    PROCEDURE CanvasDestroy(handle AS U32)
+    PROCEDURE CanvasClear(handle AS U32, ch AS U8)
+    FUNCTION CanvasW(handle AS U32) AS U32
+    FUNCTION CanvasH(handle AS U32) AS U32
+    PROCEDURE CanvasSet(handle AS U32, x AS U32, y AS U32, ch AS U8)
+    PROCEDURE CanvasSetInk(handle AS U32, x AS U32, y AS U32, ch AS U8, fg AS U32)
+    FUNCTION CanvasGet(handle AS U32, x AS U32, y AS U32) AS U8
+    FUNCTION CanvasGetColor(handle AS U32, x AS U32, y AS U32) AS U32
+    PROCEDURE CanvasFillRect(handle AS U32, x AS U32, y AS U32, w AS U32, ht AS U32, ch AS U8)
+    FUNCTION CanvasHash(handle AS U32) AS U32
+    FUNCTION CanvasRowText(handle AS U32, row AS U32) AS STRING
+    FUNCTION CanvasRowSlice(handle AS U32, row AS U32, x0 AS U32, x1 AS U32) AS STRING
+    FUNCTION CanvasExportText(handle AS U32) AS STRING
+    FUNCTION CanvasInkTop(handle AS U32) AS U32
+    FUNCTION CanvasInkBottom(handle AS U32) AS U32
+    FUNCTION CanvasInkLeft(handle AS U32) AS U32
+    FUNCTION CanvasInkRight(handle AS U32) AS U32
+    FUNCTION PickSlotColor(slot AS U32, roll AS U32) AS U32
+
+    FUNCTION PartVariantMax(slot AS U32) AS U32
+    FUNCTION PartRowCount(slot AS U32, variant AS U32) AS U32
+    FUNCTION PartRowText(slot AS U32, variant AS U32, row AS U32) AS STRING
+    PROCEDURE CanvasBlitPart(handle AS U32, slot AS U32, variant AS U32, ox AS S32, oy AS S32, ink_color AS U32)
+    PROCEDURE CanvasBlitPartPixel(handle AS U32, slot AS U32, variant AS U32, ox AS S32, oy AS S32, ink_color AS U32)
+
+    PROCEDURE DocReset(seed AS U32)
+    PROCEDURE DocSetMode(mode AS U32)
+    FUNCTION DocGetMode() AS U32
+    PROCEDURE DocSetRenderStyle(style AS U32)
+    FUNCTION DocGetRenderStyle() AS U32
+    FUNCTION DocCanvasW() AS U32
+    FUNCTION DocCanvasH() AS U32
+    FUNCTION DocGetSeed() AS U32
+    PROCEDURE DocSetVariant(slot AS U32, variant AS U32)
+    FUNCTION DocGetVariant(slot AS U32) AS U32
+    PROCEDURE DocCycleVariant(slot AS U32, delta AS S32)
+    PROCEDURE DocSetColor(slot AS U32, rgb_val AS U32)
+    FUNCTION DocGetColor(slot AS U32) AS U32
+    PROCEDURE DocToggleLock(slot AS U32)
+    FUNCTION DocGetLock(slot AS U32) AS U8
+    PROCEDURE DocBumpOffset(slot AS U32, delta AS S32)
+    FUNCTION DocGetOffset(slot AS U32) AS S32
+    PROCEDURE DocSetEra(era AS U32)
+    FUNCTION DocGetEra() AS U32
+    PROCEDURE DocSetGender(gender AS U32)
+    FUNCTION DocGetGender() AS U32
+    FUNCTION PortraitBaseX(slot AS U32) AS S32
+    FUNCTION PortraitBaseY(slot AS U32) AS S32
+    PROCEDURE CanvasRecenterInk(handle AS U32)
+    PROCEDURE DocRandomizeAll()
+    PROCEDURE DocRandomizeSlot(slot AS U32)
+    PROCEDURE DocApplyFFPaletteColors()
+
+    PROCEDURE ComposePortrait(handle AS U32)
+    PROCEDURE ComposeObject(handle AS U32)
+    PROCEDURE ComposePainting(handle AS U32)
+    PROCEDURE ComposeLandscape(handle AS U32)
+    PROCEDURE ComposeFullBody(handle AS U32)
+    PROCEDURE GenObject(handle AS U32, seed AS U32, kind AS U32)
+    FUNCTION ObjectVarietyCount() AS U32
+    FUNCTION PaintingVarietyCount() AS U32
+    FUNCTION LandscapeVarietyCount() AS U32
+    PROCEDURE GenLandscape(handle AS U32, seed AS U32, biome AS U32)
+    PROCEDURE GenPainting(handle AS U32, seed AS U32)
+    PROCEDURE ComposeCurrent(handle AS U32)
+
+    FUNCTION SlotName(slot AS U32) AS STRING
+END DECLARE MODULE
+
+MODULE ALBCharGen
+
+    INCLUDE "ALBCharGen_FF.ALBI"
+
+    PARALLEL PoolCell[#ALBCG_CELL_TOTAL]
+        ch AS U8
+    END PARALLEL
+
+    STRICT CanvasLive[#ALBCG_MAX_CANVASES + 1] AS U8
+    STRICT CanvasWStore[#ALBCG_MAX_CANVASES + 1] AS U32
+    STRICT CanvasHStore[#ALBCG_MAX_CANVASES + 1] AS U32
+
+    LET DocSeed AS U32 = 1
+    LET DocMode AS U32 = 0
+    LET DocRenderStyle AS U32 = 0
+    STRICT DocVariant[#ALBCG_PART_COUNT + 1] AS U32
+    STRICT DocColor[#ALBCG_PART_COUNT + 1] AS U32
+    STRICT DocLock[#ALBCG_PART_COUNT + 1] AS U8
+    STRICT DocYOffset[#ALBCG_PART_COUNT + 1] AS S32
+    LET DocEra AS U32 = 0
+    LET DocGender AS U32 = 0
+    STRICT ShiftScratch[#ALBCG_CELL_TOTAL] AS U8
+    STRICT PoolFg[#ALBCG_CELL_TOTAL] AS U32
+    STRICT ShiftFgScratch[#ALBCG_CELL_TOTAL] AS U32
+
+    FUNCTION CellIndex(handle AS U32, x AS U32, y AS U32) AS U32
+        -- 1-based (x,y). Linear index into PoolCell. 0 = invalid.
+        LET w AS U32 = CanvasWStore[handle]
+        IF handle < 1 OR handle > #ALBCG_MAX_CANVASES THEN RETURN 0 END IF
+        IF CanvasLive[handle] = 0 THEN RETURN 0 END IF
+        IF x < 1 OR y < 1 THEN RETURN 0 END IF
+        IF x > w OR y > CanvasHStore[handle] THEN RETURN 0 END IF
+        RETURN ((handle - 1) * #ALBCG_MAX_W * #ALBCG_MAX_H) + ((y - 1) * w) + x
+    END FUNCTION
+
+    FUNCTION GlyphCode(sym AS STRING) AS U8
+        IF LEN(sym) <> 1 THEN RETURN 32 END IF
+        IF sym = CHR(64) THEN RETURN 64 END IF
+        IF sym = CHR(35) THEN RETURN 35 END IF
+        IF sym = CHR(37) THEN RETURN 37 END IF
+        IF sym = CHR(38) THEN RETURN 38 END IF
+        IF sym = CHR(42) THEN RETURN 42 END IF
+        IF sym = CHR(43) THEN RETURN 43 END IF
+        IF sym = CHR(45) THEN RETURN 45 END IF
+        IF sym = CHR(61) THEN RETURN 61 END IF
+        IF sym = CHR(58) THEN RETURN 58 END IF
+        IF sym = CHR(59) THEN RETURN 59 END IF
+        IF sym = CHR(46) THEN RETURN 46 END IF
+        IF sym = CHR(44) THEN RETURN 44 END IF
+        IF sym = CHR(39) THEN RETURN 39 END IF
+        IF sym = CHR(34) THEN RETURN 34 END IF
+        IF sym = CHR(47) THEN RETURN 47 END IF
+        IF sym = CHR(124) THEN RETURN 124 END IF
+        IF sym = CHR(95) THEN RETURN 95 END IF
+        IF sym = CHR(40) THEN RETURN 40 END IF
+        IF sym = CHR(41) THEN RETURN 41 END IF
+        IF sym = CHR(91) THEN RETURN 91 END IF
+        IF sym = CHR(93) THEN RETURN 93 END IF
+        IF sym = CHR(123) THEN RETURN 123 END IF
+        IF sym = CHR(125) THEN RETURN 125 END IF
+        IF sym = CHR(60) THEN RETURN 60 END IF
+        IF sym = CHR(62) THEN RETURN 62 END IF
+        IF sym = CHR(94) THEN RETURN 94 END IF
+        IF sym = CHR(111) THEN RETURN 111 END IF
+        IF sym = CHR(79) THEN RETURN 79 END IF
+        IF sym = CHR(48) THEN RETURN 48 END IF
+        IF sym = CHR(49) THEN RETURN 49 END IF
+        IF sym = CHR(50) THEN RETURN 50 END IF
+        IF sym = CHR(51) THEN RETURN 51 END IF
+        IF sym = CHR(52) THEN RETURN 52 END IF
+        IF sym = CHR(53) THEN RETURN 53 END IF
+        IF sym = CHR(54) THEN RETURN 54 END IF
+        IF sym = CHR(55) THEN RETURN 55 END IF
+        IF sym = CHR(56) THEN RETURN 56 END IF
+        IF sym = CHR(57) THEN RETURN 57 END IF
+        IF sym = CHR(97) THEN RETURN 97 END IF
+        IF sym = CHR(65) THEN RETURN 65 END IF
+        IF sym = CHR(98) THEN RETURN 98 END IF
+        IF sym = CHR(66) THEN RETURN 66 END IF
+        IF sym = CHR(99) THEN RETURN 99 END IF
+        IF sym = CHR(67) THEN RETURN 67 END IF
+        IF sym = CHR(100) THEN RETURN 100 END IF
+        IF sym = CHR(68) THEN RETURN 68 END IF
+        IF sym = CHR(101) THEN RETURN 101 END IF
+        IF sym = CHR(69) THEN RETURN 69 END IF
+        IF sym = CHR(102) THEN RETURN 102 END IF
+        IF sym = CHR(103) THEN RETURN 103 END IF
+        IF sym = CHR(104) THEN RETURN 104 END IF
+        IF sym = CHR(105) THEN RETURN 105 END IF
+        IF sym = CHR(106) THEN RETURN 106 END IF
+        IF sym = CHR(107) THEN RETURN 107 END IF
+        IF sym = CHR(108) THEN RETURN 108 END IF
+        IF sym = CHR(109) THEN RETURN 109 END IF
+        IF sym = CHR(110) THEN RETURN 110 END IF
+        IF sym = CHR(112) THEN RETURN 112 END IF
+        IF sym = CHR(113) THEN RETURN 113 END IF
+        IF sym = CHR(114) THEN RETURN 114 END IF
+        IF sym = CHR(115) THEN RETURN 115 END IF
+        IF sym = CHR(116) THEN RETURN 116 END IF
+        IF sym = CHR(117) THEN RETURN 117 END IF
+        IF sym = CHR(118) THEN RETURN 118 END IF
+        IF sym = CHR(119) THEN RETURN 119 END IF
+        IF sym = CHR(120) THEN RETURN 120 END IF
+        IF sym = CHR(121) THEN RETURN 121 END IF
+        IF sym = CHR(122) THEN RETURN 122 END IF
+        IF sym = CHR(126) THEN RETURN 126 END IF
+        IF sym = CHR(96) THEN RETURN 96 END IF
+        IF sym = CHR(33) THEN RETURN 33 END IF
+        IF sym = CHR(63) THEN RETURN 63 END IF
+        IF sym = CHR(36) THEN RETURN 36 END IF
+        RETURN 32
+    END FUNCTION
+
+    FUNCTION RngMix(seed AS U32, salt AS U32) AS U32
+        RETURN (((seed MOD 709) + (salt MOD 709)) * 53 + 17) MOD 99991
+    END FUNCTION
+
+    FUNCTION RngBump(state AS U32) AS U32
+        LET s AS U32 = state MOD 99991
+        RETURN ((s * 53) + 17) MOD 99991
+    END FUNCTION
+
+    FUNCTION RngRoll(state AS U32, lo AS U32, hi AS U32) AS U32
+        IF hi <= lo THEN RETURN lo END IF
+        LET span AS U32 = (hi - lo) + 1
+        RETURN lo + (RngBump(state) MOD span)
+    END FUNCTION
+
+    FUNCTION CanvasCreate(w AS U32, h AS U32) AS U32
+        -- Returns 1-based handle, or 0 if every slot is live. Clamps to max W/H.
+        LET iw AS U32 = w
+        LET ih AS U32 = h
+        IF iw < 1 THEN iw = 1 END IF
+        IF ih < 1 THEN ih = 1 END IF
+        IF iw > #ALBCG_MAX_W THEN iw = #ALBCG_MAX_W END IF
+        IF ih > #ALBCG_MAX_H THEN ih = #ALBCG_MAX_H END IF
+        LET slot AS U32 = 1
+        WHILE slot <= #ALBCG_MAX_CANVASES
+            IF CanvasLive[slot] = 0 THEN
+                CanvasLive[slot] = 1
+                CanvasWStore[slot] = iw
+                CanvasHStore[slot] = ih
+                CALL CanvasClear(slot, 32)
+                -- 32 = ASCII space. Slot index is the handle.
+                RETURN slot
+            END IF
+            slot = slot + 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    PROCEDURE CanvasDestroy(handle AS U32)
+        IF handle < 1 OR handle > #ALBCG_MAX_CANVASES THEN RETURN END IF
+        CanvasLive[handle] = 0
+        CanvasWStore[handle] = 0
+        CanvasHStore[handle] = 0
+    END PROCEDURE
+
+    PROCEDURE CanvasClear(handle AS U32, ch AS U8)
+        -- Fill 1..W, 1..H. AND below is bitwise / logical as compiled.
+        LET idx AS U32 = 0
+        LET w AS U32 = CanvasWStore[handle]
+        LET h AS U32 = CanvasHStore[handle]
+        LET y AS U32 = 1
+        WHILE y <= h
+            LET x AS U32 = 1
+            WHILE x <= w
+                idx = CellIndex(handle, x, y)
+                IF idx > 0 AND idx <= #ALBCG_CELL_TOTAL THEN
+                    PoolCell[idx].ch = ch
+                    PoolFg[idx] = 0
+                END IF
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION CanvasW(handle AS U32) AS U32
+        RETURN CanvasWStore[handle]
+    END FUNCTION
+
+    FUNCTION CanvasH(handle AS U32) AS U32
+        RETURN CanvasHStore[handle]
+    END FUNCTION
+
+    PROCEDURE CanvasSet(handle AS U32, x AS U32, y AS U32, ch AS U8)
+        LET idx AS U32 = CellIndex(handle, x, y)
+        IF idx > 0 AND idx <= #ALBCG_CELL_TOTAL THEN
+            PoolCell[idx].ch = ch
+            PoolFg[idx] = 0
+        END IF
+    END PROCEDURE
+
+    PROCEDURE CanvasSetInk(handle AS U32, x AS U32, y AS U32, ch AS U8, fg AS U32)
+        LET idx AS U32 = CellIndex(handle, x, y)
+        IF idx > 0 AND idx <= #ALBCG_CELL_TOTAL THEN
+            PoolCell[idx].ch = ch
+            PoolFg[idx] = fg
+        END IF
+    END PROCEDURE
+
+    FUNCTION CanvasGet(handle AS U32, x AS U32, y AS U32) AS U8
+        LET idx AS U32 = CellIndex(handle, x, y)
+        IF idx > 0 AND idx <= #ALBCG_CELL_TOTAL THEN
+            RETURN PoolCell[idx].ch
+        END IF
+        RETURN 32
+    END FUNCTION
+
+    FUNCTION CanvasGetColor(handle AS U32, x AS U32, y AS U32) AS U32
+        LET idx AS U32 = CellIndex(handle, x, y)
+        IF idx > 0 AND idx <= #ALBCG_CELL_TOTAL THEN
+            IF PoolFg[idx] = 0 THEN RETURN $FFFFFF END IF
+            RETURN PoolFg[idx]
+        END IF
+        RETURN $FFFFFF
+    END FUNCTION
+
+    PROCEDURE CanvasFillRect(handle AS U32, x AS U32, y AS U32, w AS U32, ht AS U32, ch AS U8)
+        LET yy AS U32 = 0
+        LET xx AS U32 = 0
+        WHILE yy < ht
+            xx = 0
+            WHILE xx < w
+                CALL CanvasSet(handle, x + xx, y + yy, ch)
+                xx = xx + 1
+            END WHILE
+            yy = yy + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION CanvasHash(handle AS U32) AS U32
+        LET h AS U32 = 0
+        LET y AS U32 = 1
+        LET x AS U32 = 1
+        LET ch AS U8 = 32
+        WHILE y <= CanvasH(handle)
+            x = 1
+            WHILE x <= CanvasW(handle)
+                ch = CanvasGet(handle, x, y)
+                h = h + (CAST(ch AS U32) * 31)
+                h = h + (x * 17)
+                h = h + (y * 13)
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+        RETURN h
+    END FUNCTION
+
+    FUNCTION CanvasRowText(handle AS U32, row AS U32) AS STRING
+        LET col AS U32 = 1
+        LET w AS U32 = CanvasW(handle)
+        LET row_txt AS STRING = ""
+        LET ch AS U8 = 32
+        IF handle < 1 OR row < 1 OR row > CanvasH(handle) THEN RETURN "" END IF
+        WHILE col <= w
+            ch = CanvasGet(handle, col, row)
+            row_txt = row_txt | CHR(ch)
+            col = col + 1
+        END WHILE
+        RETURN row_txt
+    END FUNCTION
+
+    FUNCTION CanvasRowSlice(handle AS U32, row AS U32, x0 AS U32, x1 AS U32) AS STRING
+        LET col AS U32 = x0
+        LET built AS STRING = ""
+        LET ch AS U8 = 32
+        LET w AS U32 = 0
+        IF handle < 1 OR row < 1 OR row > CanvasH(handle) THEN RETURN "" END IF
+        IF x0 < 1 OR x1 < x0 THEN RETURN "" END IF
+        w = CanvasW(handle)
+        WHILE col <= x1
+            IF col <= w THEN
+                ch = CanvasGet(handle, col, row)
+            ELSE
+                ch = 32
+            END IF
+            built = built | CHR(ch)
+            col = col + 1
+        END WHILE
+        RETURN built
+    END FUNCTION
+
+    FUNCTION CanvasExportText(handle AS U32) AS STRING
+        LET top AS U32 = CanvasInkTop(handle)
+        LET bot AS U32 = 0
+        LET left_col AS U32 = 0
+        LET right_col AS U32 = 0
+        LET built AS STRING = ""
+        LET row AS U32 = 0
+        LET row_line AS STRING = ""
+        IF handle < 1 OR top = 0 THEN RETURN "" END IF
+        bot = CanvasInkBottom(handle)
+        left_col = CanvasInkLeft(handle)
+        right_col = CanvasInkRight(handle)
+        row = top
+        WHILE row <= bot
+            IF row > top THEN built = built | CHR(13) | CHR(10) END IF
+            row_line = CanvasRowSlice(handle, row, left_col, right_col)
+            built = built | row_line
+            row = row + 1
+        END WHILE
+        RETURN built
+    END FUNCTION
+
+    FUNCTION CanvasInkTop(handle AS U32) AS U32
+        LET row AS U32 = 1
+        LET col AS U32 = 1
+        WHILE row <= CanvasH(handle)
+            col = 1
+            WHILE col <= CanvasW(handle)
+                IF CanvasGet(handle, col, row) > 32 THEN RETURN row END IF
+                col = col + 1
+            END WHILE
+            row = row + 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION CanvasInkBottom(handle AS U32) AS U32
+        LET row AS U32 = CanvasH(handle)
+        LET col AS U32 = 1
+        WHILE row >= 1
+            col = 1
+            WHILE col <= CanvasW(handle)
+                IF CanvasGet(handle, col, row) > 32 THEN RETURN row END IF
+                col = col + 1
+            END WHILE
+            row = row - 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION CanvasInkLeft(handle AS U32) AS U32
+        LET col AS U32 = 1
+        LET row AS U32 = 1
+        WHILE col <= CanvasW(handle)
+            row = 1
+            WHILE row <= CanvasH(handle)
+                IF CanvasGet(handle, col, row) > 32 THEN RETURN col END IF
+                row = row + 1
+            END WHILE
+            col = col + 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION CanvasInkRight(handle AS U32) AS U32
+        LET col AS U32 = CanvasW(handle)
+        LET row AS U32 = 1
+        WHILE col >= 1
+            row = 1
+            WHILE row <= CanvasH(handle)
+                IF CanvasGet(handle, col, row) > 32 THEN RETURN col END IF
+                row = row + 1
+            END WHILE
+            col = col - 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION PickSlotColor(slot AS U32, roll AS U32) AS U32
+        LET pick AS U32 = roll MOD 4
+        IF slot = #CG_HEAD OR slot = #CG_NECK OR slot = #CG_CHIN OR slot = #CG_EARS OR slot = #CG_NOSE OR slot = #CG_LIPS THEN
+            IF pick = 0 THEN RETURN $FFCCAA END IF
+            IF pick = 1 THEN RETURN $F5B090 END IF
+            IF pick = 2 THEN RETURN $E8A87A END IF
+            RETURN $FFDBB8
+        END IF
+        IF slot = #CG_HAIR OR slot = #CG_BROWS OR slot = #CG_BEARD THEN
+            IF pick = 0 THEN RETURN $553322 END IF
+            IF pick = 1 THEN RETURN $AA7744 END IF
+            IF pick = 2 THEN RETURN $221100 END IF
+            RETURN $887766
+        END IF
+        IF slot = #CG_EYES THEN
+            IF pick = 0 THEN RETURN $446688 END IF
+            IF pick = 1 THEN RETURN $224466 END IF
+            RETURN $335577
+        END IF
+        IF slot = #CG_CLOTH THEN
+            IF pick = 0 THEN RETURN $4466AA END IF
+            IF pick = 1 THEN RETURN $884444 END IF
+            IF pick = 2 THEN RETURN $448844 END IF
+            RETURN $666699
+        END IF
+        IF slot = #CG_GLASS THEN RETURN $AADDFF END IF
+        IF slot = #CG_DECO1 OR slot = #CG_DECO2 THEN RETURN $D4AF37 END IF
+        RETURN $FFFFFF
+    END FUNCTION
+
+    FUNCTION PartVariantMax(slot AS U32) AS U32
+        IF slot = #CG_HEAD THEN RETURN 4 END IF
+        IF slot = #CG_NECK THEN RETURN 2 END IF
+        IF slot = #CG_CHIN THEN RETURN 3 END IF
+        IF slot = #CG_EARS THEN RETURN 3 END IF
+        IF slot = #CG_EYES THEN RETURN 7 END IF
+        IF slot = #CG_NOSE THEN RETURN 4 END IF
+        IF slot = #CG_LIPS THEN RETURN 6 END IF
+        IF slot = #CG_HAIR THEN RETURN 6 END IF
+        IF slot = #CG_BACK THEN RETURN 3 END IF
+        IF slot = #CG_BROWS THEN RETURN 4 END IF
+        IF slot = #CG_BEARD THEN RETURN 4 END IF
+        IF slot = #CG_CLOTH THEN RETURN 5 END IF
+        IF slot = #CG_DECO1 THEN RETURN 3 END IF
+        IF slot = #CG_DECO2 THEN RETURN 3 END IF
+        IF slot = #CG_GLASS THEN RETURN 4 END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION PartRowCount(slot AS U32, variant AS U32) AS U32
+        IF slot = #CG_HEAD THEN RETURN 7 END IF
+        IF slot = #CG_HAIR THEN RETURN 3 END IF
+        IF slot = #CG_BEARD THEN RETURN 3 END IF
+        IF slot = #CG_CLOTH THEN RETURN 2 END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION PartRowText(slot AS U32, variant AS U32, row AS U32) AS STRING
+        IF slot = #CG_HEAD THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "       |   |       " END IF
+                IF row = 2 THEN RETURN "       |   |       " END IF
+                IF row = 3 THEN RETURN "      /     /      " END IF
+                IF row = 4 THEN RETURN "     /       /     " END IF
+                IF row = 5 THEN RETURN "     |       |     " END IF
+                IF row = 6 THEN RETURN "      |     |      " END IF
+                IF row = 7 THEN RETURN "       |___|       " END IF
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "     .(     ).     " END IF
+                IF row = 2 THEN RETURN "    ((       ))    " END IF
+                IF row = 3 THEN RETURN "   ((         ))   " END IF
+                IF row = 4 THEN RETURN "   ((         ))   " END IF
+                IF row = 5 THEN RETURN "    ((       ))    " END IF
+                IF row = 6 THEN RETURN "     (       )     " END IF
+                IF row = 7 THEN RETURN "      `-----`      " END IF
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "    (((     )))    " END IF
+                IF row = 2 THEN RETURN "   (((       )))   " END IF
+                IF row = 3 THEN RETURN "  (((         )))  " END IF
+                IF row = 4 THEN RETURN "  (((         )))  " END IF
+                IF row = 5 THEN RETURN "   (((       )))   " END IF
+                IF row = 6 THEN RETURN "    (((     )))    " END IF
+                IF row = 7 THEN RETURN "      /`---`/      " END IF
+            END IF
+            IF row = 1 THEN RETURN "      _.---._      " END IF
+            IF row = 2 THEN RETURN "     .(       ).     " END IF
+            IF row = 3 THEN RETURN "   ((         ))   " END IF
+            IF row = 4 THEN RETURN "   ((         ))   " END IF
+            IF row = 5 THEN RETURN "   ((         ))   " END IF
+            IF row = 6 THEN RETURN "    ((       ))    " END IF
+            IF row = 7 THEN RETURN "      /`---`/      " END IF
+        END IF
+
+        IF slot = #CG_HAIR THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "      |=====|      " END IF
+                IF row = 2 THEN RETURN "      |     |      " END IF
+                IF row = 3 THEN RETURN "      _.---._      " END IF
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "      /> </>      " END IF
+                IF row = 2 THEN RETURN "     /-  ---  -/   " END IF
+                IF row = 3 THEN RETURN "      /`---`/      " END IF
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "   (((     )))   " END IF
+                IF row = 2 THEN RETURN "  (((/(((((/)))  " END IF
+                IF row = 3 THEN RETURN "   )))!   !(((   " END IF
+            END IF
+            IF variant = 5 THEN
+                IF row = 1 THEN RETURN "      /-----/      " END IF
+                IF row = 2 THEN RETURN "     |       |     " END IF
+                IF row = 3 THEN RETURN "      `-----`      " END IF
+            END IF
+            IF variant = 6 THEN
+                IF row = 1 THEN RETURN "     .`^^^^^`.     " END IF
+                IF row = 2 THEN RETURN "    /  `---`  /    " END IF
+                IF row = 3 THEN RETURN "      /`---`/      " END IF
+            END IF
+            IF row = 1 THEN RETURN "      /~~~~~/      " END IF
+            IF row = 2 THEN RETURN "      ~/ ~~ ~/     " END IF
+            IF row = 3 THEN RETURN "      -/ --- /-      " END IF
+        END IF
+
+        IF slot = #CG_EYES THEN
+            IF variant = 2 THEN RETURN "     o       o      " END IF
+            IF variant = 3 THEN RETURN "     ^       ^      " END IF
+            IF variant = 4 THEN RETURN "     -       -      " END IF
+            IF variant = 5 THEN RETURN "     @       @      " END IF
+            IF variant = 6 THEN RETURN "     *       *      " END IF
+            IF variant = 7 THEN RETURN "     0       0      " END IF
+            RETURN "     . -   - .      "
+        END IF
+
+        IF slot = #CG_BROWS THEN
+            IF variant = 2 THEN RETURN "    /         /    " END IF
+            IF variant = 3 THEN RETURN "    -         -    " END IF
+            IF variant = 4 THEN RETURN "    >         <    " END IF
+            RETURN "    __       __    "
+        END IF
+
+        IF slot = #CG_NOSE THEN
+            IF variant = 2 THEN RETURN "        |          " END IF
+            IF variant = 3 THEN RETURN "        o          " END IF
+            IF variant = 4 THEN RETURN "        v          " END IF
+            RETURN "        U          "
+        END IF
+
+        IF slot = #CG_LIPS THEN
+            IF variant = 2 THEN RETURN "     / `-.-` /      " END IF
+            IF variant = 3 THEN RETURN "      /`-._.-`/     " END IF
+            IF variant = 4 THEN RETURN "      / ~   ~ /     " END IF
+            IF variant = 5 THEN RETURN "        ...         " END IF
+            IF variant = 6 THEN RETURN "         o          " END IF
+            RETURN "      / .-. /       "
+        END IF
+
+        IF slot = #CG_BEARD THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "      |`'`'`|      " END IF
+                IF row = 2 THEN RETURN "       |###|        " END IF
+                IF row = 3 THEN RETURN "        |#|         " END IF
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "     |`'`'`'`|     " END IF
+                IF row = 2 THEN RETURN "      |#####|       " END IF
+                IF row = 3 THEN RETURN "       |###|        " END IF
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "       |###|        " END IF
+                IF row = 2 THEN RETURN "       |###|        " END IF
+                IF row = 3 THEN RETURN "        |#|         " END IF
+            END IF
+            IF row = 1 THEN RETURN "      |`'`'`|      " END IF
+            IF row = 2 THEN RETURN "       |###|        " END IF
+            IF row = 3 THEN RETURN "      /`###`/       " END IF
+        END IF
+
+        IF slot = #CG_EARS THEN
+            IF variant = 2 THEN RETURN " (               ) " END IF
+            IF variant = 3 THEN RETURN "  (             )  " END IF
+            RETURN "   (           )   "
+        END IF
+
+        IF slot = #CG_NECK THEN
+            IF variant = 2 THEN RETURN "        I          " END IF
+            RETURN "        |          "
+        END IF
+        IF slot = #CG_CHIN THEN
+            IF variant = 2 THEN RETURN "       /v v/        " END IF
+            IF variant = 3 THEN RETURN "       /u u/        " END IF
+            RETURN "      /`._.'/       "
+        END IF
+
+        IF slot = #CG_CLOTH THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN " /`###`/   /`###`/ " END IF
+                IF row = 2 THEN RETURN " |     |   |     | " END IF
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN " /`---`/   /`---`/ " END IF
+                IF row = 2 THEN RETURN " |  #  |   |  #  | " END IF
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN " /`===`/   /`===`/ " END IF
+                IF row = 2 THEN RETURN " | = = |   | = = | " END IF
+            END IF
+            IF variant = 5 THEN
+                IF row = 1 THEN RETURN " /`~~~`/   /`~~~`/ " END IF
+                IF row = 2 THEN RETURN " |  ~  |   |  ~  | " END IF
+            END IF
+            IF row = 1 THEN RETURN " _.-`~-._   _.-`~-._ " END IF
+            IF row = 2 THEN RETURN "'                   '" END IF
+        END IF
+
+        IF slot = #CG_GLASS THEN
+            IF variant = 2 THEN RETURN "    | O     O |    " END IF
+            IF variant = 3 THEN RETURN "    | -     - |    " END IF
+            IF variant = 4 THEN RETURN "    ( -     - )    " END IF
+            RETURN "    | o     o |    "
+        END IF
+
+        IF slot = #CG_BACK THEN
+            IF variant = 2 THEN RETURN "     #########     " END IF
+            IF variant = 3 THEN RETURN "     =========     " END IF
+            RETURN "      ~~~~~~~~~      "
+        END IF
+
+        IF slot = #CG_DECO1 THEN
+            IF variant = 2 THEN RETURN "        ><          " END IF
+            IF variant = 3 THEN RETURN "       ( # )        " END IF
+            RETURN "        **          "
+        END IF
+
+        IF slot = #CG_DECO2 THEN
+            IF variant = 2 THEN RETURN "         ><         " END IF
+            IF variant = 3 THEN RETURN "        ( o )       " END IF
+            RETURN "         **         "
+        END IF
+
+        RETURN "                     "
+    END FUNCTION
+
+    -- ====================================================================
+    -- Native pixel-art parts (1 cell = 1 pixel, 32-wide stamps)
+    -- Stamp alphabet: space=empty #=slot color s=outline/shadow
+    --   w=sclera h=highlight k=pupil/line r=iris d=soft shade
+    -- ====================================================================
+
+    FUNCTION PadPixelRow(txt AS STRING) AS STRING
+        LET n AS U32 = LEN(txt)
+        LET total AS U32 = 0
+        LET left AS U32 = 0
+        LET pad AS STRING = ""
+        LET i AS U32 = 0
+        IF n >= #ALBCG_PIXEL_PART_W THEN RETURN LEFT$(txt, #ALBCG_PIXEL_PART_W) END IF
+        total = #ALBCG_PIXEL_PART_W - n
+        left = total / 2
+        pad = ""
+        i = 0
+        WHILE i < left
+            pad = pad | " "
+            i = i + 1
+        END WHILE
+        txt = pad | txt
+        WHILE LEN(txt) < #ALBCG_PIXEL_PART_W
+            txt = txt | " "
+        END WHILE
+        RETURN txt
+    END FUNCTION
+
+    FUNCTION PixelCellActive(piece AS STRING) AS U8
+        IF piece = " " THEN RETURN 0 END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION PixelInkColor(piece AS STRING, ink AS U32, slot AS U32) AS U32
+        IF piece = "w" OR piece = "W" THEN RETURN $FAF6EE END IF
+        IF piece = "k" OR piece = "K" THEN RETURN $14141C END IF
+        IF piece = "h" OR piece = "+" THEN RETURN $FFE8CC END IF
+        IF piece = "r" OR piece = "R" THEN RETURN ink END IF
+        IF piece = "s" OR piece = "S" THEN
+            IF slot = #CG_HEAD OR slot = #CG_EARS OR slot = #CG_NECK OR slot = #CG_CHIN OR slot = #CG_NOSE OR slot = #CG_LIPS THEN RETURN $8B5A3C END IF
+            IF slot = #CG_BEARD THEN RETURN $5A4030 END IF
+            RETURN $2A2A32
+        END IF
+        IF piece = "d" OR piece = "D" THEN RETURN $6A5040 END IF
+        RETURN ink
+    END FUNCTION
+
+    FUNCTION PixelFacePartVariantMax(slot AS U32) AS U32
+        IF slot = #CG_HEAD THEN RETURN 4 END IF
+        IF slot = #CG_HAIR THEN RETURN 5 END IF
+        IF slot = #CG_EYES THEN RETURN 6 END IF
+        IF slot = #CG_BROWS THEN RETURN 3 END IF
+        IF slot = #CG_NOSE THEN RETURN 3 END IF
+        IF slot = #CG_LIPS THEN RETURN 4 END IF
+        IF slot = #CG_BEARD THEN RETURN 4 END IF
+        IF slot = #CG_EARS THEN RETURN 2 END IF
+        IF slot = #CG_NECK THEN RETURN 2 END IF
+        IF slot = #CG_CLOTH THEN RETURN 4 END IF
+        IF slot = #CG_BACK THEN RETURN 2 END IF
+        IF slot = #CG_CHIN THEN RETURN 2 END IF
+        IF slot = #CG_GLASS THEN RETURN 3 END IF
+        IF slot = #CG_DECO1 OR slot = #CG_DECO2 THEN RETURN 2 END IF
+        RETURN 2
+    END FUNCTION
+
+    FUNCTION PixelFacePartRowCount(slot AS U32, variant AS U32) AS U32
+        IF slot = #CG_HEAD THEN RETURN 10 END IF
+        IF slot = #CG_HAIR THEN RETURN 6 END IF
+        IF slot = #CG_EYES THEN RETURN 4 END IF
+        IF slot = #CG_BROWS THEN RETURN 2 END IF
+        IF slot = #CG_NOSE THEN RETURN 3 END IF
+        IF slot = #CG_LIPS THEN RETURN 3 END IF
+        IF slot = #CG_BEARD THEN RETURN 5 END IF
+        IF slot = #CG_EARS THEN RETURN 4 END IF
+        IF slot = #CG_NECK THEN RETURN 4 END IF
+        IF slot = #CG_CLOTH THEN RETURN 6 END IF
+        IF slot = #CG_BACK THEN RETURN 8 END IF
+        IF slot = #CG_CHIN THEN RETURN 2 END IF
+        IF slot = #CG_GLASS THEN RETURN 3 END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION PixelFacePartRowText(slot AS U32, variant AS U32, row AS U32) AS STRING
+        IF slot = #CG_HEAD THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "       sssssssssssssss       " END IF
+                IF row = 2 THEN RETURN "     ss#################ss     " END IF
+                IF row = 3 THEN RETURN "    s#####################s    " END IF
+                IF row = 4 THEN RETURN "   s#######################s   " END IF
+                IF row = 5 THEN RETURN "   s#######################s   " END IF
+                IF row = 6 THEN RETURN "   s#######################s   " END IF
+                IF row = 7 THEN RETURN "    s#####################s    " END IF
+                IF row = 8 THEN RETURN "     ss#################ss     " END IF
+                IF row = 9 THEN RETURN "       sssssssssssssss       " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "        sssssssssssss        " END IF
+                IF row = 2 THEN RETURN "      ss###############ss      " END IF
+                IF row = 3 THEN RETURN "     s#####################s     " END IF
+                IF row = 4 THEN RETURN "    s#########s#####s#########s    " END IF
+                IF row = 5 THEN RETURN "    s#######################s    " END IF
+                IF row = 6 THEN RETURN "     s#####################s     " END IF
+                IF row = 7 THEN RETURN "      ss###############ss      " END IF
+                IF row = 8 THEN RETURN "        sssssssssssss        " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "          sssssssss          " END IF
+                IF row = 2 THEN RETURN "        ss#########ss        " END IF
+                IF row = 3 THEN RETURN "       s###############s       " END IF
+                IF row = 4 THEN RETURN "      s#################s      " END IF
+                IF row = 5 THEN RETURN "      s#################s      " END IF
+                IF row = 6 THEN RETURN "       s###############s       " END IF
+                IF row = 7 THEN RETURN "        ss#########ss        " END IF
+                IF row = 8 THEN RETURN "          sssssssss          " END IF
+                RETURN "                                "
+            END IF
+            IF row = 1 THEN RETURN "         sssssssssss         " END IF
+            IF row = 2 THEN RETURN "       ss#############ss       " END IF
+            IF row = 3 THEN RETURN "      s#################s      " END IF
+            IF row = 4 THEN RETURN "      s#################s      " END IF
+            IF row = 5 THEN RETURN "      s#################s      " END IF
+            IF row = 6 THEN RETURN "      s#################s      " END IF
+            IF row = 7 THEN RETURN "       ss#############ss       " END IF
+            IF row = 8 THEN RETURN "         sssssssssss         " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_HAIR THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "     ####################     " END IF
+                IF row = 2 THEN RETURN "    ######################    " END IF
+                IF row = 3 THEN RETURN "   ########################   " END IF
+                IF row = 4 THEN RETURN "  ##########################  " END IF
+                IF row = 5 THEN RETURN "   ########ssssssss########   " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "   ##  ##  ##  ##  ##  ##   " END IF
+                IF row = 2 THEN RETURN "  ##########################  " END IF
+                IF row = 3 THEN RETURN " ############################ " END IF
+                IF row = 4 THEN RETURN "  ########ssssssss########  " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "        ##############        " END IF
+                IF row = 2 THEN RETURN "      ##################      " END IF
+                IF row = 3 THEN RETURN "     ####################     " END IF
+                IF row = 4 THEN RETURN "    ######################    " END IF
+                IF row = 5 THEN RETURN "     ########ssss########     " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 5 THEN
+                IF row = 1 THEN RETURN "          ##########          " END IF
+                IF row = 2 THEN RETURN "         ############         " END IF
+                IF row = 3 THEN RETURN "        ##############        " END IF
+                IF row = 4 THEN RETURN "       ################       " END IF
+                IF row = 5 THEN RETURN "        ##############        " END IF
+                RETURN "                                "
+            END IF
+            IF row = 1 THEN RETURN "        ################        " END IF
+            IF row = 2 THEN RETURN "       ##################       " END IF
+            IF row = 3 THEN RETURN "      ####################      " END IF
+            IF row = 4 THEN RETURN "     ######################     " END IF
+            IF row = 5 THEN RETURN "      ####ssssssssss####      " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_EYES THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "     sss            sss     " END IF
+                IF row = 2 THEN RETURN "    wwrrww        wwrrww    " END IF
+                IF row = 3 THEN RETURN "    wkrrkw        wkrrkw    " END IF
+                IF row = 4 THEN RETURN "     wwww          wwww     " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "      kk            kk      " END IF
+                IF row = 2 THEN RETURN "      kk            kk      " END IF
+                IF row = 3 THEN RETURN "      kk            kk      " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "     sss            sss     " END IF
+                IF row = 2 THEN RETURN "    wrrrrr        wrrrrr    " END IF
+                IF row = 3 THEN RETURN "    wkrrrkw      wkrrrkw    " END IF
+                IF row = 4 THEN RETURN "     wwwww          wwwww     " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 5 THEN
+                IF row = 1 THEN RETURN "      kk              kk      " END IF
+                IF row = 2 THEN RETURN "     wrrrr          wrrrr     " END IF
+                IF row = 3 THEN RETURN "      kk              kk      " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 6 THEN
+                IF row = 1 THEN RETURN "       k              k       " END IF
+                IF row = 2 THEN RETURN "      wr              rw      " END IF
+                IF row = 3 THEN RETURN "       k              k       " END IF
+                RETURN "                                "
+            END IF
+            IF row = 1 THEN RETURN "     sss            sss     " END IF
+            IF row = 2 THEN RETURN "    wwrrww        wwrrww    " END IF
+            IF row = 3 THEN RETURN "    wkrrkw        wkrrkw    " END IF
+            IF row = 4 THEN RETURN "     wwww          wwww     " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_BROWS THEN
+            IF variant = 2 THEN RETURN "    sss            sss    " END IF
+            IF variant = 3 THEN RETURN "     kk            kk     " END IF
+            IF row = 1 THEN RETURN "    ss              ss    " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_NOSE THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "             ss             " END IF
+                IF row = 2 THEN RETURN "              k              " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "            sss            " END IF
+                IF row = 2 THEN RETURN "             r             " END IF
+                RETURN "                                "
+            END IF
+            IF row = 1 THEN RETURN "            sss            " END IF
+            IF row = 2 THEN RETURN "             k             " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_LIPS THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "          ssssss          " END IF
+                IF row = 2 THEN RETURN "         s######s         " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "           ssss           " END IF
+                IF row = 2 THEN RETURN "          s####s          " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "         sssssss         " END IF
+                IF row = 2 THEN RETURN "        s#######s        " END IF
+                RETURN "                                "
+            END IF
+            IF row = 1 THEN RETURN "          ssssss          " END IF
+            IF row = 2 THEN RETURN "         s######s         " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_BEARD THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "        sssssssss        " END IF
+                IF row = 2 THEN RETURN "       ##########       " END IF
+                IF row = 3 THEN RETURN "        ########        " END IF
+                IF row = 4 THEN RETURN "         ######         " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "      ss        ss      " END IF
+                IF row = 2 THEN RETURN "     ##############     " END IF
+                IF row = 3 THEN RETURN "      ############      " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "         sssssss         " END IF
+                IF row = 2 THEN RETURN "        ########        " END IF
+                IF row = 3 THEN RETURN "         ######         " END IF
+                RETURN "                                "
+            END IF
+            IF row = 1 THEN RETURN "       sssssssss       " END IF
+            IF row = 2 THEN RETURN "      ##########      " END IF
+            IF row = 3 THEN RETURN "       ########       " END IF
+            IF row = 4 THEN RETURN "        ######        " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_EARS THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN " s##s                  s##s " END IF
+                IF row = 2 THEN RETURN " s##s                  s##s " END IF
+                IF row = 3 THEN RETURN "  ss                    ss  " END IF
+                RETURN "                                "
+            END IF
+            IF row = 1 THEN RETURN " s##s                  s##s " END IF
+            IF row = 2 THEN RETURN " s##s                  s##s " END IF
+            IF row = 3 THEN RETURN "  ##                    ##  " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_NECK THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "          s####s          " END IF
+                IF row = 2 THEN RETURN "          ######          " END IF
+                IF row = 3 THEN RETURN "          ######          " END IF
+                RETURN "                                "
+            END IF
+            IF row = 1 THEN RETURN "           ####           " END IF
+            IF row = 2 THEN RETURN "           ####           " END IF
+            IF row = 3 THEN RETURN "           ####           " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_CLOTH THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "  ######################  " END IF
+                IF row = 2 THEN RETURN " ######################## " END IF
+                IF row = 3 THEN RETURN " ######################## " END IF
+                IF row = 4 THEN RETURN "  ######################  " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "   ####################   " END IF
+                IF row = 2 THEN RETURN "  ######################  " END IF
+                IF row = 3 THEN RETURN " ######################## " END IF
+                IF row = 4 THEN RETURN " ######################## " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "    s##############s    " END IF
+                IF row = 2 THEN RETURN "   ##################   " END IF
+                IF row = 3 THEN RETURN "  ####################  " END IF
+                IF row = 4 THEN RETURN "  ####################  " END IF
+                RETURN "                                "
+            END IF
+            IF row = 1 THEN RETURN " ######################## " END IF
+            IF row = 2 THEN RETURN " ######################## " END IF
+            IF row = 3 THEN RETURN " ######################## " END IF
+            IF row = 4 THEN RETURN "  ######################  " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_BACK THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "  dddddddddddddddddddddddd  " END IF
+                IF row = 2 THEN RETURN " d########################d " END IF
+                IF row = 3 THEN RETURN " d########################d " END IF
+                IF row = 4 THEN RETURN " d########################d " END IF
+                IF row = 5 THEN RETURN " d########################d " END IF
+                IF row = 6 THEN RETURN "  dddddddddddddddddddddddd  " END IF
+                RETURN "                                "
+            END IF
+            IF row = 1 THEN RETURN "   ####################   " END IF
+            IF row = 2 THEN RETURN "  ######################  " END IF
+            IF row = 3 THEN RETURN " ######################## " END IF
+            IF row = 4 THEN RETURN " ######################## " END IF
+            IF row = 5 THEN RETURN "  ######################  " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_CHIN THEN
+            IF variant = 2 THEN RETURN "         sssssss         " END IF
+            IF row = 1 THEN RETURN "          sssss          " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_GLASS THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "   ssssssssssssssssss   " END IF
+                IF row = 2 THEN RETURN "   kkkkkkkkkkkkkkkkkk   " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "    sssss      sssss    " END IF
+                IF row = 2 THEN RETURN "    kkkkk      kkkkk    " END IF
+                RETURN "                                "
+            END IF
+            IF row = 1 THEN RETURN "  ssssssssssssssssssss  " END IF
+            IF row = 2 THEN RETURN "  kkkkkkkkkkkkkkkkkkkk  " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_DECO1 THEN
+            IF variant = 2 THEN RETURN "  h  " END IF
+            IF row = 1 THEN RETURN "  +  " END IF
+            RETURN "                                "
+        END IF
+
+        IF slot = #CG_DECO2 THEN
+            IF variant = 2 THEN RETURN "  h  " END IF
+            IF row = 1 THEN RETURN "  +  " END IF
+            RETURN "                                "
+        END IF
+
+        RETURN "                                "
+    END FUNCTION
+
+    FUNCTION PixelObjectPartRowCount(slot AS U32, variant AS U32) AS U32
+        IF slot = #CG_HEAD THEN RETURN 10 END IF
+        IF slot = #CG_HAIR OR slot = #CG_CLOTH THEN RETURN 4 END IF
+        RETURN 2
+    END FUNCTION
+
+    FUNCTION PixelObjectPartVariantMax(slot AS U32) AS U32
+        IF slot = #CG_HEAD THEN RETURN 6 END IF
+        IF slot = #CG_HAIR OR slot = #CG_CLOTH THEN RETURN 4 END IF
+        RETURN 3
+    END FUNCTION
+
+    FUNCTION PixelObjectPartRowText(slot AS U32, variant AS U32, row AS U32) AS STRING
+        IF slot = #CG_HEAD THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "        ########        " END IF
+                IF row = 2 THEN RETURN "       ##########       " END IF
+                IF row = 3 THEN RETURN "       ##########       " END IF
+                IF row = 4 THEN RETURN "        ########        " END IF
+                RETURN "                                "
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "          ####          " END IF
+                IF row = 2 THEN RETURN "         ######         " END IF
+                IF row = 3 THEN RETURN "        ########        " END IF
+                IF row = 4 THEN RETURN "         ######         " END IF
+                IF row = 5 THEN RETURN "          ####          " END IF
+                RETURN "                                "
+            END IF
+            IF row = 1 THEN RETURN "       ##########       " END IF
+            IF row = 2 THEN RETURN "      ############      " END IF
+            IF row = 3 THEN RETURN "      ############      " END IF
+            IF row = 4 THEN RETURN "       ##########       " END IF
+            RETURN "                                "
+        END IF
+        IF slot = #CG_CLOTH THEN
+            IF row = 1 THEN RETURN " ######################## " END IF
+            IF row = 2 THEN RETURN " ######################## " END IF
+            RETURN "                                "
+        END IF
+        IF row = 1 THEN RETURN "        ########        " END IF
+        RETURN "                                "
+    END FUNCTION
+
+    FUNCTION PixelLandPartRowCount(slot AS U32, variant AS U32) AS U32
+        IF slot = #CG_BACK THEN RETURN 6 END IF
+        IF slot = #CG_HEAD THEN RETURN 5 END IF
+        RETURN 2
+    END FUNCTION
+
+    FUNCTION PixelLandPartVariantMax(slot AS U32) AS U32
+        IF slot = #CG_HEAD THEN RETURN 4 END IF
+        RETURN 3
+    END FUNCTION
+
+    FUNCTION PixelLandPartRowText(slot AS U32, variant AS U32, row AS U32) AS STRING
+        IF slot = #CG_BACK THEN
+            IF row = 1 THEN RETURN "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr" END IF
+            IF row = 2 THEN RETURN "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr" END IF
+            IF row = 3 THEN RETURN "dddddddddddddddddddddddddddddddd" END IF
+            RETURN "                                "
+        END IF
+        IF slot = #CG_HEAD THEN
+            IF row = 1 THEN RETURN "      ##############      " END IF
+            IF row = 2 THEN RETURN "     ################     " END IF
+            IF row = 3 THEN RETURN "    ##################    " END IF
+            RETURN "                                "
+        END IF
+        IF row = 1 THEN RETURN "    ##############    " END IF
+        RETURN "                                "
+    END FUNCTION
+
+    FUNCTION PixelPaintPartRowCount(slot AS U32, variant AS U32) AS U32
+        IF slot = #CG_CLOTH THEN RETURN 4 END IF
+        IF slot = #CG_HEAD THEN RETURN 6 END IF
+        RETURN 2
+    END FUNCTION
+
+    FUNCTION PixelPaintPartVariantMax(slot AS U32) AS U32
+        RETURN 4
+    END FUNCTION
+
+    FUNCTION PixelPaintPartRowText(slot AS U32, variant AS U32, row AS U32) AS STRING
+        IF slot = #CG_CLOTH THEN
+            IF row = 1 THEN RETURN " s######################s " END IF
+            IF row = 2 THEN RETURN " s######################s " END IF
+            IF row = 3 THEN RETURN " s######################s " END IF
+            RETURN "                                "
+        END IF
+        IF slot = #CG_HEAD THEN
+            IF row = 1 THEN RETURN "       ##########       " END IF
+            IF row = 2 THEN RETURN "      ############      " END IF
+            IF row = 3 THEN RETURN "      ############      " END IF
+            RETURN "                                "
+        END IF
+        IF row = 1 THEN RETURN "      ########      " END IF
+        RETURN "                                "
+    END FUNCTION
+
+    FUNCTION PixelPartVariantMax(slot AS U32) AS U32
+        IF DocMode = #CG_MODE_PAINTING THEN RETURN PixelPaintPartVariantMax(slot) END IF
+        IF DocMode = #CG_MODE_LANDSCAPE THEN RETURN PixelLandPartVariantMax(slot) END IF
+        IF DocMode = #CG_MODE_OBJECT THEN RETURN PixelObjectPartVariantMax(slot) END IF
+        RETURN FFPortraitVariantMax(slot)
+    END FUNCTION
+
+    FUNCTION PixelPartRowCount(slot AS U32, variant AS U32) AS U32
+        IF DocMode = #CG_MODE_PAINTING THEN RETURN PixelPaintPartRowCount(slot, variant) END IF
+        IF DocMode = #CG_MODE_LANDSCAPE THEN RETURN PixelLandPartRowCount(slot, variant) END IF
+        IF DocMode = #CG_MODE_OBJECT THEN RETURN PixelObjectPartRowCount(slot, variant) END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION PixelPartRowText(slot AS U32, variant AS U32, row AS U32) AS STRING
+        IF DocMode = #CG_MODE_PAINTING THEN RETURN PixelPaintPartRowText(slot, variant, row) END IF
+        IF DocMode = #CG_MODE_LANDSCAPE THEN RETURN PixelLandPartRowText(slot, variant, row) END IF
+        IF DocMode = #CG_MODE_OBJECT THEN RETURN PixelObjectPartRowText(slot, variant, row) END IF
+        RETURN PixelFacePartRowText(slot, variant, row)
+    END FUNCTION
+
+    FUNCTION ActiveVariantMax(slot AS U32) AS U32
+        IF DocRenderStyle = #CG_STYLE_PIXEL THEN RETURN PixelPartVariantMax(slot) END IF
+        IF DocMode = #CG_MODE_PAINTING THEN RETURN PaintingPartVariantMax(slot) END IF
+        IF DocMode = #CG_MODE_LANDSCAPE THEN RETURN LandscapePartVariantMax(slot) END IF
+        IF DocMode = #CG_MODE_OBJECT THEN RETURN ObjectPartVariantMax(slot) END IF
+        RETURN PartVariantMax(slot)
+    END FUNCTION
+
+    FUNCTION ObjectPartVariantMax(slot AS U32) AS U32
+        IF slot = #CG_HEAD THEN RETURN 12 END IF
+        IF slot = #CG_HAIR THEN RETURN 10 END IF
+        IF slot = #CG_CLOTH THEN RETURN 8 END IF
+        IF slot = #CG_EYES OR slot = #CG_NOSE OR slot = #CG_EARS THEN RETURN 8 END IF
+        IF slot = #CG_BEARD OR slot = #CG_LIPS OR slot = #CG_BROWS THEN RETURN 6 END IF
+        IF slot = #CG_DECO1 OR slot = #CG_DECO2 THEN RETURN 8 END IF
+        IF slot = #CG_BACK OR slot = #CG_GLASS OR slot = #CG_CHIN OR slot = #CG_NECK THEN RETURN 6 END IF
+        RETURN 6
+    END FUNCTION
+
+    FUNCTION ObjectVarietyCount() AS U32
+        LET slot AS U32 = 1
+        LET prod AS U32 = 1
+        WHILE slot <= #ALBCG_PART_COUNT
+            prod = prod * ObjectPartVariantMax(slot)
+            IF prod > 9999999 THEN RETURN 9999999 END IF
+            slot = slot + 1
+        END WHILE
+        RETURN prod
+    END FUNCTION
+
+    FUNCTION ObjectPartRowCount(slot AS U32, variant AS U32) AS U32
+        IF slot = #CG_HEAD THEN RETURN 7 END IF
+        IF slot = #CG_HAIR THEN RETURN 3 END IF
+        IF slot = #CG_BEARD THEN RETURN 2 END IF
+        IF slot = #CG_CLOTH THEN RETURN 2 END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION ActivePartRowCount(slot AS U32, variant AS U32) AS U32
+        IF DocRenderStyle = #CG_STYLE_PIXEL THEN RETURN PixelPartRowCount(slot, variant) END IF
+        IF DocMode = #CG_MODE_PAINTING THEN RETURN PaintingPartRowCount(slot, variant) END IF
+        IF DocMode = #CG_MODE_LANDSCAPE THEN RETURN LandscapePartRowCount(slot, variant) END IF
+        IF DocMode = #CG_MODE_OBJECT THEN RETURN ObjectPartRowCount(slot, variant) END IF
+        RETURN PartRowCount(slot, variant)
+    END FUNCTION
+
+    FUNCTION ActivePartRowText(slot AS U32, variant AS U32, row AS U32) AS STRING
+        IF DocRenderStyle = #CG_STYLE_PIXEL THEN RETURN PixelPartRowText(slot, variant, row) END IF
+        IF DocMode = #CG_MODE_PAINTING THEN RETURN PaintingPartRowText(slot, variant, row) END IF
+        IF DocMode = #CG_MODE_LANDSCAPE THEN RETURN LandscapePartRowText(slot, variant, row) END IF
+        IF DocMode = #CG_MODE_OBJECT THEN RETURN ObjectPartRowText(slot, variant, row) END IF
+        RETURN PartRowText(slot, variant, row)
+    END FUNCTION
+
+    FUNCTION ObjectPartRowText(slot AS U32, variant AS U32, row AS U32) AS STRING
+        IF slot = #CG_HEAD THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "        ||         " END IF
+                IF row = 2 THEN RETURN "        ||         " END IF
+                IF row = 3 THEN RETURN "       /  /        " END IF
+                IF row = 4 THEN RETURN "      |    |       " END IF
+                IF row = 5 THEN RETURN "      |    |       " END IF
+                IF row = 6 THEN RETURN "       /  /        " END IF
+                IF row = 7 THEN RETURN "        ||         " END IF
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "      +------+     " END IF
+                IF row = 2 THEN RETURN "      |      |     " END IF
+                IF row = 3 THEN RETURN "      |  ##  |     " END IF
+                IF row = 4 THEN RETURN "      |      |     " END IF
+                IF row = 5 THEN RETURN "      |______|     " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+                IF row = 7 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "         +         " END IF
+                IF row = 2 THEN RETURN "         |         " END IF
+                IF row = 3 THEN RETURN "         |         " END IF
+                IF row = 4 THEN RETURN "         |         " END IF
+                IF row = 5 THEN RETURN "        /+/        " END IF
+                IF row = 6 THEN RETURN "       / + /       " END IF
+                IF row = 7 THEN RETURN "        `+'        " END IF
+            END IF
+            IF variant = 5 THEN
+                IF row = 1 THEN RETURN "       /----+      " END IF
+                IF row = 2 THEN RETURN "      /      /     " END IF
+                IF row = 3 THEN RETURN "     |   +   |     " END IF
+                IF row = 4 THEN RETURN "     |       |     " END IF
+                IF row = 5 THEN RETURN "      /      /     " END IF
+                IF row = 6 THEN RETURN "       `----`      " END IF
+                IF row = 7 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 6 THEN
+                IF row = 1 THEN RETURN "         /+        " END IF
+                IF row = 2 THEN RETURN "        / + /      " END IF
+                IF row = 3 THEN RETURN "       /  +  /     " END IF
+                IF row = 4 THEN RETURN "      /   +   /    " END IF
+                IF row = 5 THEN RETURN "       /  +  /     " END IF
+                IF row = 6 THEN RETURN "        / + /      " END IF
+                IF row = 7 THEN RETURN "         `+        " END IF
+            END IF
+            IF variant = 7 THEN
+                IF row = 1 THEN RETURN "      .------.     " END IF
+                IF row = 2 THEN RETURN "      | ~~~~ |     " END IF
+                IF row = 3 THEN RETURN "      | ~~~~ |     " END IF
+                IF row = 4 THEN RETURN "      | ~~~~ |     " END IF
+                IF row = 5 THEN RETURN "      |______|     " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+                IF row = 7 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 8 THEN
+                IF row = 1 THEN RETURN "       o----       " END IF
+                IF row = 2 THEN RETURN "           |       " END IF
+                IF row = 3 THEN RETURN "           |       " END IF
+                IF row = 4 THEN RETURN "         o-+       " END IF
+                IF row = 5 THEN RETURN "        |   |      " END IF
+                IF row = 6 THEN RETURN "         o-+       " END IF
+                IF row = 7 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 9 THEN
+                IF row = 1 THEN RETURN "      .------.     " END IF
+                IF row = 2 THEN RETURN "    .'(      )'.   " END IF
+                IF row = 3 THEN RETURN "     (        )    " END IF
+                IF row = 4 THEN RETURN "        ||         " END IF
+                IF row = 5 THEN RETURN "        ||         " END IF
+                IF row = 6 THEN RETURN "        ||         " END IF
+                IF row = 7 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 10 THEN
+                IF row = 1 THEN RETURN "                   " END IF
+                IF row = 2 THEN RETURN "      .--------.   " END IF
+                IF row = 3 THEN RETURN "     (    ++    )  " END IF
+                IF row = 4 THEN RETURN "      `--------`   " END IF
+                IF row = 5 THEN RETURN "                   " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+                IF row = 7 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 11 THEN
+                IF row = 1 THEN RETURN "       +-+-+-+     " END IF
+                IF row = 2 THEN RETURN "      -|     |-    " END IF
+                IF row = 3 THEN RETURN "      +-  o  -+    " END IF
+                IF row = 4 THEN RETURN "      -|     |-    " END IF
+                IF row = 5 THEN RETURN "       +-+-+-+     " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+                IF row = 7 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 12 THEN
+                IF row = 1 THEN RETURN "        .+.        " END IF
+                IF row = 2 THEN RETURN "       /   /       " END IF
+                IF row = 3 THEN RETURN "      |  *  |      " END IF
+                IF row = 4 THEN RETURN "      |  *  |      " END IF
+                IF row = 5 THEN RETURN "       /   /       " END IF
+                IF row = 6 THEN RETURN "        | |        " END IF
+                IF row = 7 THEN RETURN "                   " END IF
+            END IF
+            IF row = 1 THEN RETURN "       .----.      " END IF
+            IF row = 2 THEN RETURN "      /      /     " END IF
+            IF row = 3 THEN RETURN "     |        |    " END IF
+            IF row = 4 THEN RETURN "     |        |    " END IF
+            IF row = 5 THEN RETURN "     |        |    " END IF
+            IF row = 6 THEN RETURN "      /      /     " END IF
+            IF row = 7 THEN RETURN "       `----`      " END IF
+        END IF
+
+        IF slot = #CG_HAIR THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "         *         " END IF
+                IF row = 2 THEN RETURN "        /+/        " END IF
+                IF row = 3 THEN RETURN "       *  *  *      " END IF
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "      +-+-+-+      " END IF
+                IF row = 2 THEN RETURN "      |     |      " END IF
+                IF row = 3 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "       /~~~/       " END IF
+                IF row = 2 THEN RETURN "      (     )      " END IF
+                IF row = 3 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 5 THEN
+                IF row = 1 THEN RETURN "      .------.     " END IF
+                IF row = 2 THEN RETURN "                   " END IF
+                IF row = 3 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 6 THEN
+                IF row = 1 THEN RETURN "       /> </       " END IF
+                IF row = 2 THEN RETURN "      /     /      " END IF
+                IF row = 3 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 7 THEN
+                IF row = 1 THEN RETURN "        | |        " END IF
+                IF row = 2 THEN RETURN "        o          " END IF
+                IF row = 3 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 8 THEN
+                IF row = 1 THEN RETURN "       /^^^^/      " END IF
+                IF row = 2 THEN RETURN "      ~     ~      " END IF
+                IF row = 3 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 9 THEN
+                IF row = 1 THEN RETURN "        /+/        " END IF
+                IF row = 2 THEN RETURN "       /   /       " END IF
+                IF row = 3 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 10 THEN
+                IF row = 1 THEN RETURN "       (###)       " END IF
+                IF row = 2 THEN RETURN "      |     |      " END IF
+                IF row = 3 THEN RETURN "                   " END IF
+            END IF
+            IF row = 1 THEN RETURN "      +------+     " END IF
+            IF row = 2 THEN RETURN "      |      |     " END IF
+            IF row = 3 THEN RETURN "                   " END IF
+        END IF
+
+        IF slot = #CG_EYES THEN
+            IF variant = 2 THEN RETURN "       o   o       " END IF
+            IF variant = 3 THEN RETURN "       *   *       " END IF
+            IF variant = 4 THEN RETURN "       @   @       " END IF
+            IF variant = 5 THEN RETURN "      [o   o]      " END IF
+            IF variant = 6 THEN RETURN "       +   +       " END IF
+            IF variant = 7 THEN RETURN "       ~   ~       " END IF
+            IF variant = 8 THEN RETURN "       #   #       " END IF
+            RETURN "       .   .       "
+        END IF
+
+        IF slot = #CG_NOSE THEN
+            IF variant = 2 THEN RETURN "         |         " END IF
+            IF variant = 3 THEN RETURN "         >         " END IF
+            IF variant = 4 THEN RETURN "         v         " END IF
+            IF variant = 5 THEN RETURN "        /+/        " END IF
+            IF variant = 6 THEN RETURN "         o         " END IF
+            IF variant = 7 THEN RETURN "        `-`        " END IF
+            IF variant = 8 THEN RETURN "         +         " END IF
+            RETURN "         ^         "
+        END IF
+
+        IF slot = #CG_LIPS THEN
+            IF variant = 2 THEN RETURN "        ---        " END IF
+            IF variant = 3 THEN RETURN "        ooo        " END IF
+            IF variant = 4 THEN RETURN "       /   /       " END IF
+            IF variant = 5 THEN RETURN "        ###        " END IF
+            IF variant = 6 THEN RETURN "        ==        " END IF
+            RETURN "        ...        "
+        END IF
+
+        IF slot = #CG_EARS THEN
+            IF variant = 2 THEN RETURN " (             )   " END IF
+            IF variant = 3 THEN RETURN " )             (   " END IF
+            IF variant = 4 THEN RETURN " |             |   " END IF
+            IF variant = 5 THEN RETURN " /             /   " END IF
+            IF variant = 6 THEN RETURN " o             o   " END IF
+            IF variant = 7 THEN RETURN " #             #   " END IF
+            IF variant = 8 THEN RETURN " ~             ~   " END IF
+            RETURN "                   "
+        END IF
+
+        IF slot = #CG_BROWS THEN
+            IF variant = 2 THEN RETURN "      =======      " END IF
+            IF variant = 3 THEN RETURN "      ~~~~~~~      " END IF
+            IF variant = 4 THEN RETURN "      -------      " END IF
+            IF variant = 5 THEN RETURN "      +++++++      " END IF
+            IF variant = 6 THEN RETURN "      #######      " END IF
+            RETURN "                   "
+        END IF
+
+        IF slot = #CG_BEARD THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "      ~~~~~~~      " END IF
+                IF row = 2 THEN RETURN "       .....       " END IF
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "      |#####|      " END IF
+                IF row = 2 THEN RETURN "       `###`       " END IF
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "       /~~~/       " END IF
+                IF row = 2 THEN RETURN "        `+'        " END IF
+            END IF
+            IF variant = 5 THEN
+                IF row = 1 THEN RETURN "      .-----       " END IF
+                IF row = 2 THEN RETURN "       `---`       " END IF
+            END IF
+            IF variant = 6 THEN
+                IF row = 1 THEN RETURN "       * * *       " END IF
+                IF row = 2 THEN RETURN "        * *        " END IF
+            END IF
+            IF row = 1 THEN RETURN "       `---`       " END IF
+            IF row = 2 THEN RETURN "        `+'        " END IF
+        END IF
+
+        IF slot = #CG_CHIN THEN
+            IF variant = 2 THEN RETURN "        /+/        " END IF
+            IF variant = 3 THEN RETURN "        `+'        " END IF
+            IF variant = 4 THEN RETURN "        vvv        " END IF
+            IF variant = 5 THEN RETURN "        uuu        " END IF
+            IF variant = 6 THEN RETURN "        ooo        " END IF
+            RETURN "        ---        "
+        END IF
+
+        IF slot = #CG_NECK THEN
+            IF variant = 2 THEN RETURN "        ||         " END IF
+            IF variant = 3 THEN RETURN "        II         " END IF
+            IF variant = 4 THEN RETURN "        ==         " END IF
+            IF variant = 5 THEN RETURN "        ++         " END IF
+            IF variant = 6 THEN RETURN "        ~~         " END IF
+            RETURN "        |          "
+        END IF
+
+        IF slot = #CG_CLOTH THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "    /`---`/        " END IF
+                IF row = 2 THEN RETURN "   |       |       " END IF
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "   _.-`~-._        " END IF
+                IF row = 2 THEN RETURN "  '         '      " END IF
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "   =========       " END IF
+                IF row = 2 THEN RETURN "   |       |       " END IF
+            END IF
+            IF variant = 5 THEN
+                IF row = 1 THEN RETURN "    .-------.      " END IF
+                IF row = 2 THEN RETURN "   (         )     " END IF
+            END IF
+            IF variant = 6 THEN
+                IF row = 1 THEN RETURN "   /~~~~~~~/       " END IF
+                IF row = 2 THEN RETURN "  |         |      " END IF
+            END IF
+            IF variant = 7 THEN
+                IF row = 1 THEN RETURN "   +---+---+       " END IF
+                IF row = 2 THEN RETURN "   |       |       " END IF
+            END IF
+            IF variant = 8 THEN
+                IF row = 1 THEN RETURN "   #~~~~~~~#       " END IF
+                IF row = 2 THEN RETURN "   #       #       " END IF
+            END IF
+            IF row = 1 THEN RETURN "  ___________      " END IF
+            IF row = 2 THEN RETURN " |           |     " END IF
+        END IF
+
+        IF slot = #CG_GLASS THEN
+            IF variant = 2 THEN RETURN "       /+/        " END IF
+            IF variant = 3 THEN RETURN "       `+'        " END IF
+            IF variant = 4 THEN RETURN "      *   *       " END IF
+            IF variant = 5 THEN RETURN "      o   o       " END IF
+            IF variant = 6 THEN RETURN "      ~   ~       " END IF
+            RETURN "                   "
+        END IF
+
+        IF slot = #CG_BACK THEN
+            IF variant = 2 THEN RETURN "     ~~~~~~~~~     " END IF
+            IF variant = 3 THEN RETURN "     #########     " END IF
+            IF variant = 4 THEN RETURN "     .........     " END IF
+            IF variant = 5 THEN RETURN "     +++++++++     " END IF
+            IF variant = 6 THEN RETURN "     ooooooooo     " END IF
+            RETURN "                   "
+        END IF
+
+        IF slot = #CG_DECO1 THEN
+            IF variant = 2 THEN RETURN "        *          " END IF
+            IF variant = 3 THEN RETURN "        +          " END IF
+            IF variant = 4 THEN RETURN "        #          " END IF
+            IF variant = 5 THEN RETURN "        @          " END IF
+            IF variant = 6 THEN RETURN "        o          " END IF
+            IF variant = 7 THEN RETURN "       /+/         " END IF
+            IF variant = 8 THEN RETURN "       <=          " END IF
+            RETURN "                   "
+        END IF
+
+        IF slot = #CG_DECO2 THEN
+            IF variant = 2 THEN RETURN "          *        " END IF
+            IF variant = 3 THEN RETURN "          +        " END IF
+            IF variant = 4 THEN RETURN "          #        " END IF
+            IF variant = 5 THEN RETURN "          @        " END IF
+            IF variant = 6 THEN RETURN "          o        " END IF
+            IF variant = 7 THEN RETURN "         /+/       " END IF
+            IF variant = 8 THEN RETURN "          =>       " END IF
+            RETURN "                   "
+        END IF
+
+        RETURN "                   "
+    END FUNCTION
+
+    FUNCTION LayoutBaseY(slot AS U32) AS S32
+        IF DocRenderStyle = #CG_STYLE_PIXEL THEN RETURN PixelPortraitBaseY(slot) END IF
+        RETURN PortraitBaseY(slot)
+    END FUNCTION
+
+    FUNCTION PickObjectColor(slot AS U32, roll AS U32) AS U32
+        LET pick AS U32 = roll MOD 5
+        IF slot = #CG_HEAD OR slot = #CG_HAIR OR slot = #CG_CLOTH THEN
+            IF pick = 0 THEN RETURN $AA7744 END IF
+            IF pick = 1 THEN RETURN $886644 END IF
+            IF pick = 2 THEN RETURN $665533 END IF
+            IF pick = 3 THEN RETURN $CCAA88 END IF
+            RETURN $554433
+        END IF
+        IF slot = #CG_EYES OR slot = #CG_GLASS OR slot = #CG_DECO1 OR slot = #CG_DECO2 THEN
+            IF pick = 0 THEN RETURN $44DDFF END IF
+            IF pick = 1 THEN RETURN $FFDD44 END IF
+            IF pick = 2 THEN RETURN $FF4488 END IF
+            IF pick = 3 THEN RETURN $88FF88 END IF
+            RETURN $FFFFFF
+        END IF
+        IF slot = #CG_NOSE OR slot = #CG_LIPS OR slot = #CG_BEARD THEN
+            IF pick = 0 THEN RETURN $888888 END IF
+            IF pick = 1 THEN RETURN $AAAAAA END IF
+            RETURN $666666
+        END IF
+        RETURN $999999
+    END FUNCTION
+
+    FUNCTION ActivePickColor(slot AS U32, roll AS U32) AS U32
+        IF DocMode = #CG_MODE_PAINTING THEN RETURN PickPaintingColor(slot, roll) END IF
+        IF DocMode = #CG_MODE_LANDSCAPE THEN RETURN PickLandscapeColor(slot, roll) END IF
+        IF DocMode = #CG_MODE_OBJECT THEN RETURN PickObjectColor(slot, roll) END IF
+        RETURN PickSlotColor(slot, roll)
+    END FUNCTION
+
+    FUNCTION PaintingPartVariantMax(slot AS U32) AS U32
+        IF slot = #CG_HEAD THEN RETURN 14 END IF
+        IF slot = #CG_HAIR OR slot = #CG_BACK THEN RETURN 10 END IF
+        IF slot = #CG_CLOTH THEN RETURN 10 END IF
+        IF slot = #CG_EYES OR slot = #CG_NOSE OR slot = #CG_EARS THEN RETURN 8 END IF
+        IF slot = #CG_BEARD OR slot = #CG_LIPS OR slot = #CG_BROWS THEN RETURN 8 END IF
+        IF slot = #CG_DECO1 OR slot = #CG_DECO2 THEN RETURN 10 END IF
+        IF slot = #CG_GLASS OR slot = #CG_CHIN OR slot = #CG_NECK THEN RETURN 8 END IF
+        RETURN 8
+    END FUNCTION
+
+    FUNCTION LandscapePartVariantMax(slot AS U32) AS U32
+        IF slot = #CG_HEAD THEN RETURN 10 END IF
+        IF slot = #CG_HAIR OR slot = #CG_BACK THEN RETURN 8 END IF
+        IF slot = #CG_CLOTH THEN RETURN 8 END IF
+        IF slot = #CG_EYES OR slot = #CG_NOSE OR slot = #CG_EARS THEN RETURN 8 END IF
+        IF slot = #CG_BEARD OR slot = #CG_LIPS OR slot = #CG_BROWS THEN RETURN 6 END IF
+        IF slot = #CG_DECO1 OR slot = #CG_DECO2 THEN RETURN 6 END IF
+        RETURN 6
+    END FUNCTION
+
+    FUNCTION PaintingVarietyCount() AS U32
+        LET slot AS U32 = 1
+        LET prod AS U32 = 1
+        WHILE slot <= #ALBCG_PART_COUNT
+            prod = prod * PaintingPartVariantMax(slot)
+            IF prod > 9999999 THEN RETURN 9999999 END IF
+            slot = slot + 1
+        END WHILE
+        RETURN prod
+    END FUNCTION
+
+    FUNCTION LandscapeVarietyCount() AS U32
+        LET slot AS U32 = 1
+        LET prod AS U32 = 1
+        WHILE slot <= #ALBCG_PART_COUNT
+            prod = prod * LandscapePartVariantMax(slot)
+            IF prod > 9999999 THEN RETURN 9999999 END IF
+            slot = slot + 1
+        END WHILE
+        RETURN prod
+    END FUNCTION
+
+    FUNCTION PaintingPartRowCount(slot AS U32, variant AS U32) AS U32
+        IF slot = #CG_HEAD THEN RETURN 6 END IF
+        IF slot = #CG_HAIR OR slot = #CG_BACK THEN RETURN 3 END IF
+        IF slot = #CG_CLOTH THEN RETURN 2 END IF
+        IF slot = #CG_BEARD THEN RETURN 2 END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION LandscapePartRowCount(slot AS U32, variant AS U32) AS U32
+        IF slot = #CG_HEAD THEN RETURN 5 END IF
+        IF slot = #CG_HAIR OR slot = #CG_BACK THEN RETURN 2 END IF
+        IF slot = #CG_CLOTH THEN RETURN 2 END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION PickPaintingColor(slot AS U32, roll AS U32) AS U32
+        LET pick AS U32 = roll MOD 5
+        IF slot = #CG_BACK OR slot = #CG_HAIR OR slot = #CG_GLASS THEN
+            IF pick = 0 THEN RETURN $4488CC END IF
+            IF pick = 1 THEN RETURN $6699DD END IF
+            IF pick = 2 THEN RETURN $FF8844 END IF
+            IF pick = 3 THEN RETURN $223366 END IF
+            RETURN $8866AA
+        END IF
+        IF slot = #CG_HEAD OR slot = #CG_NOSE OR slot = #CG_EARS OR slot = #CG_BROWS THEN
+            IF pick = 0 THEN RETURN $556644 END IF
+            IF pick = 1 THEN RETURN $887766 END IF
+            IF pick = 2 THEN RETURN $334433 END IF
+            IF pick = 3 THEN RETURN $AA9988 END IF
+            RETURN $665544
+        END IF
+        IF slot = #CG_LIPS OR slot = #CG_BEARD OR slot = #CG_CHIN OR slot = #CG_NECK THEN
+            IF pick = 0 THEN RETURN $228833 END IF
+            IF pick = 1 THEN RETURN $44AA55 END IF
+            IF pick = 2 THEN RETURN $886633 END IF
+            RETURN $336622
+        END IF
+        IF slot = #CG_EYES OR slot = #CG_DECO1 OR slot = #CG_DECO2 THEN
+            IF pick = 0 THEN RETURN $FFFF88 END IF
+            IF pick = 1 THEN RETURN $FFFFFF END IF
+            IF pick = 2 THEN RETURN $FFCC44 END IF
+            RETURN $AADDFF
+        END IF
+        IF slot = #CG_CLOTH THEN
+            IF pick = 0 THEN RETURN $884422 END IF
+            IF pick = 1 THEN RETURN $553311 END IF
+            RETURN $AA6633
+        END IF
+        RETURN $888888
+    END FUNCTION
+
+    FUNCTION PickLandscapeColor(slot AS U32, roll AS U32) AS U32
+        LET pick AS U32 = roll MOD 4
+        IF slot = #CG_BACK OR slot = #CG_HAIR THEN
+            IF pick = 0 THEN RETURN $5599CC END IF
+            IF pick = 1 THEN RETURN $88BBEE END IF
+            RETURN $446688
+        END IF
+        IF slot = #CG_HEAD OR slot = #CG_BROWS OR slot = #CG_EARS THEN
+            IF pick = 0 THEN RETURN $448833 END IF
+            IF pick = 1 THEN RETURN $667744 END IF
+            RETURN $335522
+        END IF
+        IF slot = #CG_LIPS OR slot = #CG_BEARD OR slot = #CG_CHIN THEN
+            IF pick = 0 THEN RETURN $886644 END IF
+            RETURN $AA8855
+        END IF
+        RETURN $666666
+    END FUNCTION
+
+    FUNCTION PaintingPartRowText(slot AS U32, variant AS U32, row AS U32) AS STRING
+        IF slot = #CG_BACK THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "    *   *   *     " END IF
+                IF row = 2 THEN RETURN "  *   *   *   *   " END IF
+                IF row = 3 THEN RETURN "    *   *   *     " END IF
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "   ~~~~~~~~~~~    " END IF
+                IF row = 2 THEN RETURN "  ~~~~~~~~~~~~~   " END IF
+                IF row = 3 THEN RETURN "   ~~~~~~~~~~~    " END IF
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "  /~~~~~~~~~~~/   " END IF
+                IF row = 2 THEN RETURN " /~~~~~~~~~~~~~/  " END IF
+                IF row = 3 THEN RETURN "  ~~~~~~~~~~~~~~~  " END IF
+            END IF
+            IF variant = 5 THEN
+                IF row = 1 THEN RETURN "   .-.-.-.-.-.    " END IF
+                IF row = 2 THEN RETURN "  .-.-.-.-.-.-.   " END IF
+                IF row = 3 THEN RETURN "   .-.-.-.-.-.    " END IF
+            END IF
+            IF row = 1 THEN RETURN "                   " END IF
+            IF row = 2 THEN RETURN "                   " END IF
+            IF row = 3 THEN RETURN "                   " END IF
+        END IF
+
+        IF slot = #CG_HAIR THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "     .~~~~.       " END IF
+                IF row = 2 THEN RETURN "   .~      ~.     " END IF
+                IF row = 3 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "   /~~~~~~~~~/    " END IF
+                IF row = 2 THEN RETURN "  /~~~~~~~~~~~/   " END IF
+                IF row = 3 THEN RETURN "                   " END IF
+            END IF
+            IF row = 1 THEN RETURN "    ~  ~  ~  ~    " END IF
+            IF row = 2 THEN RETURN "   ~   ~   ~  ~   " END IF
+            IF row = 3 THEN RETURN "                   " END IF
+        END IF
+
+        IF slot = #CG_HEAD THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "        ( )       " END IF
+                IF row = 2 THEN RETURN "       (   )      " END IF
+                IF row = 3 THEN RETURN "      (     )     " END IF
+                IF row = 4 THEN RETURN "       (   )      " END IF
+                IF row = 5 THEN RETURN "        ( )       " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "      //  //     " END IF
+                IF row = 2 THEN RETURN "     /  //  /    " END IF
+                IF row = 3 THEN RETURN "    /        /   " END IF
+                IF row = 4 THEN RETURN "   /__________/  " END IF
+                IF row = 5 THEN RETURN "                   " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 4 THEN
+                IF row = 1 THEN RETURN "      |####|      " END IF
+                IF row = 2 THEN RETURN "     |######|     " END IF
+                IF row = 3 THEN RETURN "    |########|    " END IF
+                IF row = 4 THEN RETURN "     |######|     " END IF
+                IF row = 5 THEN RETURN "      |####|      " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 5 THEN
+                IF row = 1 THEN RETURN "        //       " END IF
+                IF row = 2 THEN RETURN "       /  /      " END IF
+                IF row = 3 THEN RETURN "      /    /     " END IF
+                IF row = 4 THEN RETURN "     /      /    " END IF
+                IF row = 5 THEN RETURN "    /________/   " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 6 THEN
+                IF row = 1 THEN RETURN "       /|/        " END IF
+                IF row = 2 THEN RETURN "      / | /       " END IF
+                IF row = 3 THEN RETURN "     /  |  /      " END IF
+                IF row = 4 THEN RETURN "    /   |   /     " END IF
+                IF row = 5 THEN RETURN "   /____|____/    " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 7 THEN
+                IF row = 1 THEN RETURN "      |    |      " END IF
+                IF row = 2 THEN RETURN "     |  ||  |     " END IF
+                IF row = 3 THEN RETURN "    |   ||   |    " END IF
+                IF row = 4 THEN RETURN "   |__________|   " END IF
+                IF row = 5 THEN RETURN "                   " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 8 THEN
+                IF row = 1 THEN RETURN "       /^^        " END IF
+                IF row = 2 THEN RETURN "      /  ^^       " END IF
+                IF row = 3 THEN RETURN "     /    ^^      " END IF
+                IF row = 4 THEN RETURN "    /______^^     " END IF
+                IF row = 5 THEN RETURN "                   " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 9 THEN
+                IF row = 1 THEN RETURN "      .----.      " END IF
+                IF row = 2 THEN RETURN "     (      )     " END IF
+                IF row = 3 THEN RETURN "    (        )    " END IF
+                IF row = 4 THEN RETURN "     (______ )    " END IF
+                IF row = 5 THEN RETURN "                   " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 10 THEN
+                IF row = 1 THEN RETURN "       /^^        " END IF
+                IF row = 2 THEN RETURN "      /==^^       " END IF
+                IF row = 3 THEN RETURN "     /====^^      " END IF
+                IF row = 4 THEN RETURN "    /======^^     " END IF
+                IF row = 5 THEN RETURN "   /========^^    " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 11 THEN
+                IF row = 1 THEN RETURN "      (~~~~)      " END IF
+                IF row = 2 THEN RETURN "     (      )     " END IF
+                IF row = 3 THEN RETURN "    (        )    " END IF
+                IF row = 4 THEN RETURN "   (          )   " END IF
+                IF row = 5 THEN RETURN "    (________)    " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 12 THEN
+                IF row = 1 THEN RETURN "      |####|      " END IF
+                IF row = 2 THEN RETURN "     |#    #|     " END IF
+                IF row = 3 THEN RETURN "    |#  ||  #|    " END IF
+                IF row = 4 THEN RETURN "   |#   ||   #|   " END IF
+                IF row = 5 THEN RETURN "    |________|    " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 13 THEN
+                IF row = 1 THEN RETURN "       /  /       " END IF
+                IF row = 2 THEN RETURN "      /  / /      " END IF
+                IF row = 3 THEN RETURN "     /  /   /     " END IF
+                IF row = 4 THEN RETURN "    /  /     /    " END IF
+                IF row = 5 THEN RETURN "   /__/       /   " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 14 THEN
+                IF row = 1 THEN RETURN "      .-..-.      " END IF
+                IF row = 2 THEN RETURN "     (  )(  )     " END IF
+                IF row = 3 THEN RETURN "    (        )    " END IF
+                IF row = 4 THEN RETURN "     (      )     " END IF
+                IF row = 5 THEN RETURN "      '----'      " END IF
+                IF row = 6 THEN RETURN "                   " END IF
+            END IF
+            IF row = 1 THEN RETURN "      /  |  /     " END IF
+            IF row = 2 THEN RETURN "    .-'     '-.   " END IF
+            IF row = 3 THEN RETURN "   (    |    )    " END IF
+            IF row = 4 THEN RETURN "        |         " END IF
+            IF row = 5 THEN RETURN "       / /       " END IF
+            IF row = 6 THEN RETURN "                   " END IF
+        END IF
+
+        IF slot = #CG_EYES THEN
+            IF variant = 2 THEN RETURN "    *  *  *  *    " END IF
+            IF variant = 3 THEN RETURN "      .  .        " END IF
+            IF variant = 4 THEN RETURN "     ~    ~       " END IF
+            IF variant = 5 THEN RETURN "    >  >  <  <    " END IF
+            RETURN "                   "
+        END IF
+
+        IF slot = #CG_BROWS THEN
+            IF variant = 2 THEN RETURN "  ~~~~~~~~~~~~~~~~  " END IF
+            IF variant = 3 THEN RETURN "  ----------------  " END IF
+            IF variant = 4 THEN RETURN "  .................  " END IF
+            RETURN "  ~~~~~~~~~~~~~~~~  "
+        END IF
+
+        IF slot = #CG_EARS THEN
+            IF variant = 2 THEN RETURN " /               / " END IF
+            IF variant = 3 THEN RETURN " //           //  " END IF
+            IF variant = 4 THEN RETURN " ^^           ^^   " END IF
+            RETURN "                   "
+        END IF
+
+        IF slot = #CG_NOSE THEN
+            IF variant = 2 THEN RETURN "        //       " END IF
+            IF variant = 3 THEN RETURN "        | |       " END IF
+            IF variant = 4 THEN RETURN "        /+/       " END IF
+            RETURN "        //       "
+        END IF
+
+        IF slot = #CG_LIPS THEN
+            IF variant = 2 THEN RETURN " ~~~~~~~~~~~~~~~~~ " END IF
+            IF variant = 3 THEN RETURN " ~~~~~~~~~~~~~~~~~ " END IF
+            IF variant = 4 THEN RETURN " ~~~~~~~~~~~~~~~~~ " END IF
+            RETURN " ~~~~~~~~~~~~~~~~~ "
+        END IF
+
+        IF slot = #CG_BEARD THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "   | | | | | |    " END IF
+                IF row = 2 THEN RETURN "   | | | | | |    " END IF
+            END IF
+            IF row = 1 THEN RETURN "   ^ ^ ^ ^ ^ ^    " END IF
+            IF row = 2 THEN RETURN "   | | | | | |    " END IF
+        END IF
+
+        IF slot = #CG_CHIN THEN
+            IF variant = 2 THEN RETURN "  ~~~~~~~~~~~~~~~~  " END IF
+            IF variant = 3 THEN RETURN "  ################  " END IF
+            RETURN "  ~~~~~~~~~~~~~~~~  "
+        END IF
+
+        IF slot = #CG_NECK THEN
+            IF variant = 2 THEN RETURN "       /  /        " END IF
+            IF variant = 3 THEN RETURN "       |  |        " END IF
+            RETURN "       /  /        "
+        END IF
+
+        IF slot = #CG_CLOTH THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "+-----------------+" END IF
+                IF row = 2 THEN RETURN "|                 |" END IF
+            END IF
+            IF row = 1 THEN RETURN "+-----------------+" END IF
+            IF row = 2 THEN RETURN "|                 |" END IF
+        END IF
+
+        IF slot = #CG_GLASS THEN
+            IF variant = 2 THEN RETURN "      /  /  /      " END IF
+            IF variant = 3 THEN RETURN "     *    *        " END IF
+            RETURN "                   "
+        END IF
+
+        IF slot = #CG_DECO1 THEN
+            IF variant = 2 THEN RETURN "*" END IF
+            IF variant = 3 THEN RETURN "+" END IF
+            RETURN " "
+        END IF
+
+        IF slot = #CG_DECO2 THEN
+            IF variant = 2 THEN RETURN "          *" END IF
+            IF variant = 3 THEN RETURN "          +" END IF
+            RETURN "          "
+        END IF
+
+        RETURN "                   "
+    END FUNCTION
+
+    FUNCTION LandscapePartRowText(slot AS U32, variant AS U32, row AS U32) AS STRING
+        IF slot = #CG_BACK THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "   ~~~~~~~~~~~    " END IF
+                IF row = 2 THEN RETURN "  ~~~~~~~~~~~~~   " END IF
+            END IF
+            IF row = 1 THEN RETURN "                   " END IF
+            IF row = 2 THEN RETURN "                   " END IF
+        END IF
+
+        IF slot = #CG_HAIR THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "    ~  ~  ~  ~    " END IF
+                IF row = 2 THEN RETURN "                   " END IF
+            END IF
+            IF row = 1 THEN RETURN "                   " END IF
+            IF row = 2 THEN RETURN "                   " END IF
+        END IF
+
+        IF slot = #CG_HEAD THEN
+            IF variant = 2 THEN
+                IF row = 1 THEN RETURN "      //  //     " END IF
+                IF row = 2 THEN RETURN "     /  //  /    " END IF
+                IF row = 3 THEN RETURN "    /        /   " END IF
+                IF row = 4 THEN RETURN "   /__________/  " END IF
+                IF row = 5 THEN RETURN "                   " END IF
+            END IF
+            IF variant = 3 THEN
+                IF row = 1 THEN RETURN "   ^  ^  ^  ^  ^   " END IF
+                IF row = 2 THEN RETURN "  ^ ^ ^ ^ ^ ^ ^  " END IF
+                IF row = 3 THEN RETURN " ^  ^  ^  ^  ^ ^ " END IF
+                IF row = 4 THEN RETURN "                   " END IF
+                IF row = 5 THEN RETURN "                   " END IF
+            END IF
+            IF row = 1 THEN RETURN "      .......      " END IF
+            IF row = 2 THEN RETURN "     .........     " END IF
+            IF row = 3 THEN RETURN "    ...........    " END IF
+            IF row = 4 THEN RETURN "   .............   " END IF
+            IF row = 5 THEN RETURN "                   " END IF
+        END IF
+
+        IF slot = #CG_BROWS THEN
+            IF variant = 2 THEN RETURN "  ~~~~~~~~~~~~~~~~  " END IF
+            RETURN "  ----------------  "
+        END IF
+
+        IF slot = #CG_LIPS THEN
+            IF variant = 2 THEN RETURN " ~~~~~~~~~~~~~~~~~ " END IF
+            RETURN " ~~~~~~~~~~~~~~~~~ "
+        END IF
+
+        IF slot = #CG_BEARD THEN
+            IF variant = 2 THEN RETURN "   , , , , , ,    " END IF
+            RETURN "   . . . . . .    "
+        END IF
+
+        IF slot = #CG_CLOTH THEN
+            IF row = 1 THEN RETURN "+-----------------+" END IF
+            IF row = 2 THEN RETURN "|                 |" END IF
+        END IF
+
+        RETURN "                   "
+    END FUNCTION
+
+    PROCEDURE ComposePainting(handle AS U32)
+        CALL CanvasClear(handle, 32)
+        CALL BlitSlot(handle, #CG_CLOTH, 1, 1)
+        CALL BlitSlot(handle, #CG_BACK, 1, 2)
+        CALL BlitSlot(handle, #CG_HAIR, 1, 1)
+        CALL BlitSlot(handle, #CG_HEAD, 1, 4)
+        CALL BlitSlot(handle, #CG_EYES, 1, 3)
+        CALL BlitSlot(handle, #CG_GLASS, 1, 3)
+        CALL BlitSlot(handle, #CG_EARS, 1, 6)
+        CALL BlitSlot(handle, #CG_BROWS, 1, 7)
+        CALL BlitSlot(handle, #CG_NOSE, 1, 5)
+        CALL BlitSlot(handle, #CG_LIPS, 1, 9)
+        CALL BlitSlot(handle, #CG_BEARD, 1, 10)
+        CALL BlitSlot(handle, #CG_CHIN, 1, 11)
+        CALL BlitSlot(handle, #CG_NECK, 1, 12)
+        CALL BlitSlot(handle, #CG_DECO1, 1, 2)
+        CALL BlitSlot(handle, #CG_DECO2, 1, 2)
+        CALL CanvasRecenterInk(handle)
+    END PROCEDURE
+
+    PROCEDURE ComposeLandscape(handle AS U32)
+        CALL CanvasClear(handle, 32)
+        CALL BlitSlot(handle, #CG_CLOTH, 1, 1)
+        CALL BlitSlot(handle, #CG_BACK, 1, 2)
+        CALL BlitSlot(handle, #CG_HAIR, 1, 1)
+        CALL BlitSlot(handle, #CG_HEAD, 1, 5)
+        CALL BlitSlot(handle, #CG_BROWS, 1, 8)
+        CALL BlitSlot(handle, #CG_EARS, 1, 7)
+        CALL BlitSlot(handle, #CG_LIPS, 1, 10)
+        CALL BlitSlot(handle, #CG_BEARD, 1, 11)
+        CALL BlitSlot(handle, #CG_CHIN, 1, 12)
+        CALL BlitSlot(handle, #CG_DECO1, 1, 2)
+        CALL BlitSlot(handle, #CG_DECO2, 1, 2)
+        CALL CanvasRecenterInk(handle)
+    END PROCEDURE
+
+    FUNCTION RowCharAt(txt AS STRING, char_idx AS U32) AS STRING
+        IF char_idx < 1 THEN RETURN " " END IF
+        IF char_idx > LEN(txt) THEN RETURN " " END IF
+        RETURN RIGHT$(LEFT$(txt, char_idx), 1)
+    END FUNCTION
+
+    FUNCTION PadPartRow(txt AS STRING) AS STRING
+        LET n AS U32 = LEN(txt)
+        LET total AS U32 = 0
+        LET left AS U32 = 0
+        LET pad AS STRING = ""
+        LET i AS U32 = 0
+        IF n >= #ALBCG_PART_W THEN RETURN LEFT$(txt, #ALBCG_PART_W) END IF
+        total = #ALBCG_PART_W - n
+        left = total / 2
+        pad = ""
+        i = 0
+        WHILE i < left
+            pad = pad | " "
+            i = i + 1
+        END WHILE
+        txt = pad | txt
+        WHILE LEN(txt) < #ALBCG_PART_W
+            txt = txt | " "
+        END WHILE
+        RETURN txt
+    END FUNCTION
+
+    PROCEDURE CanvasBlitPart(handle AS U32, slot AS U32, variant AS U32, ox AS S32, oy AS S32, ink_color AS U32)
+        LET row AS U32 = 1
+        LET max_row AS U32 = ActivePartRowCount(slot, variant)
+        LET row_text AS STRING = ""
+        LET char_idx AS U32 = 1
+        LET piece AS STRING = ""
+        LET px AS U32 = 0
+        LET py AS U32 = 0
+        WHILE row <= max_row
+            row_text = PadPartRow(ActivePartRowText(slot, variant, row))
+            char_idx = 1
+            WHILE char_idx <= LEN(row_text)
+                piece = RowCharAt(row_text, char_idx)
+                IF piece <> " " AND LEN(piece) > 0 THEN
+                    IF ox + CAST(char_idx AS S32) > 0 AND oy + CAST(row AS S32) > 0 THEN
+                        px = CAST(ox + CAST(char_idx AS S32) AS U32)
+                        py = CAST(oy + CAST(row AS S32) AS U32)
+                        CALL CanvasSetInk(handle, px, py, GlyphCode(piece), ink_color)
+                    END IF
+                END IF
+                char_idx = char_idx + 1
+            END WHILE
+            row = row + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE CanvasBlitPartPixel(handle AS U32, slot AS U32, variant AS U32, ox AS S32, oy AS S32, ink_color AS U32)
+        LET row AS U32 = 1
+        LET max_row AS U32 = ActivePartRowCount(slot, variant)
+        LET row_text AS STRING = ""
+        LET char_idx AS U32 = 1
+        LET piece AS STRING = ""
+        LET px AS U32 = 0
+        LET py AS U32 = 0
+        LET stamp AS U32 = 0
+        WHILE row <= max_row
+            row_text = PadPixelRow(ActivePartRowText(slot, variant, row))
+            char_idx = 1
+            WHILE char_idx <= LEN(row_text)
+                piece = RowCharAt(row_text, char_idx)
+                IF PixelCellActive(piece) = 1 THEN
+                    IF ox + CAST(char_idx AS S32) > 0 AND oy + CAST(row AS S32) > 0 THEN
+                        px = CAST(ox + CAST(char_idx AS S32) AS U32)
+                        py = CAST(oy + CAST(row AS S32) AS U32)
+                        stamp = PixelInkColor(piece, ink_color, slot)
+                        CALL CanvasSetInk(handle, px, py, #CG_PIXEL_INK, stamp)
+                    END IF
+                END IF
+                char_idx = char_idx + 1
+            END WHILE
+            row = row + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE DocReset(seed AS U32)
+        LET slot AS U32 = 1
+        DocSeed = seed
+        DocMode = #CG_MODE_PORTRAIT
+        DocRenderStyle = #CG_STYLE_ASCII
+        DocEra = #CG_ERA_DEFAULT
+        DocGender = #CG_GENDER_ANY
+        WHILE slot <= #ALBCG_PART_COUNT
+            DocVariant[slot] = 1
+            DocColor[slot] = $FFFFFF
+            DocLock[slot] = 0
+            DocYOffset[slot] = 0
+            slot = slot + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE DocSetMode(mode AS U32)
+        DocMode = mode
+    END PROCEDURE
+
+    FUNCTION DocGetMode() AS U32
+        RETURN DocMode
+    END FUNCTION
+
+    PROCEDURE DocSetRenderStyle(style AS U32)
+        IF style = #CG_STYLE_PIXEL THEN
+            DocRenderStyle = #CG_STYLE_PIXEL
+        ELSE
+            DocRenderStyle = #CG_STYLE_ASCII
+        END IF
+    END PROCEDURE
+
+    FUNCTION DocGetRenderStyle() AS U32
+        RETURN DocRenderStyle
+    END FUNCTION
+
+    FUNCTION DocCanvasW() AS U32
+        IF DocRenderStyle = #CG_STYLE_PIXEL THEN RETURN #ALBCG_PIXEL_W END IF
+        RETURN #ALBCG_FACE_W
+    END FUNCTION
+
+    FUNCTION DocCanvasH() AS U32
+        IF DocRenderStyle = #CG_STYLE_PIXEL THEN RETURN #ALBCG_PIXEL_H END IF
+        RETURN #ALBCG_FACE_H
+    END FUNCTION
+
+    FUNCTION DocGetSeed() AS U32
+        RETURN DocSeed
+    END FUNCTION
+
+    PROCEDURE DocSetVariant(slot AS U32, variant AS U32)
+        IF slot < 1 OR slot > #ALBCG_PART_COUNT THEN RETURN END IF
+        LET maxv AS U32 = ActiveVariantMax(slot)
+        IF variant < 1 THEN variant = 1 END IF
+        IF variant > maxv THEN variant = maxv END IF
+        DocVariant[slot] = variant
+        CALL DocClampOffset(slot)
+        IF DocRenderStyle = #CG_STYLE_PIXEL THEN
+            IF DocMode = #CG_MODE_PORTRAIT OR DocMode = #CG_MODE_FULLBODY THEN
+                CALL DocApplyFFPaletteColors()
+            END IF
+        END IF
+    END PROCEDURE
+
+    FUNCTION DocGetVariant(slot AS U32) AS U32
+        IF slot < 1 OR slot > #ALBCG_PART_COUNT THEN RETURN 1 END IF
+        RETURN DocVariant[slot]
+    END FUNCTION
+
+    PROCEDURE DocCycleVariant(slot AS U32, delta AS S32)
+        IF slot < 1 OR slot > #ALBCG_PART_COUNT THEN RETURN END IF
+        LET maxv AS U32 = ActiveVariantMax(slot)
+        LET nextv AS S32 = CAST(DocVariant[slot] AS S32) + delta
+        IF nextv < 1 THEN nextv = CAST(maxv AS S32) END IF
+        IF nextv > CAST(maxv AS S32) THEN nextv = 1 END IF
+        DocVariant[slot] = CAST(nextv AS U32)
+        CALL DocClampOffset(slot)
+        IF DocRenderStyle = #CG_STYLE_PIXEL THEN
+            IF DocMode = #CG_MODE_PORTRAIT OR DocMode = #CG_MODE_FULLBODY THEN
+                CALL DocApplyFFPaletteColors()
+            END IF
+        END IF
+    END PROCEDURE
+
+    PROCEDURE DocSetColor(slot AS U32, rgb_val AS U32)
+        IF slot < 1 OR slot > #ALBCG_PART_COUNT THEN RETURN END IF
+        DocColor[slot] = rgb_val
+    END PROCEDURE
+
+    FUNCTION DocGetColor(slot AS U32) AS U32
+        IF slot < 1 OR slot > #ALBCG_PART_COUNT THEN RETURN $FFFFFF END IF
+        RETURN DocColor[slot]
+    END FUNCTION
+
+    PROCEDURE DocToggleLock(slot AS U32)
+        IF slot < 1 OR slot > #ALBCG_PART_COUNT THEN RETURN END IF
+        IF DocLock[slot] = 1 THEN
+            DocLock[slot] = 0
+        ELSE
+            DocLock[slot] = 1
+        END IF
+    END PROCEDURE
+
+    FUNCTION DocGetLock(slot AS U32) AS U8
+        IF slot < 1 OR slot > #ALBCG_PART_COUNT THEN RETURN 0 END IF
+        RETURN DocLock[slot]
+    END FUNCTION
+
+    PROCEDURE DocBumpOffset(slot AS U32, delta AS S32)
+        IF slot < 1 OR slot > #ALBCG_PART_COUNT THEN RETURN END IF
+        DocYOffset[slot] = DocYOffset[slot] + delta
+        CALL DocClampOffset(slot)
+    END PROCEDURE
+
+    FUNCTION DocGetOffset(slot AS U32) AS S32
+        IF slot < 1 OR slot > #ALBCG_PART_COUNT THEN RETURN 0 END IF
+        RETURN DocYOffset[slot]
+    END FUNCTION
+
+    PROCEDURE DocSetEra(era AS U32)
+        DocEra = era
+    END PROCEDURE
+
+    FUNCTION DocGetEra() AS U32
+        RETURN DocEra
+    END FUNCTION
+
+    PROCEDURE DocSetGender(gender AS U32)
+        DocGender = gender
+    END PROCEDURE
+
+    FUNCTION DocGetGender() AS U32
+        RETURN DocGender
+    END FUNCTION
+
+    FUNCTION PixelPortraitBaseY(slot AS U32) AS S32
+        IF slot = #CG_BACK THEN RETURN 1 END IF
+        IF slot = #CG_HAIR THEN RETURN 2 END IF
+        IF slot = #CG_HEAD OR slot = #CG_DECO1 OR slot = #CG_DECO2 THEN RETURN 9 END IF
+        IF slot = #CG_EARS THEN RETURN 11 END IF
+        IF slot = #CG_BROWS THEN RETURN 12 END IF
+        IF slot = #CG_EYES OR slot = #CG_GLASS THEN RETURN 14 END IF
+        IF slot = #CG_NOSE THEN RETURN 17 END IF
+        IF slot = #CG_LIPS THEN RETURN 19 END IF
+        IF slot = #CG_BEARD THEN RETURN 20 END IF
+        IF slot = #CG_CHIN THEN RETURN 21 END IF
+        IF slot = #CG_NECK THEN RETURN 22 END IF
+        IF slot = #CG_CLOTH THEN RETURN 25 END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION PortraitBaseX(slot AS U32) AS S32
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION PortraitBaseY(slot AS U32) AS S32
+        IF slot = #CG_HAIR THEN RETURN 1 END IF
+        IF slot = #CG_BACK THEN RETURN 2 END IF
+        IF slot = #CG_HEAD OR slot = #CG_DECO1 OR slot = #CG_DECO2 THEN RETURN 3 END IF
+        IF slot = #CG_EARS OR slot = #CG_BROWS THEN RETURN 5 END IF
+        IF slot = #CG_EYES OR slot = #CG_GLASS THEN RETURN 6 END IF
+        IF slot = #CG_NOSE THEN RETURN 7 END IF
+        IF slot = #CG_LIPS THEN RETURN 8 END IF
+        IF slot = #CG_BEARD THEN RETURN 9 END IF
+        IF slot = #CG_CHIN THEN RETURN 10 END IF
+        IF slot = #CG_NECK THEN RETURN 12 END IF
+        IF slot = #CG_CLOTH THEN RETURN 13 END IF
+        RETURN 1
+    END FUNCTION
+
+    PROCEDURE DocClampOffset(slot AS U32)
+        LET rows AS U32 = ActivePartRowCount(slot, DocGetVariant(slot))
+        LET min_off AS S32 = 1 - LayoutBaseY(slot)
+        LET max_off AS S32 = CAST(DocCanvasH() AS S32) - LayoutBaseY(slot) - CAST(rows AS S32)
+        IF max_off < 0 THEN max_off = 0 END IF
+        IF DocYOffset[slot] < min_off THEN DocYOffset[slot] = min_off END IF
+        IF DocYOffset[slot] > max_off THEN DocYOffset[slot] = max_off END IF
+    END PROCEDURE
+
+    PROCEDURE CanvasRecenterInk(handle AS U32)
+        LET w AS U32 = CanvasW(handle)
+        LET h AS U32 = CanvasH(handle)
+        LET top AS U32 = CanvasInkTop(handle)
+        LET bot AS U32 = 0
+        LET left_col AS U32 = 0
+        LET right_col AS U32 = 0
+        LET ink_w AS U32 = 0
+        LET ink_h AS U32 = 0
+        LET shift_x AS S32 = 0
+        LET shift_y AS S32 = 0
+        LET sy AS U32 = 1
+        LET sx AS U32 = 1
+        LET idx AS U32 = 0
+        LET ch AS U8 = 32
+        LET fg AS U32 = 0
+        LET nx AS S32 = 0
+        LET ny AS S32 = 0
+        IF top = 0 THEN RETURN END IF
+        bot = CanvasInkBottom(handle)
+        left_col = CanvasInkLeft(handle)
+        right_col = CanvasInkRight(handle)
+        ink_w = right_col - left_col + 1
+        ink_h = bot - top + 1
+        shift_x = CAST(((w - ink_w) / 2) + 1 AS S32) - CAST(left_col AS S32)
+        shift_y = CAST(((h - ink_h) / 2) + 1 AS S32) - CAST(top AS S32)
+        IF shift_x = 0 AND shift_y = 0 THEN RETURN END IF
+        WHILE sy <= h
+            sx = 1
+            WHILE sx <= w
+                idx = CellIndex(handle, sx, sy)
+                IF idx > 0 AND idx <= #ALBCG_CELL_TOTAL THEN
+                    ShiftScratch[idx] = PoolCell[idx].ch
+                    ShiftFgScratch[idx] = PoolFg[idx]
+                END IF
+                sx = sx + 1
+            END WHILE
+            sy = sy + 1
+        END WHILE
+        CALL CanvasClear(handle, 32)
+        sy = 1
+        WHILE sy <= h
+            sx = 1
+            WHILE sx <= w
+                idx = CellIndex(handle, sx, sy)
+                IF idx > 0 AND idx <= #ALBCG_CELL_TOTAL THEN
+                    ch = ShiftScratch[idx]
+                    fg = ShiftFgScratch[idx]
+                    IF ch > 32 THEN
+                        nx = CAST(sx AS S32) + shift_x
+                        ny = CAST(sy AS S32) + shift_y
+                        IF nx >= 1 AND ny >= 1 THEN
+                            IF CAST(nx AS U32) <= w AND CAST(ny AS U32) <= h THEN
+                                CALL CanvasSetInk(handle, CAST(nx AS U32), CAST(ny AS U32), ch, fg)
+                            END IF
+                        END IF
+                    END IF
+                END IF
+                sx = sx + 1
+            END WHILE
+            sy = sy + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE DocRandomizeAll()
+        LET state AS U32 = DocSeed MOD 99991
+        LET slot AS U32 = 1
+        WHILE slot <= #ALBCG_PART_COUNT
+            IF DocLock[slot] = 0 THEN
+                DocVariant[slot] = RngRoll(state, 1, ActiveVariantMax(slot))
+                state = RngBump(state)
+                DocColor[slot] = ActivePickColor(slot, RngRoll(state, 0, 9999))
+                state = RngBump(state)
+                DocYOffset[slot] = 0
+                state = RngBump(state)
+            END IF
+            slot = slot + 1
+        END WHILE
+        DocSeed = state
+    END PROCEDURE
+
+    PROCEDURE DocRandomizeSlot(slot AS U32)
+        IF slot < 1 OR slot > #ALBCG_PART_COUNT THEN RETURN END IF
+        IF DocLock[slot] = 1 THEN RETURN END IF
+        LET state AS U32 = RngMix(DocSeed, slot)
+        DocVariant[slot] = RngRoll(state, 1, ActiveVariantMax(slot))
+        state = RngBump(state)
+        DocColor[slot] = ActivePickColor(slot, RngRoll(state, 0, 9999))
+        state = RngBump(state)
+        DocYOffset[slot] = 0
+    END PROCEDURE
+
+    PROCEDURE BlitSlot(handle AS U32, slot AS U32, base_x AS S32, base_y AS S32)
+        LET ox AS S32 = base_x
+        LET oy AS S32 = base_y + DocGetOffset(slot)
+        IF DocRenderStyle = #CG_STYLE_PIXEL THEN
+            CALL CanvasBlitPartPixel(handle, slot, DocGetVariant(slot), ox, oy, DocGetColor(slot))
+        ELSE
+            CALL CanvasBlitPart(handle, slot, DocGetVariant(slot), ox, oy, DocGetColor(slot))
+        END IF
+    END PROCEDURE
+
+    PROCEDURE ComposePixelPortrait(handle AS U32)
+        CALL FFGeneratePortrait(handle)
+    END PROCEDURE
+
+    PROCEDURE ComposePixelObject(handle AS U32)
+        CALL CanvasClear(handle, 32)
+        CALL BlitSlot(handle, #CG_BACK, 0, 4)
+        CALL BlitSlot(handle, #CG_HAIR, 0, 2)
+        CALL BlitSlot(handle, #CG_HEAD, 0, 10)
+        CALL BlitSlot(handle, #CG_EYES, 0, 14)
+        CALL BlitSlot(handle, #CG_NOSE, 0, 18)
+        CALL BlitSlot(handle, #CG_LIPS, 0, 20)
+        CALL BlitSlot(handle, #CG_CLOTH, 0, 24)
+        CALL BlitSlot(handle, #CG_DECO1, 0, 8)
+        CALL BlitSlot(handle, #CG_DECO2, 0, 8)
+        CALL CanvasRecenterInk(handle)
+    END PROCEDURE
+
+    PROCEDURE ComposePixelLandscape(handle AS U32)
+        LET x AS U32 = 1
+        LET y AS U32 = 18
+        CALL CanvasClear(handle, 32)
+        CALL BlitSlot(handle, #CG_BACK, 0, 1)
+        WHILE y <= 32
+            x = 1
+            WHILE x <= 32
+                CALL CanvasSetInk(handle, x, y, #CG_PIXEL_INK, $3A7A44)
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+        CALL BlitSlot(handle, #CG_HAIR, 0, 10)
+        CALL BlitSlot(handle, #CG_HEAD, 0, 14)
+        CALL BlitSlot(handle, #CG_BROWS, 0, 13)
+        CALL BlitSlot(handle, #CG_EARS, 0, 15)
+        CALL BlitSlot(handle, #CG_LIPS, 0, 20)
+        CALL BlitSlot(handle, #CG_BEARD, 0, 21)
+        CALL BlitSlot(handle, #CG_CHIN, 0, 22)
+        CALL BlitSlot(handle, #CG_CLOTH, 0, 24)
+        CALL CanvasRecenterInk(handle)
+    END PROCEDURE
+
+    PROCEDURE ComposePixelPainting(handle AS U32)
+        CALL CanvasClear(handle, 32)
+        CALL BlitSlot(handle, #CG_CLOTH, 0, 1)
+        CALL BlitSlot(handle, #CG_BACK, 0, 3)
+        CALL BlitSlot(handle, #CG_HAIR, 0, 5)
+        CALL BlitSlot(handle, #CG_HEAD, 0, 10)
+        CALL BlitSlot(handle, #CG_EYES, 0, 12)
+        CALL BlitSlot(handle, #CG_NOSE, 0, 16)
+        CALL BlitSlot(handle, #CG_LIPS, 0, 18)
+        CALL BlitSlot(handle, #CG_NECK, 0, 20)
+        CALL BlitSlot(handle, #CG_DECO1, 0, 6)
+        CALL BlitSlot(handle, #CG_DECO2, 0, 6)
+        CALL CanvasRecenterInk(handle)
+    END PROCEDURE
+
+    PROCEDURE ComposePixelFullBody(handle AS U32)
+        CALL ComposePixelPortrait(handle)
+    END PROCEDURE
+
+    PROCEDURE ComposeObject(handle AS U32)
+        CALL CanvasClear(handle, 32)
+        CALL BlitSlot(handle, #CG_BACK, 1, 2)
+        CALL BlitSlot(handle, #CG_HAIR, 1, 1)
+        CALL BlitSlot(handle, #CG_HEAD, 1, 3)
+        CALL BlitSlot(handle, #CG_EARS, 1, 5)
+        CALL BlitSlot(handle, #CG_BROWS, 1, 5)
+        CALL BlitSlot(handle, #CG_EYES, 1, 6)
+        CALL BlitSlot(handle, #CG_GLASS, 1, 6)
+        CALL BlitSlot(handle, #CG_NOSE, 1, 7)
+        CALL BlitSlot(handle, #CG_LIPS, 1, 8)
+        CALL BlitSlot(handle, #CG_BEARD, 1, 9)
+        CALL BlitSlot(handle, #CG_CHIN, 1, 10)
+        CALL BlitSlot(handle, #CG_DECO1, 1, 11)
+        CALL BlitSlot(handle, #CG_DECO2, 1, 11)
+        CALL BlitSlot(handle, #CG_NECK, 1, 12)
+        CALL BlitSlot(handle, #CG_CLOTH, 1, 13)
+        CALL CanvasRecenterInk(handle)
+    END PROCEDURE
+
+    PROCEDURE ComposePortrait(handle AS U32)
+        CALL CanvasClear(handle, 32)
+        CALL BlitSlot(handle, #CG_BACK, 1, 2)
+        CALL BlitSlot(handle, #CG_HAIR, 1, 1)
+        CALL BlitSlot(handle, #CG_HEAD, 1, 3)
+        CALL BlitSlot(handle, #CG_EARS, 1, 5)
+        CALL BlitSlot(handle, #CG_BROWS, 1, 5)
+        CALL BlitSlot(handle, #CG_EYES, 1, 6)
+        CALL BlitSlot(handle, #CG_GLASS, 1, 6)
+        CALL BlitSlot(handle, #CG_NOSE, 1, 7)
+        CALL BlitSlot(handle, #CG_LIPS, 1, 8)
+        CALL BlitSlot(handle, #CG_BEARD, 1, 9)
+        CALL BlitSlot(handle, #CG_CHIN, 1, 10)
+        CALL BlitSlot(handle, #CG_DECO1, 1, 11)
+        CALL BlitSlot(handle, #CG_DECO2, 1, 11)
+        CALL BlitSlot(handle, #CG_NECK, 1, 12)
+        CALL BlitSlot(handle, #CG_CLOTH, 1, 13)
+        CALL CanvasRecenterInk(handle)
+    END PROCEDURE
+
+    PROCEDURE ComposeFullBody(handle AS U32)
+        CALL ComposePortrait(handle)
+        CALL BlitSlot(handle, #CG_CLOTH, 1, 8)
+    END PROCEDURE
+
+    PROCEDURE GenObject(handle AS U32, seed AS U32, kind AS U32)
+        DocSeed = seed MOD 99991
+        IF kind > 0 THEN
+            DocVariant[#CG_HEAD] = (kind MOD 12) + 1
+        END IF
+        CALL ComposeObject(handle)
+    END PROCEDURE
+
+    PROCEDURE GenLandscape(handle AS U32, seed AS U32, biome AS U32)
+        LET state AS U32 = seed MOD 99991
+        LET w AS U32 = CanvasW(handle)
+        LET h AS U32 = CanvasH(handle)
+        LET x AS U32 = 1
+        LET y AS U32 = 1
+        LET elev AS U32 = 0
+        LET ch AS U8 = 46
+        LET roll AS U32 = 0
+        WHILE y <= h
+            x = 1
+            WHILE x <= w
+                state = RngBump(state)
+                roll = state MOD 100
+                elev = roll
+                ch = 46
+                IF biome = #CG_BIOME_GRASS THEN
+                    IF elev > 80 THEN
+                        ch = 94
+                    ELSE
+                        IF elev > 50 THEN
+                            ch = 34
+                        ELSE
+                            ch = 44
+                        END IF
+                    END IF
+                END IF
+                IF biome = #CG_BIOME_DESERT THEN
+                    IF elev > 70 THEN ch = 126 ELSE ch = 58 END IF
+                END IF
+                IF biome = #CG_BIOME_SNOW THEN
+                    IF elev > 60 THEN ch = 42 ELSE ch = 46 END IF
+                END IF
+                IF biome = #CG_BIOME_CAVE THEN
+                    IF elev > 50 THEN ch = 35 ELSE ch = 58 END IF
+                END IF
+                CALL CanvasSet(handle, x, y, ch)
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+        DocSeed = state
+    END PROCEDURE
+
+    PROCEDURE GenPainting(handle AS U32, seed AS U32)
+        DocSeed = seed MOD 99991
+        CALL ComposePainting(handle)
+    END PROCEDURE
+
+    PROCEDURE ComposeCurrent(handle AS U32)
+        IF DocRenderStyle = #CG_STYLE_PIXEL THEN
+            IF DocMode = #CG_MODE_FULLBODY THEN
+                CALL ComposePixelFullBody(handle)
+            ELSE
+                IF DocMode = #CG_MODE_OBJECT THEN
+                    CALL ComposePixelObject(handle)
+                ELSE
+                    IF DocMode = #CG_MODE_LANDSCAPE THEN
+                        CALL ComposePixelLandscape(handle)
+                    ELSE
+                        IF DocMode = #CG_MODE_PAINTING THEN
+                            CALL ComposePixelPainting(handle)
+                        ELSE
+                            CALL ComposePixelPortrait(handle)
+                        END IF
+                    END IF
+                END IF
+            END IF
+        ELSE
+            IF DocMode = #CG_MODE_FULLBODY THEN
+                CALL ComposeFullBody(handle)
+            ELSE
+                IF DocMode = #CG_MODE_OBJECT THEN
+                    CALL ComposeObject(handle)
+                ELSE
+                    IF DocMode = #CG_MODE_LANDSCAPE THEN
+                        CALL ComposeLandscape(handle)
+                    ELSE
+                        IF DocMode = #CG_MODE_PAINTING THEN
+                            CALL ComposePainting(handle)
+                        ELSE
+                            CALL ComposePortrait(handle)
+                        END IF
+                    END IF
+                END IF
+            END IF
+        END IF
+    END PROCEDURE
+
+    FUNCTION SlotName(slot AS U32) AS STRING
+        IF DocMode = #CG_MODE_PAINTING THEN
+            IF slot = #CG_HEAD THEN RETURN "Subject" END IF
+            IF slot = #CG_NECK THEN RETURN "Path" END IF
+            IF slot = #CG_CHIN THEN RETURN "Ground" END IF
+            IF slot = #CG_EARS THEN RETURN "Hills" END IF
+            IF slot = #CG_EYES THEN RETURN "Stars" END IF
+            IF slot = #CG_NOSE THEN RETURN "Peak" END IF
+            IF slot = #CG_LIPS THEN RETURN "Water" END IF
+            IF slot = #CG_HAIR THEN RETURN "Clouds" END IF
+            IF slot = #CG_BACK THEN RETURN "Sky" END IF
+            IF slot = #CG_BROWS THEN RETURN "Horizon" END IF
+            IF slot = #CG_BEARD THEN RETURN "Trees" END IF
+            IF slot = #CG_CLOTH THEN RETURN "Frame" END IF
+            IF slot = #CG_DECO1 THEN RETURN "Mark L" END IF
+            IF slot = #CG_DECO2 THEN RETURN "Mark R" END IF
+            IF slot = #CG_GLASS THEN RETURN "Light" END IF
+            RETURN "Layer"
+        END IF
+        IF DocMode = #CG_MODE_LANDSCAPE THEN
+            IF slot = #CG_HEAD THEN RETURN "Terrain" END IF
+            IF slot = #CG_NECK THEN RETURN "Trail" END IF
+            IF slot = #CG_CHIN THEN RETURN "Soil" END IF
+            IF slot = #CG_EARS THEN RETURN "Ridge" END IF
+            IF slot = #CG_EYES THEN RETURN "Detail" END IF
+            IF slot = #CG_NOSE THEN RETURN "Peak" END IF
+            IF slot = #CG_LIPS THEN RETURN "River" END IF
+            IF slot = #CG_HAIR THEN RETURN "Mist" END IF
+            IF slot = #CG_BACK THEN RETURN "Sky" END IF
+            IF slot = #CG_BROWS THEN RETURN "Horizon" END IF
+            IF slot = #CG_BEARD THEN RETURN "Brush" END IF
+            IF slot = #CG_CLOTH THEN RETURN "Border" END IF
+            IF slot = #CG_DECO1 THEN RETURN "Mark L" END IF
+            IF slot = #CG_DECO2 THEN RETURN "Mark R" END IF
+            IF slot = #CG_GLASS THEN RETURN "Haze" END IF
+            RETURN "Layer"
+        END IF
+        IF DocMode = #CG_MODE_OBJECT THEN
+            IF slot = #CG_HEAD THEN RETURN "Body" END IF
+            IF slot = #CG_NECK THEN RETURN "Stem" END IF
+            IF slot = #CG_CHIN THEN RETURN "Base" END IF
+            IF slot = #CG_EARS THEN RETURN "Side" END IF
+            IF slot = #CG_EYES THEN RETURN "Gems" END IF
+            IF slot = #CG_NOSE THEN RETURN "Spout" END IF
+            IF slot = #CG_LIPS THEN RETURN "Slot" END IF
+            IF slot = #CG_HAIR THEN RETURN "Top" END IF
+            IF slot = #CG_BACK THEN RETURN "Aura" END IF
+            IF slot = #CG_BROWS THEN RETURN "Trim" END IF
+            IF slot = #CG_BEARD THEN RETURN "Drip" END IF
+            IF slot = #CG_CLOTH THEN RETURN "Stand" END IF
+            IF slot = #CG_DECO1 THEN RETURN "Mark L" END IF
+            IF slot = #CG_DECO2 THEN RETURN "Mark R" END IF
+            IF slot = #CG_GLASS THEN RETURN "Shine" END IF
+            RETURN "Part"
+        END IF
+        IF DocRenderStyle = #CG_STYLE_PIXEL THEN
+            IF DocMode = #CG_MODE_PORTRAIT OR DocMode = #CG_MODE_FULLBODY THEN
+                RETURN FFPortraitSlotName(slot)
+            END IF
+        END IF
+        IF slot = #CG_HEAD THEN RETURN "Head" END IF
+        IF slot = #CG_NECK THEN RETURN "Neck" END IF
+        IF slot = #CG_CHIN THEN RETURN "Chin" END IF
+        IF slot = #CG_EARS THEN RETURN "Ears" END IF
+        IF slot = #CG_EYES THEN RETURN "Eyes" END IF
+        IF slot = #CG_NOSE THEN RETURN "Nose" END IF
+        IF slot = #CG_LIPS THEN RETURN "Lips" END IF
+        IF slot = #CG_HAIR THEN RETURN "Hair" END IF
+        IF slot = #CG_BACK THEN RETURN "Back" END IF
+        IF slot = #CG_BROWS THEN RETURN "Brows" END IF
+        IF slot = #CG_BEARD THEN RETURN "Beard" END IF
+        IF slot = #CG_CLOTH THEN RETURN "Cloth" END IF
+        IF slot = #CG_DECO1 THEN RETURN "Deco 1" END IF
+        IF slot = #CG_DECO2 THEN RETURN "Deco 2" END IF
+        IF slot = #CG_GLASS THEN RETURN "Glass" END IF
+        RETURN "Part"
+    END FUNCTION
+
+END MODULE

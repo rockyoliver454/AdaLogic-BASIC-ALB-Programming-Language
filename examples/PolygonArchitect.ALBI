@@ -1,0 +1,246 @@
+-- ====================================================================
+-- POLYGON_ARCHITECT.ALBI
+-- 3D Procedural Generation, Modification, and Rasterization
+-- ====================================================================
+
+VERSION 1.0
+
+INCLUDE "ALBMATH_PURE.ALBI"
+IMPORT ALBMathPure
+
+DECLARE MODULE PolygonArchitect
+    -- Generators
+    PROCEDURE ClearActive()
+    PROCEDURE MakeQuadFlat(x AS S32, y AS S32, w AS S32, h AS S32, z AS S32, ccol AS S32)
+    PROCEDURE MakeBox(x AS S32, y AS S32, z AS S32, w AS S32, d AS S32, h AS S32, ccol AS S32)
+    
+    -- Modifiers
+    PROCEDURE Translate(dx AS S32, dy AS S32, dz AS S32)
+    PROCEDURE Scale(sx AS S32, sy AS S32, sz AS S32)
+    PROCEDURE RotateY(angle_deg AS S32)
+    PROCEDURE TaperZ(factor_num AS S32, factor_den AS S32)
+    
+    -- Renderer
+    PROCEDURE DrawPoly(cam_z AS S32, proj_scale AS S32, cx AS S32, cy AS S32)
+END DECLARE MODULE
+
+MODULE PolygonArchitect
+
+    -- ============================================================
+    -- ACTIVE POLYGON STATE (Flat memory pools)
+    -- ============================================================
+    LET PA_v_count AS S32 = 0
+    STRICT PA_vx[4096] AS S32
+    STRICT PA_vy[4096] AS S32
+    STRICT PA_vz[4096] AS S32
+
+    LET PA_f_count AS S32 = 0
+    STRICT PA_f1[2048] AS S32
+    STRICT PA_f2[2048] AS S32
+    STRICT PA_f3[2048] AS S32
+    STRICT PA_fcol[2048] AS S32
+
+    -- Projected State
+    STRICT PA_px[4096] AS S32
+    STRICT PA_py[4096] AS S32
+    STRICT PA_pz[4096] AS S32
+    
+    STRICT PA_sort_z[2048] AS S32
+    STRICT PA_sort_id[2048] AS S32
+
+    -- ============================================================
+    -- INTERNAL HELPERS
+    -- ============================================================
+    PROCEDURE AddVertex(x AS S32, y AS S32, z AS S32)
+        IF PA_v_count < 4096 THEN
+            PA_v_count = PA_v_count + 1
+            PA_vx[PA_v_count] = x
+            PA_vy[PA_v_count] = y
+            PA_vz[PA_v_count] = z
+        END IF
+    END PROCEDURE
+
+    PROCEDURE AddFace(v1 AS S32, v2 AS S32, v3 AS S32, ccol AS S32)
+        IF PA_f_count < 2048 THEN
+            PA_f_count = PA_f_count + 1
+            PA_f1[PA_f_count] = v1
+            PA_f2[PA_f_count] = v2
+            PA_f3[PA_f_count] = v3
+            PA_fcol[PA_f_count] = ccol
+        END IF
+    END PROCEDURE
+
+    PROCEDURE FillTriangle(x1 AS S32, y1 AS S32, x2 AS S32, y2 AS S32, x3 AS S32, y3 AS S32, ccol AS S32)
+        LET tx AS S32 = 0 LET ty AS S32 = 0
+        LET px1 AS S32 = x1 LET py1 AS S32 = y1
+        LET px2 AS S32 = x2 LET py2 AS S32 = y2
+        LET px3 AS S32 = x3 LET py3 AS S32 = y3
+        
+        IF py1 > py2 THEN tx=px1 ty=py1 px1=px2 py1=py2 px2=tx py2=ty END IF
+        IF py1 > py3 THEN tx=px1 ty=py1 px1=px3 py1=py3 px3=tx py3=ty END IF
+        IF py2 > py3 THEN tx=px2 ty=py2 px2=px3 py2=py3 px3=tx py3=ty END IF
+
+        IF py1 = py3 THEN RETURN END IF
+
+        COLOR ccol
+        LET y AS S32 = py1
+        LET xa AS S32 = 0 LET xb AS S32 = 0
+        
+        WHILE y <= py3
+            IF y < py2 THEN
+                IF py2 > py1 THEN xa = px1 + (((px2 - px1) * (y - py1)) / (py2 - py1)) ELSE xa = px1 END IF
+                xb = px1 + (((px3 - px1) * (y - py1)) / (py3 - py1))
+            ELSE
+                IF py3 > py2 THEN xa = px2 + (((px3 - px2) * (y - py2)) / (py3 - py2)) ELSE xa = px2 END IF
+                xb = px1 + (((px3 - px1) * (y - py1)) / (py3 - py1))
+            END IF
+            DRAW LINE xa, y, xb, y
+            y = y + 1
+        END WHILE
+    END PROCEDURE
+
+    -- ============================================================
+    -- GENERATORS
+    -- ============================================================
+    PROCEDURE ClearActive()
+        PA_v_count = 0
+        PA_f_count = 0
+    END PROCEDURE
+
+    PROCEDURE MakeQuadFlat(x AS S32, y AS S32, w AS S32, h AS S32, z AS S32, ccol AS S32)
+        CALL PolygonArchitect.ClearActive()
+        CALL PolygonArchitect.AddVertex(x, y, z)
+        CALL PolygonArchitect.AddVertex(x + w, y, z)
+        CALL PolygonArchitect.AddVertex(x + w, y + h, z)
+        CALL PolygonArchitect.AddVertex(x, y + h, z)
+        
+        CALL PolygonArchitect.AddFace(1, 2, 3, ccol)
+        CALL PolygonArchitect.AddFace(1, 3, 4, ccol)
+    END PROCEDURE
+
+    PROCEDURE MakeBox(x AS S32, y AS S32, z AS S32, w AS S32, d AS S32, h AS S32, ccol AS S32)
+        CALL PolygonArchitect.ClearActive()
+        
+        -- Base 4 Verts
+        CALL PolygonArchitect.AddVertex(x, y, z)
+        CALL PolygonArchitect.AddVertex(x + w, y, z)
+        CALL PolygonArchitect.AddVertex(x + w, y + d, z)
+        CALL PolygonArchitect.AddVertex(x, y + d, z)
+        
+        -- Top 4 Verts
+        CALL PolygonArchitect.AddVertex(x, y, z + h)
+        CALL PolygonArchitect.AddVertex(x + w, y, z + h)
+        CALL PolygonArchitect.AddVertex(x + w, y + d, z + h)
+        CALL PolygonArchitect.AddVertex(x, y + d, z + h)
+
+        -- Bottom Face
+        CALL PolygonArchitect.AddFace(1, 3, 2, ccol) CALL PolygonArchitect.AddFace(1, 4, 3, ccol)
+        -- Top Face
+        CALL PolygonArchitect.AddFace(5, 6, 7, ccol) CALL PolygonArchitect.AddFace(5, 7, 8, ccol)
+        -- Front Face
+        CALL PolygonArchitect.AddFace(1, 2, 6, ccol) CALL PolygonArchitect.AddFace(1, 6, 5, ccol)
+        -- Back Face
+        CALL PolygonArchitect.AddFace(4, 8, 7, ccol) CALL PolygonArchitect.AddFace(4, 7, 3, ccol)
+        -- Left Face
+        CALL PolygonArchitect.AddFace(1, 5, 8, ccol) CALL PolygonArchitect.AddFace(1, 8, 4, ccol)
+        -- Right Face
+        CALL PolygonArchitect.AddFace(2, 3, 7, ccol) CALL PolygonArchitect.AddFace(2, 7, 6, ccol)
+    END PROCEDURE
+
+    -- ============================================================
+    -- MODIFIERS
+    -- ============================================================
+    PROCEDURE Translate(dx AS S32, dy AS S32, dz AS S32)
+        LET i AS S32 = 1
+        WHILE i <= PA_v_count
+            PA_vx[i] = PA_vx[i] + dx
+            PA_vy[i] = PA_vy[i] + dy
+            PA_vz[i] = PA_vz[i] + dz
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE Scale(sx AS S32, sy AS S32, sz AS S32)
+        LET i AS S32 = 1
+        WHILE i <= PA_v_count
+            PA_vx[i] = (PA_vx[i] * sx) / 100
+            PA_vy[i] = (PA_vy[i] * sy) / 100
+            PA_vz[i] = (PA_vz[i] * sz) / 100
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE RotateY(angle_deg AS S32)
+        LET u_ang AS U64 = 0
+        IF angle_deg < 0 THEN u_ang = U64(360 + (angle_deg MOD 360)) ELSE u_ang = U64(angle_deg MOD 360) END IF
+        
+        LET p_sin AS PURE = ALBMathPure.PureSinDegApprox(u_ang)
+        LET p_cos AS PURE = ALBMathPure.PureCosDegApprox(u_ang)
+        LET sn AS S32 = ALBMathPure.PureNum(p_sin) LET sd AS S32 = S32(ALBMathPure.PureDen(p_sin))
+        LET cn AS S32 = ALBMathPure.PureNum(p_cos) LET cd AS S32 = S32(ALBMathPure.PureDen(p_cos))
+
+        LET i AS S32 = 1
+        LET nx AS S32 = 0 LET nz AS S32 = 0
+        WHILE i <= PA_v_count
+            nx = ((PA_vx[i] * cn) / cd) - ((PA_vz[i] * sn) / sd)
+            nz = ((PA_vx[i] * sn) / sd) + ((PA_vz[i] * cn) / cd)
+            PA_vx[i] = nx
+            PA_vz[i] = nz
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    -- ============================================================
+    -- RENDER PIPELINE
+    -- ============================================================
+    PROCEDURE DrawPoly(cam_z AS S32, proj_scale AS S32, cx AS S32, cy AS S32)
+        LET i AS S32 = 1
+        LET z_depth AS S32 = 0
+        WHILE i <= PA_v_count
+            PA_pz[i] = PA_vz[i]
+            z_depth = PA_pz[i] + cam_z
+            IF z_depth < 1 THEN z_depth = 1 END IF
+            
+            PA_px[i] = cx + ((PA_vx[i] * proj_scale) / z_depth)
+            PA_py[i] = cy + ((PA_vy[i] * proj_scale) / z_depth)
+            i = i + 1
+        END WHILE
+
+        LET f AS S32 = 1
+        LET v1 AS S32 = 0 LET v2 AS S32 = 0 LET v3 AS S32 = 0
+        WHILE f <= PA_f_count
+            v1 = PA_f1[f] v2 = PA_f2[f] v3 = PA_f3[f]
+            PA_sort_z[f] = (PA_pz[v1] + PA_pz[v2] + PA_pz[v3]) / 3
+            PA_sort_id[f] = f
+            f = f + 1
+        END WHILE
+
+        LET swapped AS U64 = 1
+        LET s AS S32 = 1
+        LET temp AS S32 = 0
+        WHILE swapped = 1
+            swapped = 0
+            s = 1
+            WHILE s < PA_f_count
+                IF PA_sort_z[s] > PA_sort_z[s + 1] THEN
+                    temp = PA_sort_z[s] PA_sort_z[s] = PA_sort_z[s + 1] PA_sort_z[s + 1] = temp
+                    temp = PA_sort_id[s] PA_sort_id[s] = PA_sort_id[s + 1] PA_sort_id[s + 1] = temp
+                    swapped = 1
+                END IF
+                s = s + 1
+            END WHILE
+        END WHILE
+
+        LET p AS S32 = 1
+        LET real_id AS S32 = 0
+        WHILE p <= PA_f_count
+            real_id = PA_sort_id[p]
+            CALL PolygonArchitect.FillTriangle(PA_px[PA_f1[real_id]], PA_py[PA_f1[real_id]], 
+                              PA_px[PA_f2[real_id]], PA_py[PA_f2[real_id]], 
+                              PA_px[PA_f3[real_id]], PA_py[PA_f3[real_id]], 
+                              PA_fcol[real_id])
+            p = p + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

@@ -1,0 +1,158 @@
+-- ====================================================================
+-- PARTICLES.ALBI
+-- Deterministic, zero-allocation particle stream with color subdivision.
+-- ====================================================================
+
+VERSION 1.0
+
+-- Ensure the math engine is available for deterministic velocities
+INCLUDE "ALBMATH_PURE.ALBI"
+
+DECLARE MODULE Particles
+    PROCEDURE Setup()
+    PROCEDURE Emit(x AS PURE, y AS PURE, dx AS PURE, dy AS PURE, col AS S32, life AS U64)
+    PROCEDURE Simulate()
+    PROCEDURE Render()
+END DECLARE MODULE
+
+MODULE Particles
+
+    -- ------------------------------------------------------------
+    -- The "Unmanifested Potential" Pool
+    -- 512 physical slots exist permanently in memory.
+    -- No heap allocation occurs during runtime.
+    -- ------------------------------------------------------------
+    STRICT pt_x[512] AS PURE
+    STRICT pt_y[512] AS PURE
+    STRICT pt_dx[512] AS PURE
+    STRICT pt_dy[512] AS PURE
+    STRICT pt_col[512] AS S32
+    STRICT pt_life[512] AS U64
+    STRICT pt_active[512] AS U64
+
+    PROCEDURE Setup()
+        -- JVM FIX: Array indices must be S32
+        LET i AS S32 = 1
+        WHILE i <= 512
+            pt_active[i] = 0
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE Emit(x AS PURE, y AS PURE, dx AS PURE, dy AS PURE, col AS S32, life AS U64)
+        -- JVM FIX: Array indices must be S32
+        LET i AS S32 = 1
+        LET spawned AS U64 = 0
+
+        -- Scan for the first unmanifested container and claim it
+        WHILE i <= 512
+            IF pt_active[i] = 0 THEN
+                IF spawned = 0 THEN
+                    pt_x[i] = x
+                    pt_y[i] = y
+                    pt_dx[i] = dx
+                    pt_dy[i] = dy
+                    pt_col[i] = col
+                    pt_life[i] = life
+                    pt_active[i] = 1
+                    spawned = 1
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE Simulate()
+        -- JVM FIX: Array indices must be S32
+        LET i AS S32 = 1
+        LET cur_active AS U64 = 0
+        LET cur_life AS U64 = 0
+
+        WHILE i <= 512
+            cur_active = pt_active[i]
+            
+            IF cur_active = 1 THEN
+                cur_life = pt_life[i]
+
+                -- Apply Pure Fractional Velocity
+                pt_x[i] = ALBMathPure.PureAdd(pt_x[i], pt_dx[i])
+                pt_y[i] = ALBMathPure.PureAdd(pt_y[i], pt_dy[i])
+
+                -- Decay the life schema
+                IF cur_life > 0 THEN
+                    pt_life[i] = cur_life - 1
+                END IF
+
+                -- --------------------------------------------------------
+                -- SUBDIVISION & COLOR SPLIT LOGIC
+                -- --------------------------------------------------------
+                IF cur_life = 15 THEN
+                    LET cx AS PURE = pt_x[i]
+                    LET cy AS PURE = pt_y[i]
+                    LET cdx AS PURE = pt_dx[i]
+                    LET cdy AS PURE = pt_dy[i]
+                    LET ccol AS S32 = pt_col[i]
+
+                    -- Orthogonal divergence vectors: push them apart physically
+                    LET split_dx1 AS PURE = ALBMathPure.PureAdd(cdx, PURE(1, 2))
+                    LET split_dy1 AS PURE = ALBMathPure.PureSub(cdy, PURE(1, 4))
+                    
+                    LET split_dx2 AS PURE = ALBMathPure.PureSub(cdx, PURE(1, 2))
+                    LET split_dy2 AS PURE = ALBMathPure.PureSub(cdy, PURE(1, 4))
+
+                    -- Safe, integer-based RGB channel extraction 
+                    LET r AS S32 = (ccol / 65536) MOD 256
+                    LET g AS S32 = (ccol / 256) MOD 256
+                    LET b AS S32 = ccol MOD 256
+
+                    -- Branch 1: Shift color momentum toward High Red, diminish Blue
+                    LET r1 AS S32 = r + 80
+                    IF r1 > 255 THEN r1 = 255 END IF
+                    LET c1 AS S32 = (r1 * 65536) + (g * 256) + (b / 2)
+
+                    -- Branch 2: Shift color momentum toward High Blue, diminish Red
+                    LET b2 AS S32 = b + 80
+                    IF b2 > 255 THEN b2 = 255 END IF
+                    LET c2 AS S32 = ((r / 2) * 65536) + (g * 256) + b2
+
+                    -- Manifest the two new child streams
+                    CALL Particles.Emit(cx, cy, split_dx1, split_dy1, c1, 14)
+                    CALL Particles.Emit(cx, cy, split_dx2, split_dy2, c2, 14)
+
+                    -- The parent schema is destroyed upon splitting
+                    pt_active[i] = 0
+                END IF
+
+                -- Natural Death Condition
+                IF pt_life[i] = 0 THEN
+                    pt_active[i] = 0
+                END IF
+            END IF
+            
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE Render()
+        -- JVM FIX: Array indices must be S32
+        LET i AS S32 = 1
+        LET cur_active AS U64 = 0
+        LET px AS S32 = 0
+        LET py AS S32 = 0
+
+        WHILE i <= 512
+            cur_active = pt_active[i]
+            IF cur_active = 1 THEN
+                -- Manual fraction-to-pixel extraction
+                px = PURE_NUM(pt_x[i]) / S32(PURE_DEN(pt_x[i]))
+                py = PURE_NUM(pt_y[i]) / S32(PURE_DEN(pt_y[i]))
+
+                COLOR pt_col[i]
+                FILL RECT px, py, 2, 2
+            END IF
+            
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

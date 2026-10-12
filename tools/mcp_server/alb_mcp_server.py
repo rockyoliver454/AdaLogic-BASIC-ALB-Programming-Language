@@ -99,7 +99,9 @@ def _run(cmd: list[str], timeout: int, cwd: Path | None = None) -> dict:
         }
 
 
-_LINE_RE = re.compile(r"LOCATION\s*:\s*Line\s+(\d+)\s*\|\s*Col\s+(\d+)")
+_LINE_RE = re.compile(
+    r"LOCATION\s*:\s*(?:File\s*\[([^\]]+)\]\s*\|\s*)?Line\s+(\d+)\s*\|\s*Col\s+(\d+)"
+)
 _BREACH_RE = re.compile(r"BREACH\s*:\s*(.+)")
 _COUNSEL_RE = re.compile(r"COUNSEL\s*:\s*(.+)")
 
@@ -114,7 +116,9 @@ def _parse_albt_output(text: str) -> list[dict]:
         if m:
             if current:
                 diags.append(current)
-            current = {"line": int(m.group(1)), "col": int(m.group(2))}
+            current = {"line": int(m.group(2)), "col": int(m.group(3))}
+            if m.group(1):
+                current["file"] = m.group(1)
             continue
         if current is not None:
             m = _BREACH_RE.search(clean)
@@ -179,36 +183,43 @@ _FASM_TARGETS = {"fasm", "fasm16"}
 
 
 def _stage_job_dir(src: Path, job_dir: Path) -> Path:
-    """Copy the source and its sibling .alb/.albi includes into a scratch
-    dir. albt bootstraps SDK folders (bin/config/stdlib/...) and fasm_<name>/
-    in its working directory, so we keep that noise out of the source tree."""
+    """Copy the source tree into a scratch dir so albt's SDK bootstrap
+    folders (bin/config/stdlib/...) stay out of the real tree. The layout
+    mirrors reality so `INCLUDE "../X.ALBI"` keeps working: the source's
+    parent dir becomes job_dir/<parent>/, and grandparent-level .alb/.albi
+    files land directly in job_dir."""
     import shutil
 
-    job_dir.mkdir(parents=True, exist_ok=True)
-    dst = job_dir / src.name
-    shutil.copy2(src, dst)
+    proj = job_dir / src.parent.name
+    proj.mkdir(parents=True, exist_ok=True)
     for sib in src.parent.iterdir():
-        if sib.suffix.lower() in (".alb", ".albi") and sib != src:
-            shutil.copy2(sib, job_dir / sib.name)
-    return dst
+        if sib.suffix.lower() in (".alb", ".albi"):
+            shutil.copy2(sib, proj / sib.name)
+    grand = src.parent.parent
+    if grand.is_dir():
+        for anc in grand.iterdir():
+            if anc.suffix.lower() in (".alb", ".albi"):
+                shutil.copy2(anc, job_dir / anc.name)
+    return proj / src.name
 
 
 def _transpile(src: Path, target: str, job_dir: Path, assemble: bool = True) -> dict:
     """Run albt inside a staged job dir; return a structured result."""
     ext = _TARGET_EXT.get(target.lower(), f".{target.lower()}")
     staged = _stage_job_dir(src, job_dir)
-    artifact = job_dir / (staged.stem + ext)
+    work = staged.parent
+    artifact = work / (staged.stem + ext)
     cmd = [ALBT_PATH, staged.name, "-t", target, "-o", artifact.name]
     is_fasm = target.lower() in _FASM_TARGETS
     if is_fasm and assemble:
         cmd.append("--build")
     cmd.append("--quiet")
-    res = _run(cmd, timeout=COMPILE_TIMEOUT, cwd=job_dir)
+    res = _run(cmd, timeout=COMPILE_TIMEOUT, cwd=work)
 
     exe = None
     if is_fasm and assemble:
         # albt stages fasm_<stem>/<out-stem>.{asm,exe} next to the source
-        staged_out = job_dir / f"fasm_{staged.stem}"
+        staged_out = work / f"fasm_{staged.stem}"
         if not artifact.exists() and (staged_out / artifact.name).exists():
             artifact = staged_out / artifact.name
         cand = staged_out / (artifact.stem + ".exe")
@@ -216,7 +227,7 @@ def _transpile(src: Path, target: str, job_dir: Path, assemble: bool = True) -> 
             exe = str(cand)
 
     failed = _albt_failed(res, artifact if not (is_fasm and assemble) else
-                          (job_dir / f"fasm_{staged.stem}" / (artifact.stem + ".exe")))
+                          (work / f"fasm_{staged.stem}" / (artifact.stem + ".exe")))
     out = {
         "success": not failed,
         "artifact": str(artifact) if artifact.exists() else None,
