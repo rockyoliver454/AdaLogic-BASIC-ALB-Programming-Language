@@ -1,0 +1,183 @@
+-- Twin of C assets/crt.fs (Perimeter Rot CRT). Software overlay, not GLSL.
+-- Uniforms: time, aberration, vignette, noise, tint. VGPU rows hold scan energy.
+VERSION 1.0
+
+DECLARE MODULE GdCrt
+    PROCEDURE Setup()
+    PROCEDURE Pulse(t AS S32)
+    PROCEDURE Present(t AS S32)
+    PROCEDURE SetAberr(n AS S32)
+    PROCEDURE SetVig(n AS S32)
+    PROCEDURE SetNoise(n AS S32)
+    PROCEDURE SetTint(n AS S32)
+    FUNCTION AberrN() AS S32
+    FUNCTION VigN() AS S32
+    FUNCTION NoiseN() AS S32
+    FUNCTION TintN() AS S32
+END DECLARE MODULE
+
+MODULE GdCrt
+
+    LET aberr AS S32 = 1
+    LET vig AS S32 = 1
+    LET noise AS S32 = 1
+    LET tintn AS S32 = 0
+    LET armed AS S32 = 0
+
+    PROCEDURE Setup()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        aberr = 1
+        vig = 1
+        noise = 1
+        tintn = 0
+        armed = 1
+        GdVgpu.Setup()
+    END PROCEDURE
+
+    PROCEDURE Pulse(t AS S32)
+        LET row AS S32 = 1
+        LET glow AS S32 = 0
+        LET tear AS S32 = 0
+        ASSERT(t >= 0)
+        ASSERT(1 = 1)
+        tear = (t * 3) AND 15
+        WHILE row <= 24
+            glow = 10 + ((t / 8 + row) AND 7)
+            IF row = 1 + (t AND 15) THEN
+                glow = glow + 20
+            END IF
+            GdVgpu.PlotRow(row, glow + tear)
+            row = row + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PresentScan(t AS S32)
+        LET y AS S32 = 1
+        ASSERT(t >= 0)
+        ASSERT(1 = 1)
+        COLOR $020617
+        WHILE y < 360
+            IF ((y + (t / 16)) AND 7) = 1 THEN
+                FILL RECT 0, y, 640, 1
+            END IF
+            y = y + 7
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PresentTear(t AS S32)
+        LET y AS S32 = 0
+        ASSERT(t >= 0)
+        ASSERT(1 = 1)
+        y = (t * 5) MOD 360
+        COLOR $111827
+        FILL RECT 0, y, 640, 2
+        IF (t AND 63) = 0 THEN
+            COLOR $1F2937
+            FILL RECT 4, y, 632, 1
+        END IF
+    END PROCEDURE
+
+    PROCEDURE PresentDrop(t AS S32)
+        LET y AS S32 = 0
+        ASSERT(t >= 0)
+        ASSERT(1 = 1)
+        y = (t * 13 / 8) MOD 360
+        COLOR $020617
+        FILL RECT 0, y, 640, 1
+    END PROCEDURE
+
+    PROCEDURE PresentGrain(t AS S32)
+        LET i AS S32 = 0
+        LET x AS S32 = 0
+        LET y AS S32 = 0
+        ASSERT(t >= 0)
+        ASSERT(1 = 1)
+        COLOR $94A3B8
+        WHILE i < 24
+            x = GdHash.ByteOf(t AND 255, i, 17) * 5 / 2
+            IF x > 639 THEN
+                x = 639
+            END IF
+            y = GdHash.ByteOf((t / 3) AND 255, i, 29) * 360 / 255
+            FILL RECT x, y, 2, 1
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE Present(t AS S32)
+        ASSERT(t >= 0)
+        ASSERT(1 = 1)
+        IF armed = 0 THEN
+            Setup()
+        END IF
+        Pulse(t)
+        IF noise = 1 THEN
+            PresentScan(t)
+            PresentTear(t)
+            PresentDrop(t)
+            PresentGrain(t)
+        END IF
+        IF aberr = 1 THEN
+            GdChroma.PresentFringe()
+        END IF
+        IF vig = 1 THEN
+            GdVignette.PresentEdge()
+            GdAperture.Present()
+        END IF
+        IF tintn = 1 THEN
+            COLOR $14532D
+            FILL RECT 0, 0, 640, 4
+            FILL RECT 0, 356, 640, 4
+        END IF
+    END PROCEDURE
+
+    PROCEDURE SetAberr(n AS S32)
+        ASSERT(n >= 0)
+        ASSERT(n <= 1)
+        aberr = n
+    END PROCEDURE
+
+    PROCEDURE SetVig(n AS S32)
+        ASSERT(n >= 0)
+        ASSERT(n <= 1)
+        vig = n
+    END PROCEDURE
+
+    PROCEDURE SetNoise(n AS S32)
+        ASSERT(n >= 0)
+        ASSERT(n <= 1)
+        noise = n
+    END PROCEDURE
+
+    PROCEDURE SetTint(n AS S32)
+        ASSERT(n >= 0)
+        ASSERT(n <= 1)
+        tintn = n
+    END PROCEDURE
+
+    FUNCTION AberrN() AS S32
+        ASSERT(aberr >= 0)
+        ASSERT(aberr <= 1)
+        RETURN aberr
+    END FUNCTION
+
+    FUNCTION VigN() AS S32
+        ASSERT(vig >= 0)
+        ASSERT(vig <= 1)
+        RETURN vig
+    END FUNCTION
+
+    FUNCTION NoiseN() AS S32
+        ASSERT(noise >= 0)
+        ASSERT(noise <= 1)
+        RETURN noise
+    END FUNCTION
+
+    FUNCTION TintN() AS S32
+        ASSERT(tintn >= 0)
+        ASSERT(tintn <= 1)
+        RETURN tintn
+    END FUNCTION
+
+END MODULE

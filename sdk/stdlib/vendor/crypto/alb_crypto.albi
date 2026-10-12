@@ -1,0 +1,18 @@
+-- ============================================================================
+-- alb_crypto.albi — thin ALB binding for vendor/crypto (CNG / bcrypt)
+-- ============================================================================
+VERSION 0.1
+
+IMPORT_DLL FUNCTION alb_crypto_version() AS S32 FROM ("alb_crypto.dll")
+IMPORT_DLL FUNCTION alb_crypto_loader_init() AS S32 FROM ("alb_crypto.dll")
+IMPORT_DLL PROCEDURE alb_crypto_loader_shutdown() FROM ("alb_crypto.dll")
+IMPORT_DLL FUNCTION alb_crypto_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_crypto.dll")
+IMPORT_DLL PROCEDURE alb_crypto_device_destroy(device AS S64) FROM ("alb_crypto.dll")
+IMPORT_DLL FUNCTION alb_crypto_hash_sha256(data AS S64, len AS S64, out32 AS S64) AS S32 FROM ("alb_crypto.dll")
+IMPORT_DLL FUNCTION alb_crypto_hash_sha1(data AS S64, len AS S64, out20 AS S64) AS S32 FROM ("alb_crypto.dll")
+IMPORT_DLL FUNCTION alb_crypto_hash_md5(data AS S64, len AS S64, out16 AS S64) AS S32 FROM ("alb_crypto.dll")
+IMPORT_DLL FUNCTION alb_crypto_hash_hex(alg AS S32, data AS S64, len AS S64, hex_buf AS S64, hex_buflen AS S32) AS S32 FROM ("alb_crypto.dll")
+IMPORT_DLL FUNCTION alb_crypto_hmac_sha256(key AS S64, key_len AS S64, data AS S64, data_len AS S64, out32 AS S64) AS S32 FROM ("alb_crypto.dll")
+IMPORT_DLL FUNCTION alb_crypto_random_bytes(buf AS S64, len AS S64) AS S32 FROM ("alb_crypto.dll")
+IMPORT_DLL FUNCTION alb_crypto_last_ntstatus() AS S32 FROM ("alb_crypto.dll")
+IMPORT_DLL FUNCTION alb_crypto_test_probe() AS S32 FROM ("alb_crypto.dll")

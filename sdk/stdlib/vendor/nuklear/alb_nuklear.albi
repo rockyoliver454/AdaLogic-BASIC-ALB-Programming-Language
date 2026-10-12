@@ -1,0 +1,157 @@
+-- ============================================================================
+-- alb_nuklear.albi — thin ALB binding for vendor/nuklear (C ABI) v0.2
+-- ============================================================================
+-- Upstream: https://github.com/immediate-mode-ui/nuklear
+-- System include: INCLUDE <alb_nuklear.albi>
+-- Place alb_nuklear.dll, alb_glfw.dll, AND glfw3.dll beside the program.
+-- ============================================================================
+
+VERSION 0.2
+
+-- Window flags (OR together)
+#ALB_NK_WINDOW_BORDER = 1
+#ALB_NK_WINDOW_MOVABLE = 2
+#ALB_NK_WINDOW_SCALABLE = 4
+#ALB_NK_WINDOW_CLOSABLE = 8
+#ALB_NK_WINDOW_MINIMIZABLE = 16
+#ALB_NK_WINDOW_NO_SCROLLBAR = 32
+#ALB_NK_WINDOW_TITLE = 64
+#ALB_NK_WINDOW_SCROLL_AUTO_HIDE = 128
+#ALB_NK_TEXT_LEFT = 17
+#ALB_NK_TEXT_CENTERED = 18
+#ALB_NK_TEXT_RIGHT = 20
+#ALB_NK_DYNAMIC = 0
+#ALB_NK_STATIC = 1
+#ALB_NK_TREE_NODE = 0
+#ALB_NK_TREE_TAB = 1
+#ALB_NK_CHART_LINES = 0
+#ALB_NK_CHART_COLUMN = 1
+#ALB_NK_THEME_DEFAULT = 0
+#ALB_NK_THEME_WHITE = 1
+#ALB_NK_THEME_RED = 2
+#ALB_NK_THEME_BLUE = 3
+#ALB_NK_THEME_DARK = 4
+#ALB_NK_EDIT_FIELD = 608
+#ALB_NK_EDIT_BOX = 1640
+#ALB_NK_SYMBOL_X = 1
+#ALB_NK_SYMBOL_PLUS = 11
+#ALB_NK_SYMBOL_MINUS = 12
+#ALB_NK_SYMBOL_TRIANGLE_RIGHT = 10
+#ALB_NK_SYMBOL_CIRCLE_SOLID = 3
+#ALB_NK_HEADING_UP = 0
+#ALB_NK_POPUP_STATIC = 0
+-- Lifecycle
+IMPORT_DLL FUNCTION alb_nuklear_version() AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_context_create(desc AS S64, out_ctx AS S64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_context_create_simple(width AS S32, height AS S32) AS S64 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_context_create_window(width AS S32, height AS S32, visible AS S32, title AS S64) AS S64 FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_context_destroy(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_should_close(ctx AS S64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_new_frame(ctx AS S64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_render(ctx AS S64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_set_clear_color(ctx AS S64, r AS F64, g AS F64, b AS F64, a AS F64) FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_context_native(ctx AS S64) AS S64 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_context_glfw(ctx AS S64) AS S64 FROM ("alb_nuklear.dll")
+
+-- Windows
+IMPORT_DLL FUNCTION alb_nuklear_begin(ctx AS S64, title AS S64, x AS F64, y AS F64, w AS F64, h AS F64, flags AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_begin_titled(ctx AS S64, name AS S64, title AS S64, x AS F64, y AS F64, w AS F64, h AS F64, flags AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_end(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_window_is_closed(ctx AS S64, name AS S64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_window_is_hovered(ctx AS S64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_window_is_any_hovered(ctx AS S64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_item_is_any_active(ctx AS S64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_window_close(ctx AS S64, name AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_window_get_bounds(ctx AS S64, x AS S64, y AS S64, w AS S64, h AS S64) FROM ("alb_nuklear.dll")
+
+-- Layout
+IMPORT_DLL PROCEDURE alb_nuklear_layout_row_dynamic(ctx AS S64, height AS F64, cols AS S32) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_layout_row_static(ctx AS S64, height AS F64, item_width AS S32, cols AS S32) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_layout_row_begin(ctx AS S64, fmt AS S32, row_height AS F64, cols AS S32) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_layout_row_push(ctx AS S64, ratio_or_width AS F64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_layout_row_end(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_layout_row_template_begin(ctx AS S64, height AS F64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_layout_row_template_push_dynamic(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_layout_row_template_push_variable(ctx AS S64, min_w AS F64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_layout_row_template_push_static(ctx AS S64, width AS F64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_layout_row_template_end(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_layout_space_begin(ctx AS S64, fmt AS S32, height AS F64, widget_count AS S32) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_layout_space_push(ctx AS S64, x AS F64, y AS F64, w AS F64, h AS F64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_layout_space_end(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_spacing(ctx AS S64, cols AS S32) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_separator(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_spacer(ctx AS S64) FROM ("alb_nuklear.dll")
+
+-- Text
+IMPORT_DLL PROCEDURE alb_nuklear_label(ctx AS S64, msg AS S64, align AS S32) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_label_colored(ctx AS S64, msg AS S64, align AS S32, r AS F64, g AS F64, b AS F64, a AS F64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_label_wrap(ctx AS S64, msg AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_link_label(ctx AS S64, title AS S64, align AS S32) AS S32 FROM ("alb_nuklear.dll")
+
+-- Buttons / toggles
+IMPORT_DLL FUNCTION alb_nuklear_button_label(ctx AS S64, label AS S64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_button_color(ctx AS S64, r AS F64, g AS F64, b AS F64, a AS F64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_button_symbol(ctx AS S64, symbol AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_button_symbol_label(ctx AS S64, symbol AS S32, label AS S64, align AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_checkbox_label(ctx AS S64, label AS S64, active AS S64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_option_label(ctx AS S64, label AS S64, active AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_selectable_label(ctx AS S64, label AS S64, align AS S32, value AS S64) AS S32 FROM ("alb_nuklear.dll")
+
+-- Sliders / knobs / progress / properties / color
+IMPORT_DLL FUNCTION alb_nuklear_slider_float(ctx AS S64, min_v AS F64, value AS S64, max_v AS F64, step_v AS F64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_slider_int(ctx AS S64, min_v AS S32, value AS S64, max_v AS S32, step_v AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_knob_float(ctx AS S64, min_v AS F64, value AS S64, max_v AS F64, step_v AS F64, heading AS S32, dead_zone AS F64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_progress(ctx AS S64, cur AS S64, max_v AS S32, modifyable AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_property_float(ctx AS S64, name AS S64, min_v AS F64, val AS S64, max_v AS F64, step_v AS F64, inc AS F64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_property_int(ctx AS S64, name AS S64, min_v AS S32, val AS S64, max_v AS S32, step_v AS S32, inc AS F64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_color_picker(ctx AS S64, rgba AS S64) AS S32 FROM ("alb_nuklear.dll")
+
+-- Edit / combo
+IMPORT_DLL FUNCTION alb_nuklear_edit_string(ctx AS S64, flags AS S32, buffer AS S64, max_len AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_combo_separator(ctx AS S64, items_pipe AS S64, selected AS S32, count AS S32, item_height AS S32, width AS F64, height AS F64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_combo_begin_label(ctx AS S64, selected AS S64, width AS F64, height AS F64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_combo_item_label(ctx AS S64, label AS S64, align AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_combo_end(ctx AS S64) FROM ("alb_nuklear.dll")
+
+-- Tree / group
+IMPORT_DLL FUNCTION alb_nuklear_tree_push(ctx AS S64, kind AS S32, title AS S64, initial_open AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_tree_state_push(ctx AS S64, kind AS S32, title AS S64, state AS S64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_tree_pop(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_group_begin(ctx AS S64, title AS S64, flags AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_group_end(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_contextual_begin(ctx AS S64, flags AS S32, trigger_w AS F64, trigger_h AS F64, x AS F64, y AS F64, w AS F64, h AS F64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_contextual_item_label(ctx AS S64, label AS S64, align AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_contextual_end(ctx AS S64) FROM ("alb_nuklear.dll")
+
+-- Chart / plot
+IMPORT_DLL FUNCTION alb_nuklear_chart_begin(ctx AS S64, kind AS S32, num AS S32, min_v AS F64, max_v AS F64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_chart_push(ctx AS S64, value AS F64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_chart_end(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_plot(ctx AS S64, kind AS S32, values AS S64, count AS S32, offset AS S32) FROM ("alb_nuklear.dll")
+
+-- Popup / menu / tooltip
+IMPORT_DLL FUNCTION alb_nuklear_popup_begin(ctx AS S64, kind AS S32, title AS S64, flags AS S32, x AS F64, y AS F64, w AS F64, h AS F64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_popup_close(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_popup_end(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_tooltip(ctx AS S64, msg AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_menubar_begin(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_menubar_end(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_menu_begin_label(ctx AS S64, title AS S64, align AS S32, width AS F64, height AS F64) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_menu_item_label(ctx AS S64, label AS S64, align AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_menu_end(ctx AS S64) FROM ("alb_nuklear.dll")
+
+-- Style
+IMPORT_DLL PROCEDURE alb_nuklear_style_default(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_style_set_theme(ctx AS S64, theme AS S32) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_widget_disable_begin(ctx AS S64) FROM ("alb_nuklear.dll")
+IMPORT_DLL PROCEDURE alb_nuklear_widget_disable_end(ctx AS S64) FROM ("alb_nuklear.dll")
+
+-- Built-in demos / tests
+IMPORT_DLL FUNCTION alb_nuklear_test_demo_frames(frames AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_test_widgets_frames(frames AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_test_overview_frames(frames AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_test_kitchen_frames(frames AS S32) AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_run_demo() AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_run_widgets() AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_run_overview() AS S32 FROM ("alb_nuklear.dll")
+IMPORT_DLL FUNCTION alb_nuklear_run_kitchen_sink() AS S32 FROM ("alb_nuklear.dll")

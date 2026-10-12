@@ -1,0 +1,146 @@
+-- ============================================================================
+-- demo_all_features.alb — ALB application harness (D3D9 + OpenBLAS + Nuklear)
+-- ============================================================================
+-- Graphics API stays thin (alb_d3d9.albi / alb_d3d9_*).
+-- Live dual-window overhaul (STAR shapes / BLAS / Nuklear) lives in the
+-- APPLICATION companion: alb_d3d9_app.dll -> demo_d3d9_run_all_features().
+--
+-- Build (from src/):
+--   ..\release\bin\alb.exe native stdlib\vendor\d3d9\examples\demo_all_features.alb ^
+--       -t fasm --build --outdir stdlib\vendor\d3d9\bin\_alb -o demo_all_features.asm
+-- Run from stdlib\vendor\d3d9\bin with vendor + app DLLs beside the exe.
+-- ============================================================================
+
+#SHAPE_TRIANGLE = 0
+#SHAPE_QUAD = 1
+#SHAPE_STAR = 2
+#SHAPE_NGON = 3
+#SHAPE_GRID = 4
+#SHAPE_POINTS = 5
+#SHAPE_CUBE = 6
+#SHAPE_COUNT = 7
+
+#BLAS_MODE_DGEMM = 0
+#BLAS_MODE_DGESV = 1
+#BLAS_MODE_DSYEV = 2
+#BLAS_MODE_NORMS = 3
+#BLAS_MODE_SGEMM = 4
+#BLAS_MODE_COUNT = 5
+
+#GPU_ASYNC = 1
+#GPU_EXECUTE_INDIRECT = 1
+#GPU_DEPTH_CLEAR = 1
+#GPU_TIMESTAMPS = 1
+#GPU_MSAA_RESOLVE = 1
+#GPU_POINT_OVERLAY = 1
+
+BEGIN
+VERSION 1.0
+
+INCLUDE "../alb_d3d9.albi"
+INCLUDE "../../openblas/alb_openblas.albi"
+INCLUDE "../../nuklear/alb_nuklear.albi"
+INCLUDE "alb_d3d9_app.albi"
+
+PROCEDURE Print_Pass_Fail(label AS STRING, rc AS S32)
+  IF rc = 0 THEN
+    PRINT label | " PASS"
+  ELSE
+    PRINT label | " FAIL " | rc
+  END IF
+END PROCEDURE
+
+FUNCTION Shape_Name(shape AS S32) AS STRING
+  IF shape = #SHAPE_TRIANGLE THEN RETURN "Triangle"
+  IF shape = #SHAPE_QUAD THEN RETURN "Quad"
+  IF shape = #SHAPE_STAR THEN RETURN "Star"
+  IF shape = #SHAPE_NGON THEN RETURN "N-gon"
+  IF shape = #SHAPE_GRID THEN RETURN "Grid"
+  IF shape = #SHAPE_POINTS THEN RETURN "Points"
+  IF shape = #SHAPE_CUBE THEN RETURN "Cube"
+  RETURN "?"
+END FUNCTION
+
+FUNCTION Blas_Mode_Name(mode AS S32) AS STRING
+  IF mode = #BLAS_MODE_DGEMM THEN RETURN "DGEMM+DGEMV"
+  IF mode = #BLAS_MODE_DGESV THEN RETURN "DGESV solve"
+  IF mode = #BLAS_MODE_DSYEV THEN RETURN "DSYEV eigen"
+  IF mode = #BLAS_MODE_NORMS THEN RETURN "Norms"
+  IF mode = #BLAS_MODE_SGEMM THEN RETURN "SGEMM"
+  RETURN "?"
+END FUNCTION
+
+PRINT "============================================================"
+PRINT "  alb_d3d9 ALL FEATURES  (ALB application harness)"
+PRINT "============================================================"
+LET ver_d3d AS S32 = alb_d3d9_version()
+LET ver_blas AS S32 = alb_openblas_version()
+LET ver_nk AS S32 = alb_nuklear_version()
+PRINT "alb_d3d9=" | ver_d3d | "  (thin D3D9 + alb_d3d9_*)"
+PRINT "alb_openblas=" | ver_blas
+PRINT "alb_nuklear=" | ver_nk
+PRINT "live app = alb_d3d9_app.dll (NOT the D3D9 API)"
+PRINT ""
+
+LET fails AS S32 = 0
+LET rc AS S32 = 0
+LET shape AS S32 = #SHAPE_STAR
+LET blas_mode AS S32 = #BLAS_MODE_DGEMM
+LET i AS S32 = 0
+
+PRINT "=== Shapes (Nuklear combo) ==="
+FOR i = 0 TO #SHAPE_COUNT - 1 THEN
+  PRINT "  [" | i | "] " | Shape_Name(i)
+END FOR
+
+PRINT "=== OpenBLAS modes (Nuklear combo) ==="
+FOR i = 0 TO #BLAS_MODE_COUNT - 1 THEN
+  PRINT "  [" | i | "] " | Blas_Mode_Name(i)
+END FOR
+
+PRINT "=== GPU feature gates (Nuklear checkboxes) ==="
+PRINT "  async_compute=" | #GPU_ASYNC
+PRINT "  execute_indirect=" | #GPU_EXECUTE_INDIRECT
+PRINT "  depth_clear=" | #GPU_DEPTH_CLEAR
+PRINT "  timestamps=" | #GPU_TIMESTAMPS
+PRINT "  msaa_resolve=" | #GPU_MSAA_RESOLVE
+PRINT "  point_overlay=" | #GPU_POINT_OVERLAY
+PRINT "  + tex re-upload / UAV barrier / VSync / wire overlay / scissor / instances / dispatch"
+PRINT "Default shape=" | Shape_Name(shape) | "  BLAS=" | Blas_Mode_Name(blas_mode)
+PRINT ""
+
+PRINT "=== OpenBLAS suite ==="
+LET rc = alb_openblas_test_all()
+CALL Print_Pass_Fail("openblas_test_all", rc)
+IF rc != 0 THEN LET fails = fails + 1
+PRINT "  threads=" | alb_openblas_get_num_threads() | "  procs=" | alb_openblas_get_num_procs()
+
+PRINT "=== Nuklear kitchen smoke ==="
+LET rc = alb_nuklear_test_kitchen_frames(16)
+CALL Print_Pass_Fail("nuklear_kitchen", rc)
+IF rc != 0 THEN LET fails = fails + 1
+
+PRINT "=== Thin Direct3D 9 API ==="
+PRINT "  alb_d3d9.dll = lifecycle + raw alb_d3d9_* only (no shapes/BLAS/UI in API)"
+PRINT "  live shapes/STAR/BLAS/Nuklear = APPLICATION alb_d3d9_app.dll"
+
+PRINT ""
+PRINT "Startup fails=" | fails
+PRINT "------------------------------------------------------------"
+PRINT "Opening LIVE overhaul via APPLICATION alb_d3d9_app.dll"
+PRINT "  CONTROL panel: shapes / OpenBLAS / GPU gates (Nuklear)"
+PRINT "  D3D9 window: STAR default + BLAS tint + MSAA/query/scissor"
+PRINT "  ESC / Q / close either window to quit"
+PRINT "------------------------------------------------------------"
+
+LET rc = demo_d3d9_run_all_features()
+CALL Print_Pass_Fail("demo_d3d9_run_all_features", rc)
+IF rc != 0 THEN LET fails = fails + 1
+
+PRINT ""
+IF fails = 0 THEN
+  PRINT "ALL FEATURES ALB harness OK"
+ELSE
+  PRINT "ALL FEATURES ALB harness had " | fails | " fail(s)"
+END IF
+END

@@ -1,0 +1,139 @@
+-- Army HUD 8x7 bitmap font. Observed from C/Ada/ALB army font API, new tables.
+-- Not a copy of the C-tree army_font.alb.
+VERSION 1.0
+
+DECLARE MODULE GdArmyFont
+    PROCEDURE Setup()
+    FUNCTION GlyphW() AS S32
+    FUNCTION GlyphH() AS S32
+    FUNCTION GlyphBit(glyph AS S32, x AS S32, y AS S32) AS S32
+    PROCEDURE PresentGlyph(glyph AS S32, px AS S32, py AS S32, scale AS S32)
+    PROCEDURE PresentNum(n AS S32, px AS S32, py AS S32)
+END DECLARE MODULE
+
+MODULE GdArmyFont
+
+    STRICT row0[10] AS U8
+    STRICT row1[10] AS U8
+    STRICT row2[10] AS U8
+    STRICT row3[10] AS U8
+    STRICT row4[10] AS U8
+    STRICT row5[10] AS U8
+    STRICT row6[10] AS U8
+
+    PROCEDURE Setup()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        -- 0
+        row0[1] = 60 row1[1] = 66 row2[1] = 66 row3[1] = 66 row4[1] = 66 row5[1] = 66 row6[1] = 60
+        -- 1
+        row0[2] = 16 row1[2] = 48 row2[2] = 16 row3[2] = 16 row4[2] = 16 row5[2] = 16 row6[2] = 56
+        -- 2
+        row0[3] = 60 row1[3] = 66 row2[3] = 2 row3[3] = 12 row4[3] = 48 row5[3] = 64 row6[3] = 126
+        -- 3
+        row0[4] = 60 row1[4] = 66 row2[4] = 2 row3[4] = 28 row4[4] = 2 row5[4] = 66 row6[4] = 60
+        -- 4
+        row0[5] = 4 row1[5] = 12 row2[5] = 20 row3[5] = 36 row4[5] = 126 row5[5] = 4 row6[5] = 4
+        -- 5
+        row0[6] = 126 row1[6] = 64 row2[6] = 124 row3[6] = 2 row4[6] = 2 row5[6] = 66 row6[6] = 60
+        -- 6
+        row0[7] = 60 row1[7] = 64 row2[7] = 124 row3[7] = 66 row4[7] = 66 row5[7] = 66 row6[7] = 60
+        -- 7
+        row0[8] = 126 row1[8] = 2 row2[8] = 4 row3[8] = 8 row4[8] = 16 row5[8] = 16 row6[8] = 16
+        -- 8
+        row0[9] = 60 row1[9] = 66 row2[9] = 66 row3[9] = 60 row4[9] = 66 row5[9] = 66 row6[9] = 60
+        -- 9
+        row0[10] = 60 row1[10] = 66 row2[10] = 66 row3[10] = 62 row4[10] = 2 row5[10] = 66 row6[10] = 60
+    END PROCEDURE
+
+    FUNCTION GlyphW() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 8
+    END FUNCTION
+
+    FUNCTION GlyphH() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 7
+    END FUNCTION
+
+    FUNCTION GlyphBit(glyph AS S32, x AS S32, y AS S32) AS S32
+        LET bits AS U8 = 0
+        LET g AS S32 = glyph + 1
+        LET mask AS U8 = 128
+        LET i AS S32 = 0
+        ASSERT(x >= 0)
+        ASSERT(y >= 0)
+        IF g < 1 THEN
+            RETURN 0
+        END IF
+        IF g > 10 THEN
+            RETURN 0
+        END IF
+        IF y = 0 THEN
+            bits = row0[g]
+        END IF
+        IF y = 1 THEN
+            bits = row1[g]
+        END IF
+        IF y = 2 THEN
+            bits = row2[g]
+        END IF
+        IF y = 3 THEN
+            bits = row3[g]
+        END IF
+        IF y = 4 THEN
+            bits = row4[g]
+        END IF
+        IF y = 5 THEN
+            bits = row5[g]
+        END IF
+        IF y = 6 THEN
+            bits = row6[g]
+        END IF
+        WHILE i < x
+            mask = mask / 2
+            i = i + 1
+        END WHILE
+        IF (bits AND mask) = 0 THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+    PROCEDURE PresentGlyph(glyph AS S32, px AS S32, py AS S32, scale AS S32)
+        LET x AS S32 = 0
+        LET y AS S32 = 0
+        ASSERT(scale > 0)
+        ASSERT(scale <= 8)
+        COLOR $E2E8F0
+        WHILE y < 7
+            x = 0
+            WHILE x < 8
+                IF GlyphBit(glyph, x, y) = 1 THEN
+                    FILL RECT px + x * scale, py + y * scale, scale, scale
+                END IF
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PresentNum(n AS S32, px AS S32, py AS S32)
+        LET v AS S32 = n
+        LET d AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF v < 0 THEN
+            v = 0
+        END IF
+        d = (v / 100) MOD 10
+        PresentGlyph(d, px, py, 2)
+        d = (v / 10) MOD 10
+        PresentGlyph(d, px + 18, py, 2)
+        d = v MOD 10
+        PresentGlyph(d, px + 36, py, 2)
+    END PROCEDURE
+
+END MODULE

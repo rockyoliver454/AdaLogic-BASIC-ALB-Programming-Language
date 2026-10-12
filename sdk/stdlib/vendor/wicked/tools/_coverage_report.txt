@@ -1,0 +1,20 @@
+Wicked Entity_Create* coverage vs alb_wicked.h
+================================================
+  [x] Entity_CreateCamera  -> alb_wicked_scene_create_camera
+  [x] Entity_CreateCube  -> alb_wicked_scene_create_cube
+  [x] Entity_CreateDecal  -> alb_wicked_scene_create_decal
+  [x] Entity_CreateEmitter  -> alb_wicked_scene_create_emitter
+  [x] Entity_CreateEnvironmentProbe  -> alb_wicked_scene_create_envprobe
+  [x] Entity_CreateForce  -> alb_wicked_scene_create_force
+  [x] Entity_CreateHair  -> alb_wicked_scene_create_hair
+  [x] Entity_CreateLight  -> alb_wicked_scene_create_light
+  [x] Entity_CreateMaterial  -> alb_wicked_scene_create_material
+  [x] Entity_CreateMesh  -> alb_wicked_scene_create_mesh
+  [x] Entity_CreateMeshFromData  -> alb_wicked_scene_create_mesh_from_data
+  [x] Entity_CreateObject  -> alb_wicked_scene_create_object
+  [x] Entity_CreatePlane  -> alb_wicked_scene_create_plane
+  [x] Entity_CreateSound  -> alb_wicked_scene_create_sound
+  [x] Entity_CreateSphere  -> alb_wicked_scene_create_sphere
+  [x] Entity_CreateTransform  -> alb_wicked_scene_create_transform
+  [x] Entity_CreateVideo  -> alb_wicked_scene_create_video
+

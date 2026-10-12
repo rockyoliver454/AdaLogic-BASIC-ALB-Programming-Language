@@ -1,0 +1,143 @@
+-- ============================================================================
+-- ALBSheet.ALBI — delimited text builders (TXT / CSV / TSV / PSV)
+-- ============================================================================
+-- From release\examples\:
+--   INCLUDE "../stdlib/lang/ALBSheet.ALBI"
+--
+-- Format codes: 0 TXT  1 CSV  2 TSV  3 PSV (pipe-separated).
+-- The PSV delimiter is the one-character string "|". That is a field
+-- separator. The | operator between expressions is still concatenation
+-- (see NewLine = CHR(13) | CHR(10) below).
+--
+-- CharAt(txt, idx) is 1-based (ALB strings are 1-based). FormatRow
+-- currently treats each character of row_text as its own cell — pass a
+-- string you already split, or walk cells yourself and join with
+-- Delimiter(fmt).
+--
+-- WriteText uses FLUSH body INTO path (overwrite). Not a spreadsheet
+-- parser and not a .xlsx writer.
+-- ============================================================================
+
+VERSION 0.0.0.1
+
+#ALBSHEET_FMT_TXT = 0
+#ALBSHEET_FMT_CSV = 1
+#ALBSHEET_FMT_TSV = 2
+#ALBSHEET_FMT_PSV = 3
+#ALBSHEET_FMT_COUNT = 4
+
+DECLARE MODULE ALBSheet
+    FUNCTION NewLine() AS STRING
+    FUNCTION Quote() AS STRING
+    FUNCTION Tab() AS STRING
+    FUNCTION FormatName(fmt AS U32) AS STRING
+    FUNCTION FormatExt(fmt AS U32) AS STRING
+    FUNCTION Delimiter(fmt AS U32) AS STRING
+    FUNCTION CharAt(txt AS STRING, idx AS U32) AS STRING
+    FUNCTION QuoteCsvField(field AS STRING) AS STRING
+    FUNCTION FormatCell(fmt AS U32, cell AS STRING) AS STRING
+    FUNCTION FormatRow(fmt AS U32, row_text AS STRING) AS STRING
+    PROCEDURE WriteText(path AS STRING, body AS STRING)
+END DECLARE MODULE
+
+MODULE ALBSheet
+
+    FUNCTION NewLine() AS STRING
+        -- CR LF. | concatenates; it is not bitwise OR.
+        RETURN CHR(13) | CHR(10)
+    END FUNCTION
+
+    FUNCTION Quote() AS STRING
+        RETURN CHR(34)
+    END FUNCTION
+
+    FUNCTION Tab() AS STRING
+        RETURN CHR(9)
+    END FUNCTION
+
+    FUNCTION FormatName(fmt AS U32) AS STRING
+        IF fmt = #ALBSHEET_FMT_CSV THEN RETURN "CSV" END IF
+        IF fmt = #ALBSHEET_FMT_TSV THEN RETURN "TSV" END IF
+        IF fmt = #ALBSHEET_FMT_PSV THEN RETURN "PSV" END IF
+        RETURN "TXT"
+    END FUNCTION
+
+    FUNCTION FormatExt(fmt AS U32) AS STRING
+        IF fmt = #ALBSHEET_FMT_CSV THEN RETURN "csv" END IF
+        IF fmt = #ALBSHEET_FMT_TSV THEN RETURN "tsv" END IF
+        IF fmt = #ALBSHEET_FMT_PSV THEN RETURN "psv" END IF
+        RETURN "txt"
+    END FUNCTION
+
+    FUNCTION Delimiter(fmt AS U32) AS STRING
+        -- PSV returns "|" as data, not as the concat operator.
+        IF fmt = #ALBSHEET_FMT_CSV THEN RETURN "," END IF
+        IF fmt = #ALBSHEET_FMT_TSV THEN RETURN Tab() END IF
+        IF fmt = #ALBSHEET_FMT_PSV THEN RETURN "|" END IF
+        RETURN ""
+    END FUNCTION
+
+    FUNCTION CharAt(txt AS STRING, idx AS U32) AS STRING
+        -- 1-based. Out of range → a single space (not empty).
+        IF idx < 1 THEN RETURN " " END IF
+        IF idx > LEN(txt) THEN RETURN " " END IF
+        RETURN RIGHT$(LEFT$(txt, idx), 1)
+    END FUNCTION
+
+    FUNCTION NeedsQuoteCsv(field AS STRING) AS U8
+        LET q AS STRING = Quote()
+        LET pos AS U32 = 1
+        LET ch AS STRING = ""
+        LET lim AS U32 = LEN(field)
+        WHILE pos <= lim
+            ch = CharAt(field, pos)
+            IF ch = "," OR ch = q OR ch = CHR(10) OR ch = CHR(13) THEN RETURN 1 END IF
+            pos = pos + 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION QuoteCsvField(field AS STRING) AS STRING
+        LET q AS STRING = Quote()
+        LET built AS STRING = ""
+        LET pos AS U32 = 1
+        LET ch AS STRING = ""
+        LET lim AS U32 = LEN(field)
+        IF NeedsQuoteCsv(field) = 0 THEN RETURN field END IF
+        built = q
+        WHILE pos <= lim
+            ch = CharAt(field, pos)
+            IF ch = q THEN built = built | q END IF
+            built = built | ch
+            pos = pos + 1
+        END WHILE
+        RETURN built | q
+    END FUNCTION
+
+    FUNCTION FormatCell(fmt AS U32, cell AS STRING) AS STRING
+        IF fmt = #ALBSHEET_FMT_CSV THEN RETURN QuoteCsvField(cell) END IF
+        RETURN cell
+    END FUNCTION
+
+    FUNCTION FormatRow(fmt AS U32, row_text AS STRING) AS STRING
+        LET delim AS STRING = Delimiter(fmt)
+        LET built AS STRING = ""
+        LET pos AS U32 = 1
+        LET lim AS U32 = LEN(row_text)
+        LET cell AS STRING = ""
+        IF fmt = #ALBSHEET_FMT_TXT THEN RETURN row_text END IF
+        WHILE pos <= lim
+            cell = CharAt(row_text, pos)
+            IF pos > 1 THEN built = built | delim END IF
+            built = built | FormatCell(fmt, cell)
+            pos = pos + 1
+        END WHILE
+        RETURN built
+    END FUNCTION
+
+    PROCEDURE WriteText(path AS STRING, body AS STRING)
+        -- Overwrites path with the exact STRING bytes.
+        FLUSH body INTO path
+    END PROCEDURE
+
+END MODULE

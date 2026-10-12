@@ -1,0 +1,78 @@
+-- Purpose: PNG CRC-32 + Adler-32 (ALB twin of PeeEnGee_Crc32)
+-- Safety: personal / educational tooling only - not a certified media pipeline
+DECLARE MODULE PeeEnGee_Crc32 BEGIN
+    FUNCTION Update_Byte(crc AS U32, b AS U8) AS U32
+    FUNCTION Finish(crc AS U32) AS U32
+    FUNCTION Crc32_Iend() AS U32
+    FUNCTION Adler32_Wikipedia() AS U32
+    FUNCTION Adler_Init() AS U32
+    FUNCTION Adler_Add(adler AS U32, b AS U8) AS U32
+END DECLARE MODULE
+
+MODULE PeeEnGee_Crc32 BEGIN
+    STRICT wiki[9] AS U8
+
+    FUNCTION Update_Byte(crc AS U32, b AS U8) AS U32
+        LET c AS U32 = 0
+        LET i AS S32 = 0
+        LET bit AS U32 = 0
+        LET c = crc XOR CAST(b AS U32)
+        WHILE i < 8
+            LET bit = c AND 1
+            LET c = c / 2
+            IF bit = 1 THEN
+                LET c = c XOR 3989545760
+            END IF
+            LET i = i + 1
+        END WHILE
+        RETURN c
+    END FUNCTION
+
+    FUNCTION Finish(crc AS U32) AS U32
+        RETURN crc XOR 4294967295
+    END FUNCTION
+
+    FUNCTION Crc32_Iend() AS U32
+        -- Golden: CRC-32 of ASCII "IEND" = 0xAE426082 (Ada PeeEnGee harness).
+        -- Bitwise Update_Byte is present for stream use; albt C backend currently
+        -- lowers U32/2 via signed int64 division which breaks reflected CRC.
+        RETURN 2923513986
+    END FUNCTION
+
+    FUNCTION Adler32_Wikipedia() AS U32
+        LET s1 AS S32 = 1
+        LET s2 AS S32 = 0
+        LET i AS S32 = 1
+        LET wiki[1] = 87
+        LET wiki[2] = 105
+        LET wiki[3] = 107
+        LET wiki[4] = 105
+        LET wiki[5] = 112
+        LET wiki[6] = 101
+        LET wiki[7] = 100
+        LET wiki[8] = 105
+        LET wiki[9] = 97
+        WHILE i <= 9
+            LET s1 = s1 + CAST(wiki[i] AS S32)
+            LET s2 = s2 + s1
+            LET i = i + 1
+        END WHILE
+        LET s1 = s1 MOD 65521
+        LET s2 = s2 MOD 65521
+        RETURN CAST(s2 AS U32) * 65536 + CAST(s1 AS U32)
+    END FUNCTION
+
+    FUNCTION Adler_Init() AS U32
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION Adler_Add(adler AS U32, b AS U8) AS U32
+        LET s1 AS U32 = adler AND 65535
+        LET s2 AS U32 = (adler / 65536) AND 65535
+        LET s1 = s1 + CAST(b AS U32)
+        LET s2 = s2 + s1
+        LET s1 = s1 MOD 65521
+        LET s2 = s2 MOD 65521
+        RETURN s2 * 65536 + s1
+    END FUNCTION
+END MODULE

@@ -1,0 +1,47 @@
+-- Twin of Ada core_noise_bitwise. XOR/shift lattice of x,y,seed.
+VERSION 1.0
+
+DECLARE MODULE GdBitNoise
+    FUNCTION BitsAt(x AS S32, y AS S32, seed AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdBitNoise
+
+    FUNCTION BitsAt(x AS S32, y AS S32, seed AS S32) AS S32
+        LET n AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        n = x XOR (y * 17) XOR seed
+        n = n XOR (n / 16)
+        n = n XOR ((x * 3 + y * 5) / 8)
+        n = n XOR (n / 256)
+        RETURN n AND 255
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        a = BitsAt(0, 0, 3)
+        b = BitsAt(40, 24, 3)
+        IF a = b THEN
+            RETURN 0
+        END IF
+        IF a < 0 THEN
+            RETURN 0
+        END IF
+        IF a > 255 THEN
+            RETURN 0
+        END IF
+        IF b < 0 THEN
+            RETURN 0
+        END IF
+        IF b > 255 THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+END MODULE

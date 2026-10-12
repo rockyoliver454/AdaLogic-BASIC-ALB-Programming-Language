@@ -1,0 +1,63 @@
+-- Twin of Ada player_character sheet metadata (12 frames, 64 cell).
+VERSION 1.0
+
+DECLARE MODULE GdActorTex
+    FUNCTION FrameN() AS S32
+    FUNCTION CellW() AS S32
+    FUNCTION CellH() AS S32
+    FUNCTION SheetW() AS S32
+    PROCEDURE PresentStand(x AS S32, y AS S32)
+    PROCEDURE PresentKind(kind AS S32, x AS S32, y AS S32)
+    FUNCTION AdaId(kind AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdActorTex
+
+    FUNCTION FrameN() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 12
+    END FUNCTION
+    FUNCTION CellW() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 16
+    END FUNCTION
+    FUNCTION CellH() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 16
+    END FUNCTION
+    FUNCTION SheetW() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 192
+    END FUNCTION
+
+    FUNCTION AdaId(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 8)
+        IF kind = 0 THEN RETURN 108 END IF
+        IF kind = 1 THEN RETURN 107 END IF
+        IF kind = 2 THEN RETURN 106 END IF
+        IF kind = 3 THEN RETURN 112 END IF
+        IF kind = 4 THEN RETURN 116 END IF
+        IF kind = 5 THEN RETURN 114 END IF
+        IF kind = 6 THEN RETURN 113 END IF
+        IF kind = 7 THEN RETURN 115 END IF
+        RETURN 109
+    END FUNCTION
+
+    PROCEDURE PresentStand(x AS S32, y AS S32)
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        PresentKind(0, x, y)
+    END PROCEDURE
+
+    PROCEDURE PresentKind(kind AS S32, x AS S32, y AS S32)
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 8)
+        GdAdaTex.Present(AdaId(kind), x, y)
+    END PROCEDURE
+
+END MODULE

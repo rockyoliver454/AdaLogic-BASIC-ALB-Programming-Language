@@ -1,0 +1,56 @@
+-- Twin of Ada core_noise_blue. Highpass of white: clip(white - prev + 128).
+VERSION 1.0
+
+DECLARE MODULE GdBlueN
+    FUNCTION BlueAt(x AS S32, y AS S32, seed AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdBlueN
+
+    LET prev AS S32 = 128
+    LET prev_key AS S32 = 0
+
+    FUNCTION BlueAt(x AS S32, y AS S32, seed AS S32) AS S32
+        LET w AS S32 = 0
+        LET akey AS S32 = 0
+        LET outv AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        akey = seed XOR (y * 97)
+        IF akey <> prev_key THEN
+            prev = 128
+            prev_key = akey
+        END IF
+        w = GdHash.ByteOf(x, y, seed)
+        outv = w - prev + 128
+        prev = w
+        RETURN GdVec2.ClipI(outv, 0, 255)
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        a = BlueAt(0, 0, 3)
+        b = BlueAt(40, 24, 3)
+        IF a = b THEN
+            RETURN 0
+        END IF
+        IF a < 0 THEN
+            RETURN 0
+        END IF
+        IF a > 255 THEN
+            RETURN 0
+        END IF
+        IF b < 0 THEN
+            RETURN 0
+        END IF
+        IF b > 255 THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+END MODULE

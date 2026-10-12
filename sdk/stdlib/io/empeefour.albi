@@ -1,0 +1,141 @@
+-- Twin of SPARK EmPeeFour. MP4/MJPEG/H.264 fourcc gates. No heap demux.
+-- Ada Decode_First_Frame_* is file/memory IO. FillMem is the same codec gate over four bytes.
+VERSION 1.0
+
+DECLARE MODULE EmPeeFour
+    FUNCTION ApiVersion() AS S32
+    FUNCTION StatusOk() AS S32
+    FUNCTION IsAvc(a AS S32, b AS S32, c AS S32, d AS S32) AS S32
+    FUNCTION IsHevc(a AS S32, b AS S32, c AS S32, d AS S32) AS S32
+    FUNCTION IsJpegSoi(a AS S32, b AS S32) AS S32
+    FUNCTION FillMem(a AS S32, b AS S32, c AS S32, d AS S32) AS S32
+END DECLARE MODULE
+
+MODULE EmPeeFour
+
+    FUNCTION ApiVersion() AS S32
+        ASSERT(1 = 1)
+        RETURN 65792
+    END FUNCTION
+
+    FUNCTION StatusOk() AS S32
+        ASSERT(1 = 1)
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION IsAvc(a AS S32, b AS S32, c AS S32, d AS S32) AS S32
+        ASSERT(1 = 1)
+        IF a = 97 THEN
+            IF b = 118 THEN
+                IF c = 99 THEN
+                    IF d = 49 THEN
+                        RETURN 1
+                    END IF
+                    IF d = 51 THEN
+                        RETURN 1
+                    END IF
+                    IF d = 67 THEN
+                        RETURN 1
+                    END IF
+                END IF
+            END IF
+        END IF
+        IF a = 65 THEN
+            IF b = 86 THEN
+                IF c = 67 THEN
+                    IF d = 49 THEN
+                        RETURN 1
+                    END IF
+                    IF d = 51 THEN
+                        RETURN 1
+                    END IF
+                END IF
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION IsHevc(a AS S32, b AS S32, c AS S32, d AS S32) AS S32
+        ASSERT(1 = 1)
+        IF a = 104 THEN
+            IF b = 118 THEN
+                IF c = 99 THEN
+                    IF d = 49 THEN
+                        RETURN 1
+                    END IF
+                END IF
+            END IF
+        END IF
+        IF a = 104 THEN
+            IF b = 101 THEN
+                IF c = 118 THEN
+                    IF d = 49 THEN
+                        RETURN 1
+                    END IF
+                END IF
+            END IF
+        END IF
+        IF a = 72 THEN
+            IF b = 86 THEN
+                IF c = 67 THEN
+                    IF d = 49 THEN
+                        RETURN 1
+                    END IF
+                END IF
+            END IF
+        END IF
+        IF a = 72 THEN
+            IF b = 69 THEN
+                IF c = 86 THEN
+                    IF d = 49 THEN
+                        RETURN 1
+                    END IF
+                END IF
+            END IF
+        END IF
+        IF a = 100 THEN
+            IF b = 118 THEN
+                IF c = 104 THEN
+                    IF d = 49 THEN
+                        RETURN 1
+                    END IF
+                END IF
+            END IF
+        END IF
+        IF a = 68 THEN
+            IF b = 86 THEN
+                IF c = 72 THEN
+                    IF d = 49 THEN
+                        RETURN 1
+                    END IF
+                END IF
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION IsJpegSoi(a AS S32, b AS S32) AS S32
+        ASSERT(1 = 1)
+        IF a = 255 THEN
+            IF b = 216 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION FillMem(a AS S32, b AS S32, c AS S32, d AS S32) AS S32
+        ASSERT(1 = 1)
+        IF IsJpegSoi(a, b) = 1 THEN
+            RETURN 0
+        END IF
+        IF IsAvc(a, b, c, d) = 1 THEN
+            RETURN 0
+        END IF
+        IF IsHevc(a, b, c, d) = 1 THEN
+            RETURN 2
+        END IF
+        RETURN 5
+    END FUNCTION
+
+END MODULE

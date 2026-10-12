@@ -1,0 +1,115 @@
+INCLUDE "colony.albi"
+IMPORT Colony
+
+MODULE Colony
+    LET colony_food AS U16 = 0
+    LET colony_level AS U8 = 1
+    LET colony_pop AS U16 = 0
+    LET growth_progress AS U16 = 0
+    LET colony_wood AS U16 = 0
+    LET colony_stone AS U16 = 0
+
+    PROCEDURE Setup()
+        colony_food = 20
+        colony_level = 1
+        colony_pop = 0
+        growth_progress = 0
+        colony_wood = 50
+        colony_stone = 30
+    END PROCEDURE
+
+    PROCEDURE Process()
+        IF colony_food > 0 AND colony_pop > 0 THEN
+            colony_food = colony_food - 1
+            growth_progress = growth_progress + 1
+            IF growth_progress >= 100 THEN
+                growth_progress = 0
+                IF colony_level < 10 THEN
+                    colony_level = colony_level + 1
+                END IF
+            END IF
+        END IF
+    END PROCEDURE
+
+    FUNCTION GetFoodCount() AS U16
+        RETURN colony_food
+    END FUNCTION
+
+    FUNCTION GetColonyLevel() AS U8
+        RETURN colony_level
+    END FUNCTION
+
+    FUNCTION GetPopulation() AS U16
+        RETURN colony_pop
+    END FUNCTION
+
+    FUNCTION GetWoodCount() AS U16
+        RETURN colony_wood
+    END FUNCTION
+
+    FUNCTION GetStoneCount() AS U16
+        RETURN colony_stone
+    END FUNCTION
+
+    FUNCTION GetGrowthProgress() AS U16
+        RETURN growth_progress
+    END FUNCTION
+
+    PROCEDURE AddFood(amount AS U16)
+        colony_food = colony_food + amount
+        IF colony_food > 1000 THEN colony_food = 1000 END IF
+    END PROCEDURE
+
+    PROCEDURE RemoveFood(amount AS U16)
+        IF amount >= colony_food THEN
+            colony_food = 0
+        ELSE
+            colony_food = colony_food - amount
+        END IF
+    END PROCEDURE
+
+    PROCEDURE AddWood(amount AS U16)
+        colony_wood = colony_wood + amount
+        IF colony_wood > 2000 THEN colony_wood = 2000 END IF
+    END PROCEDURE
+
+    PROCEDURE AddStone(amount AS U16)
+        colony_stone = colony_stone + amount
+        IF colony_stone > 2000 THEN colony_stone = 2000 END IF
+    END PROCEDURE
+
+    PROCEDURE SetFoodCount(amount AS U16)
+        colony_food = amount
+        IF colony_food > 1000 THEN colony_food = 1000 END IF
+    END PROCEDURE
+
+    PROCEDURE SetWoodCount(amount AS U16)
+        colony_wood = amount
+        IF colony_wood > 2000 THEN colony_wood = 2000 END IF
+    END PROCEDURE
+
+    PROCEDURE SetStoneCount(amount AS U16)
+        colony_stone = amount
+        IF colony_stone > 2000 THEN colony_stone = 2000 END IF
+    END PROCEDURE
+
+    PROCEDURE SetPopulation(amount AS U16)
+        colony_pop = amount
+    END PROCEDURE
+
+    PROCEDURE SetColonyLevel(level AS U8)
+        colony_level = level
+        IF colony_level < 1 THEN colony_level = 1 END IF
+        IF colony_level > 10 THEN colony_level = 10 END IF
+    END PROCEDURE
+
+    PROCEDURE SetGrowthProgress(amount AS U16)
+        growth_progress = amount
+        IF growth_progress > 1000 THEN growth_progress = 1000 END IF
+    END PROCEDURE
+
+    FUNCTION HasFood(amount AS U16) AS U8
+        IF colony_food >= amount THEN RETURN 1 END IF
+        RETURN 0
+    END FUNCTION
+END MODULE

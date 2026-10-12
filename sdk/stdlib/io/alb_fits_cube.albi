@@ -1,0 +1,74 @@
+-- ============================================================================
+-- ALBFitsCube — astronomy helpers on top of ALBFits
+-- ============================================================================
+-- INCLUDE alb_fits.albi first. Feed bytes into ALBFits (not this module),
+-- call ALBFits.ReadCube(), then use these functions.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_fits.albi"
+--   INCLUDE "../stdlib/io/alb_fits_cube.albi"
+--
+-- IsCube()      1 when NAXIS >= 3 and NAXIS3 >= 2.
+-- NPix()        ALBFits.DataN() — samples in the cube.
+-- CenterPix()   sample near (N1/2, N2/2, N3/2), never below 1.
+-- PlaneMean(z)  PlaneSum(z) / (N1*N2), integer division.
+-- ObjectA()     first character of OBJECT (e.g. 65 for 'A').
+--
+-- Kit smoke: io_fits_extra.alb + io_samples/cube.fits (2×2×2, OBJECT='ALB').
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBFitsCube
+    FUNCTION IsCube() AS S32
+    FUNCTION NPix() AS S32
+    FUNCTION CenterPix() AS S32
+    FUNCTION PlaneMean(z AS S32) AS S32
+    FUNCTION ObjectA() AS S32
+END DECLARE MODULE
+
+MODULE ALBFitsCube
+
+    -- Thin helpers on ALBFits after ReadCube(). INCLUDE alb_fits.albi first.
+    FUNCTION IsCube() AS S32
+        IF ALBFits.Naxis() >= 3 THEN
+            IF ALBFits.Naxis3() >= 2 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION NPix() AS S32
+        RETURN ALBFits.DataN()
+    END FUNCTION
+
+    FUNCTION CenterPix() AS S32
+        LET x AS S32 = ALBFits.Naxis1() / 2
+        LET y AS S32 = ALBFits.Naxis2() / 2
+        LET z AS S32 = ALBFits.Naxis3() / 2
+        IF x < 1 THEN
+            x = 1
+        END IF
+        IF y < 1 THEN
+            y = 1
+        END IF
+        IF z < 1 THEN
+            z = 1
+        END IF
+        RETURN ALBFits.Pix(x, y, z)
+    END FUNCTION
+
+    FUNCTION PlaneMean(z AS S32) AS S32
+        LET n AS S32 = ALBFits.Naxis1() * ALBFits.Naxis2()
+        IF n < 1 THEN
+            RETURN 0
+        END IF
+        RETURN ALBFits.PlaneSum(z) / n
+    END FUNCTION
+
+    FUNCTION ObjectA() AS S32
+        RETURN ALBFits.ObjectCh(1)
+    END FUNCTION
+
+END MODULE

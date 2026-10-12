@@ -1,0 +1,35 @@
+-- Purpose: PNG Paeth predictor (ALB twin of PeeEnGee_Filters)
+-- Safety: personal / educational tooling only - not a certified media pipeline
+DECLARE MODULE PeeEnGee_Filters BEGIN
+    FUNCTION Paeth_Predictor(a AS U8, b AS U8, c AS U8) AS U8
+END DECLARE MODULE
+MODULE PeeEnGee_Filters BEGIN
+    FUNCTION Abs_S32(v AS S32) AS S32
+        IF v < 0 THEN
+            RETURN 0 - v
+        END IF
+        RETURN v
+    END FUNCTION
+    FUNCTION Paeth_Predictor(a AS U8, b AS U8, c AS U8) AS U8
+        LET pa AS S32 = 0
+        LET pb AS S32 = 0
+        LET pc AS S32 = 0
+        LET p AS S32 = 0
+        LET ia AS S32 = CAST(a AS S32)
+        LET ib AS S32 = CAST(b AS S32)
+        LET ic AS S32 = CAST(c AS S32)
+        LET p = ia + ib - ic
+        LET pa = PeeEnGee_Filters.Abs_S32(p - ia)
+        LET pb = PeeEnGee_Filters.Abs_S32(p - ib)
+        LET pc = PeeEnGee_Filters.Abs_S32(p - ic)
+        IF pa <= pb THEN
+            IF pa <= pc THEN
+                RETURN a
+            END IF
+        END IF
+        IF pb <= pc THEN
+            RETURN b
+        END IF
+        RETURN c
+    END FUNCTION
+END MODULE

@@ -1,0 +1,235 @@
+-- Twin of Ada Core_Console. Log ring + quit/arm + HUD over DRAW TEXT.
+VERSION 1.0
+
+#GD_CON_LINES = 32
+#GD_CON_COLS = 40
+
+DECLARE MODULE GdConsole
+    PROCEDURE Init()
+    PROCEDURE NoteCmd(cmd AS S32)
+    FUNCTION LastCmd() AS S32
+    PROCEDURE PrintLine(ch0 AS S32, ch1 AS S32, ch2 AS S32, ch3 AS S32)
+    PROCEDURE PrintHelp()
+    PROCEDURE ClearLog()
+    PROCEDURE ArmDebug()
+    PROCEDURE DisarmDebug()
+    FUNCTION Armed() AS S32
+    FUNCTION QuitRequested() AS S32
+    PROCEDURE ClearQuit()
+    PROCEDURE SubmitBuf()
+    PROCEDURE PresentHud()
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdConsole
+
+    STRICT log0[32] AS S32
+    STRICT log1[32] AS S32
+    STRICT log2[32] AS S32
+    STRICT log3[32] AS S32
+    LET last_id AS S32 = 0
+    LET log_n AS S32 = 0
+    LET quit_f AS S32 = 0
+    LET armed AS S32 = 0
+
+    PROCEDURE Init()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 32
+            log0[i] = 0
+            log1[i] = 0
+            log2[i] = 0
+            log3[i] = 0
+            i = i + 1
+        END WHILE
+        last_id = 0
+        log_n = 0
+        quit_f = 0
+        armed = 0
+        GdConState.Hide()
+        GdConText.WipeBuf()
+        GdConReg.Setup()
+    END PROCEDURE
+
+    PROCEDURE NoteCmd(cmd AS S32)
+        ASSERT(cmd >= 0)
+        ASSERT(cmd <= 99)
+        last_id = cmd
+    END PROCEDURE
+
+    FUNCTION LastCmd() AS S32
+        ASSERT(last_id >= 0)
+        ASSERT(last_id <= 99)
+        RETURN last_id
+    END FUNCTION
+
+    PROCEDURE PrintLine(ch0 AS S32, ch1 AS S32, ch2 AS S32, ch3 AS S32)
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF log_n < 32 THEN
+            log_n = log_n + 1
+        ELSE
+            WHILE i < 32
+                log0[i] = log0[i + 1]
+                log1[i] = log1[i + 1]
+                log2[i] = log2[i + 1]
+                log3[i] = log3[i + 1]
+                i = i + 1
+            END WHILE
+        END IF
+        log0[log_n] = ch0 AND 255
+        log1[log_n] = ch1 AND 255
+        log2[log_n] = ch2 AND 255
+        log3[log_n] = ch3 AND 255
+    END PROCEDURE
+
+    PROCEDURE PrintHelp()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        PrintLine(72, 69, 76, 80)
+        PrintLine(104, 101, 108, 112)
+        PrintLine(113, 117, 105, 116)
+    END PROCEDURE
+
+    PROCEDURE ClearLog()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 32
+            log0[i] = 0
+            log1[i] = 0
+            log2[i] = 0
+            log3[i] = 0
+            i = i + 1
+        END WHILE
+        log_n = 0
+    END PROCEDURE
+
+    PROCEDURE ArmDebug()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        armed = 1
+    END PROCEDURE
+
+    PROCEDURE DisarmDebug()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        armed = 0
+    END PROCEDURE
+
+    FUNCTION Armed() AS S32
+        ASSERT(armed >= 0)
+        ASSERT(armed <= 1)
+        RETURN armed
+    END FUNCTION
+
+    FUNCTION QuitRequested() AS S32
+        ASSERT(quit_f >= 0)
+        ASSERT(quit_f <= 1)
+        RETURN quit_f
+    END FUNCTION
+
+    PROCEDURE ClearQuit()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        quit_f = 0
+    END PROCEDURE
+
+    PROCEDURE SubmitBuf()
+        LET id AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        id = GdConCmd.ParseBuf()
+        last_id = id
+        IF id = 0 THEN
+            PrintLine(63, 63, 63, 0)
+            RETURN
+        END IF
+        IF id = 4 THEN
+            IF armed = 0 THEN
+                PrintLine(78, 79, 80, 69)
+                RETURN
+            END IF
+        END IF
+        GdConReg.RunId(id)
+        IF id = 1 THEN
+            PrintHelp()
+        END IF
+        IF id = 2 THEN
+            ClearLog()
+            PrintLine(79, 75, 0, 0)
+        END IF
+        IF id = 3 THEN
+            quit_f = 1
+            PrintLine(66, 89, 69, 0)
+        END IF
+        IF id = 4 THEN
+            PrintLine(71, 79, 68, 0)
+        END IF
+        GdConText.WipeBuf()
+    END PROCEDURE
+
+    PROCEDURE PresentHud()
+        LET i AS S32 = 1
+        LET y AS S32 = 200
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $94A3B8
+        DRAW TEXT 8, 188, "CMD=" | last_id | " ARM=" | armed | " Q=" | quit_f | " LOG=" | log_n
+        WHILE i <= log_n
+            IF i > 6 THEN
+                RETURN
+            END IF
+            DRAW TEXT 8, y, "L" | i | ":" | log0[i] | "," | log1[i] | "," | log2[i] | "," | log3[i]
+            y = y + 10
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION SelfTest() AS S32
+        LET n AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        Init()
+        ArmDebug()
+        GdConText.WipeBuf()
+        GdConText.PushCh(104)
+        GdConText.PushCh(101)
+        GdConText.PushCh(108)
+        GdConText.PushCh(112)
+        SubmitBuf()
+        IF last_id = 1 THEN
+            n = n + 1
+        END IF
+        IF log_n >= 2 THEN
+            n = n + 1
+        END IF
+        GdConText.WipeBuf()
+        GdConText.PushCh(113)
+        GdConText.PushCh(117)
+        GdConText.PushCh(105)
+        GdConText.PushCh(116)
+        SubmitBuf()
+        IF quit_f = 1 THEN
+            n = n + 1
+        END IF
+        DisarmDebug()
+        GdConText.WipeBuf()
+        GdConText.PushCh(103)
+        GdConText.PushCh(111)
+        GdConText.PushCh(100)
+        SubmitBuf()
+        IF last_id = 4 THEN
+            IF log0[log_n] = 78 THEN
+                n = n + 1
+            END IF
+        END IF
+        IF n = 4 THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

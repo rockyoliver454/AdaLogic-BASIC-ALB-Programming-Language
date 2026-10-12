@@ -1,0 +1,34 @@
+DECLARE MODULE Agents
+    PROCEDURE Setup()
+    PROCEDURE SpawnAgent(kind AS U8, wx AS S32, wy AS S32, wz AS S32)
+    PROCEDURE TickAll()
+    FUNCTION GetAgentCount() AS U16
+    FUNCTION GetAgentX(idx AS U16) AS S32
+    FUNCTION GetAgentY(idx AS U16) AS S32
+    FUNCTION GetAgentZ(idx AS U16) AS S32
+    FUNCTION GetAgentKind(idx AS U16) AS U8
+    FUNCTION GetAgentState(idx AS U16) AS U8
+    FUNCTION GetAgentMood(idx AS U16) AS U8
+    FUNCTION GetAgentHP(idx AS U16) AS U8
+    FUNCTION GetAgentTraits(idx AS U16) AS U8
+    FUNCTION GetAgentTargetX(idx AS U16) AS S32
+    FUNCTION GetAgentTargetY(idx AS U16) AS S32
+    FUNCTION GetAgentTargetZ(idx AS U16) AS S32
+    FUNCTION GetAgentWanderTimer(idx AS U16) AS U16
+    FUNCTION GetAgentHomeX(idx AS U16) AS S32
+    FUNCTION GetAgentHomeY(idx AS U16) AS S32
+    FUNCTION GetAgentHomeZ(idx AS U16) AS S32
+    FUNCTION IsAgentSelected(idx AS U16) AS U8
+    FUNCTION IsAgentDrafted(idx AS U16) AS U8
+    PROCEDURE SetAgentMood(idx AS U16, mood AS U8)
+    PROCEDURE SetAgentTarget(idx AS U16, tx AS S32, ty AS S32, tz AS S32)
+    PROCEDURE SetAgentWanderTimer(idx AS U16, timer AS U16)
+    PROCEDURE SetAgentHome(idx AS U16, hx AS S32, hy AS S32, hz AS S32)
+    PROCEDURE SetAgentSelected(idx AS U16, value AS U8)
+    PROCEDURE SetAgentDrafted(idx AS U16, value AS U8)
+    PROCEDURE DamageAgent(idx AS U16, amount AS U8)
+    PROCEDURE RemoveAgent(idx AS U16)
+    FUNCTION MixChecksum(hash_value AS U64) AS U64
+    PROCEDURE freeze_module(filename AS STRING)
+    PROCEDURE thaw_module(filename AS STRING)
+END DECLARE MODULE

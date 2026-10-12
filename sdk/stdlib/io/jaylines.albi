@@ -1,0 +1,107 @@
+-- JSON Lines: one RFC 8259 value per line, fed to JaySoond.
+-- Caller INCLUDEs jaysoond.albi first. 4 KiB line cap; fail closed.
+
+VERSION 1.0
+
+#JLINE_OK = 0
+#JLINE_EMPTY = 1
+#JLINE_CAP = 2
+#JLINE_PARSE = 3
+#JLINE_MAX = 4096
+
+DECLARE MODULE JayLines
+    PROCEDURE Reset()
+    FUNCTION FeedLine(rowbuf AS STRING) AS S32
+    FUNCTION LastKind() AS S32
+    FUNCTION LastErr() AS S32
+    FUNCTION LinesOk() AS S32
+    FUNCTION LinesBad() AS S32
+END DECLARE MODULE
+
+MODULE JayLines
+
+    LET lastkind AS S32 = 0
+    LET lasterr AS S32 = 0
+    LET n_ok AS S32 = 0
+    LET n_bad AS S32 = 0
+
+    PROCEDURE Reset()
+        lastkind = 0
+        lasterr = 0
+        n_ok = 0
+        n_bad = 0
+        JaySoond.InitEmpty()
+    END PROCEDURE
+
+    FUNCTION FeedLine(rowbuf AS STRING) AS S32
+        LET L AS S32 = CAST(LEN(rowbuf) AS S32)
+        LET i AS S32 = 1
+        LET ch AS S32 = 0
+        LET tok AS S32 = 0
+        LET saw AS S32 = 0
+        IF L <= 0 THEN
+            lasterr = #JLINE_EMPTY
+            RETURN #JLINE_EMPTY
+        END IF
+        IF L > #JLINE_MAX THEN
+            n_bad = n_bad + 1
+            lasterr = #JLINE_CAP
+            RETURN #JLINE_CAP
+        END IF
+        JaySoond.InitEmpty()
+        WHILE i <= L
+            ch = ASC(MID$(rowbuf, i, 1))
+            IF ch = 13 THEN
+            ELSE
+                IF ch = 10 THEN
+                ELSE
+                    JaySoond.PutByte(ch)
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+        JaySoond.ArmScan()
+        saw = 0
+        tok = JaySoond.NextTok()
+        WHILE tok <> 12
+            IF JaySoond.HasErr() <> 0 THEN
+                n_bad = n_bad + 1
+                lastkind = tok
+                lasterr = #JLINE_PARSE
+                RETURN #JLINE_PARSE
+            END IF
+            lastkind = tok
+            saw = 1
+            tok = JaySoond.NextTok()
+        END WHILE
+        IF saw = 0 THEN
+            lasterr = #JLINE_EMPTY
+            RETURN #JLINE_EMPTY
+        END IF
+        IF JaySoond.HasErr() <> 0 THEN
+            n_bad = n_bad + 1
+            lasterr = #JLINE_PARSE
+            RETURN #JLINE_PARSE
+        END IF
+        n_ok = n_ok + 1
+        lasterr = #JLINE_OK
+        RETURN #JLINE_OK
+    END FUNCTION
+
+    FUNCTION LastKind() AS S32
+        RETURN lastkind
+    END FUNCTION
+
+    FUNCTION LastErr() AS S32
+        RETURN lasterr
+    END FUNCTION
+
+    FUNCTION LinesOk() AS S32
+        RETURN n_ok
+    END FUNCTION
+
+    FUNCTION LinesBad() AS S32
+        RETURN n_bad
+    END FUNCTION
+
+END MODULE

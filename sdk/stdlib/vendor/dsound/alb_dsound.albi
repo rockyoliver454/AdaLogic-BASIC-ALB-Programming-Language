@@ -1,0 +1,4 @@
+VERSION 0.1
+IMPORT_DLL FUNCTION alb_dsound_version() AS S32 FROM ("alb_dsound.dll")
+IMPORT_DLL FUNCTION alb_dsound_test_probe() AS S32 FROM ("alb_dsound.dll")
+

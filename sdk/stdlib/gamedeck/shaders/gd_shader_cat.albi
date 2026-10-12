@@ -1,0 +1,63 @@
+-- Twin of Ada core_shaders catalog. Dispatch ids onto the VGPU FB.
+VERSION 1.0
+
+DECLARE MODULE GdShaderCat
+    PROCEDURE PresentBars(t AS S32)
+    PROCEDURE ApplyId(id AS S32, t AS S32)
+    FUNCTION NameId(id AS S32) AS S32
+    FUNCTION CountN() AS S32
+END DECLARE MODULE
+
+MODULE GdShaderCat
+
+    PROCEDURE PresentBars(t AS S32)
+        LET i AS S32 = 0
+        LET y AS S32 = 0
+        LET rgb AS S32 = 0
+        ASSERT(t >= 0)
+        ASSERT(t <= 255)
+        WHILE i < 6
+            y = 300 + i * 4
+            rgb = 32 + ((t + i * 20) AND 63)
+            COLOR rgb * 256
+            FILL RECT 0, y, 640, 3
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE ApplyId(id AS S32, t AS S32)
+        ASSERT(id >= 0)
+        ASSERT(id <= 5)
+        IF id = 0 THEN
+            GdRetro.ApplyRaster(t)
+        END IF
+        IF id = 1 THEN
+            GdRetro.ApplyCopper(t)
+        END IF
+        IF id = 2 THEN
+            GdRetro.ApplyPlasma(t)
+        END IF
+        IF id = 3 THEN
+            GdRetro.ApplyGb()
+        END IF
+        IF id = 4 THEN
+            GdRetro.ApplyDither()
+        END IF
+        IF id = 5 THEN
+            GdRetro.ApplyFloor7(t AND 255)
+        END IF
+    END PROCEDURE
+
+    FUNCTION NameId(id AS S32) AS S32
+        ASSERT(id >= 0)
+        ASSERT(id <= 5)
+        RETURN id
+    END FUNCTION
+
+    FUNCTION CountN() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 6
+    END FUNCTION
+
+END MODULE

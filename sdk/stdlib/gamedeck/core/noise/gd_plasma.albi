@@ -1,0 +1,52 @@
+-- Twin of Ada core_noise_plasma. Value-noise octaves; t is phase/time (not seed).
+VERSION 1.0
+
+DECLARE MODULE GdPlasma
+    FUNCTION PlasmaAt(x AS S32, y AS S32, t AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdPlasma
+
+    FUNCTION PlasmaAt(x AS S32, y AS S32, t AS S32) AS S32
+        LET o0 AS S32 = 0
+        LET o1 AS S32 = 0
+        LET o2 AS S32 = 0
+        LET o3 AS S32 = 0
+        LET s AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        o0 = GdHash.ByteOf(x / 16 + t / 4, y / 16, t)
+        o1 = GdHash.ByteOf(x / 8 + t / 2, y / 8, t + 1)
+        o2 = GdHash.ByteOf(x / 4 + t, y / 4, t + 2)
+        o3 = GdHash.ByteOf(x / 2 + t * 2, y / 2, t + 3)
+        s = (o0 * 8 + o1 * 4 + o2 * 2 + o3) / 15
+        RETURN GdVec2.ClipI(s, 0, 255)
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        a = PlasmaAt(0, 0, 3)
+        b = PlasmaAt(40, 24, 3)
+        IF a = b THEN
+            RETURN 0
+        END IF
+        IF a < 0 THEN
+            RETURN 0
+        END IF
+        IF a > 255 THEN
+            RETURN 0
+        END IF
+        IF b < 0 THEN
+            RETURN 0
+        END IF
+        IF b > 255 THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+END MODULE

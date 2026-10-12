@@ -1,0 +1,29 @@
+-- Twin of Ada geo_kinematics. Integrate velocity with clip.
+VERSION 1.0
+
+DECLARE MODULE GdKine
+    FUNCTION Integrate(p AS S32, v AS S32, lo AS S32, hi AS S32) AS S32
+    FUNCTION BounceV(v AS S32, p AS S32, lo AS S32, hi AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdKine
+
+    FUNCTION Integrate(p AS S32, v AS S32, lo AS S32, hi AS S32) AS S32
+        ASSERT(hi >= lo)
+        ASSERT(1 = 1)
+        RETURN GdVec2.ClipI(p + v, lo, hi)
+    END FUNCTION
+
+    FUNCTION BounceV(v AS S32, p AS S32, lo AS S32, hi AS S32) AS S32
+        ASSERT(hi >= lo)
+        ASSERT(1 = 1)
+        IF p <= lo THEN
+            RETURN 0 - v
+        END IF
+        IF p >= hi THEN
+            RETURN 0 - v
+        END IF
+        RETURN v
+    END FUNCTION
+
+END MODULE

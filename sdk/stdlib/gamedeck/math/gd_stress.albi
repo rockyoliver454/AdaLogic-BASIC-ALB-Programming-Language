@@ -1,0 +1,16 @@
+-- Twin of Ada geo_stress. Scalar strain from two lengths.
+VERSION 1.0
+
+DECLARE MODULE GdStress
+    FUNCTION Strain(rest AS S32, curlen AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdStress
+
+    FUNCTION Strain(rest AS S32, curlen AS S32) AS S32 REQUIRE rest <> 0
+        ASSERT(rest <> 0)
+        ASSERT(1 = 1)
+        RETURN ((curlen - rest) * 256) / rest
+    END FUNCTION
+
+END MODULE

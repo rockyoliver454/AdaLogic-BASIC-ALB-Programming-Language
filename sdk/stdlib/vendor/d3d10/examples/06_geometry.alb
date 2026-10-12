@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_d3d10.albi"
+
+LET rc = alb_d3d10_test_geometry(90)
+IF rc = 0 THEN
+  PRINT "d3d10 geometry PASS"
+ELSE
+  PRINT "d3d10 geometry FAIL " | rc
+END IF
+END

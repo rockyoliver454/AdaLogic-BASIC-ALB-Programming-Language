@@ -1,0 +1,29 @@
+-- Twin of Ada tumbleweed / oleander as distinct stamps.
+VERSION 1.0
+
+DECLARE MODULE GdBush
+    PROCEDURE PresentPair()
+    PROCEDURE PresentKind(kind AS S32, x AS S32)
+END DECLARE MODULE
+
+MODULE GdBush
+
+    PROCEDURE PresentPair()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        PresentKind(0, 40)
+        PresentKind(1, 58)
+    END PROCEDURE
+
+    PROCEDURE PresentKind(kind AS S32, x AS S32)
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 1)
+        IF kind = 0 THEN
+            GdAdaTex.Present(101, x, 280)
+        END IF
+        IF kind = 1 THEN
+            GdAdaTex.Present(100, x, 280)
+        END IF
+    END PROCEDURE
+
+END MODULE

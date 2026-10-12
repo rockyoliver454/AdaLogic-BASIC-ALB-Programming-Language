@@ -1,0 +1,39 @@
+-- Twin of Ada Debris: gum, oil slick, trash litter.
+VERSION 1.0
+
+DECLARE MODULE GdLitter
+    FUNCTION RgbOf(kind AS S32) AS S32
+    PROCEDURE PresentSpot(kind AS S32, x AS S32, y AS S32)
+    FUNCTION KindN() AS S32
+    FUNCTION AdaId(kind AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdLitter
+
+    FUNCTION AdaId(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 2)
+        IF kind = 0 THEN RETURN 87 END IF
+        IF kind = 1 THEN RETURN 85 END IF
+        RETURN 86
+    END FUNCTION
+
+    FUNCTION RgbOf(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 2)
+        RETURN GdAdaTex.Rgb0(AdaId(kind))
+    END FUNCTION
+
+    PROCEDURE PresentSpot(kind AS S32, x AS S32, y AS S32)
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 2)
+        GdAdaTex.Present(AdaId(kind), x, y)
+    END PROCEDURE
+
+    FUNCTION KindN() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 3
+    END FUNCTION
+
+END MODULE

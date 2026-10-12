@@ -1,0 +1,176 @@
+-- ============================================================================
+-- ALBUtf8 — RFC 3629 classify / decode
+-- ============================================================================
+-- Stateless helpers. You pass up to four bytes; nothing is stored here.
+-- Use this before JSON, XML, TOML, or any text you do not already trust.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_utf8.albi"
+--   IMPORT ALBUtf8
+--
+-- IsAscii(b)           TRUE if b < 128.
+-- SeqLen(lead)         1..4, or 0 if the lead byte is illegal.
+-- Decode(b0..b3, avail, OUT cp, OUT nread) AS U8
+--   avail = how many bytes you actually have starting at b0.
+--   Returns:
+--     0 ok            1 need more bytes     2 illegal lead/cont
+--     3 overlong      4 UTF-16 surrogate    5 above U+10FFFF
+--   cp is the Unicode scalar. nread is how many bytes it consumed.
+--
+-- Example: euro sign E2 82 AC → rc=0, cp=8364, nread=3.
+-- AND / OR here are bitwise. Decode OUT params write back on albw and FASM.
+-- ============================================================================
+
+VERSION 0.0.0.1
+
+#UTF8_OK = 0
+#UTF8_NEED = 1
+#UTF8_BAD = 2
+#UTF8_OVERLONG = 3
+#UTF8_SURROGATE = 4
+#UTF8_RANGE = 5
+
+DECLARE MODULE ALBUtf8
+    FUNCTION IsAscii(b AS U8) AS BOOL
+    FUNCTION SeqLen(lead AS U8) AS U8
+    FUNCTION Decode(b0 AS U8, b1 AS U8, b2 AS U8, b3 AS U8, avail AS U8, OUT cp AS U32, OUT nread AS U8) AS U8
+    PROCEDURE StreamReset()
+    PROCEDURE StreamPut(b AS U8)
+    FUNCTION StreamNext(OUT cp AS U32, OUT nread AS U8) AS U8
+    FUNCTION StreamPos() AS S32
+    FUNCTION StreamCount() AS S32
+END DECLARE MODULE
+
+MODULE ALBUtf8
+
+    STRICT stream_data[4096] AS U8
+    LET stream_count AS S32 = 0
+    LET stream_pos AS S32 = 1
+
+    -- No window: callers pass bytes in. AND here is bitwise (lead-byte masks).
+    FUNCTION IsAscii(b AS U8) AS BOOL
+        IF b < 128 THEN RETURN TRUE END IF
+        RETURN FALSE
+    END FUNCTION
+
+    FUNCTION SeqLen(lead AS U8) AS U8
+        -- 0xxxxxxx = 1, 110xxxxx = 2, 1110xxxx = 3, 11110xxx = 4. Else 0.
+        IF lead < 128 THEN RETURN 1 END IF
+        IF (lead AND 224) = 192 THEN
+            IF (lead AND 30) = 0 THEN RETURN 0 END IF
+            RETURN 2
+        END IF
+        IF (lead AND 240) = 224 THEN RETURN 3 END IF
+        IF (lead AND 248) = 240 THEN
+            IF lead > 244 THEN RETURN 0 END IF
+            RETURN 4
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION Decode(b0 AS U8, b1 AS U8, b2 AS U8, b3 AS U8, avail AS U8, OUT cp AS U32, OUT nread AS U8) AS U8
+        LET n AS U8 = SeqLen(b0)
+        cp = 0
+        nread = 0
+        IF n = 0 THEN RETURN #UTF8_BAD END IF
+        IF avail < n THEN
+            nread = 0
+            RETURN #UTF8_NEED
+        END IF
+        nread = n
+
+        IF n = 1 THEN
+            cp = CAST(b0 AS U32)
+            RETURN #UTF8_OK
+        END IF
+
+        IF (b1 AND 192) <> 128 THEN RETURN #UTF8_BAD END IF
+
+        IF n = 2 THEN
+            cp = (CAST((b0 AND 31) AS U32) SHL 6) OR CAST((b1 AND 63) AS U32)
+            IF cp < 128 THEN RETURN #UTF8_OVERLONG END IF
+            RETURN #UTF8_OK
+        END IF
+
+        IF (b2 AND 192) <> 128 THEN RETURN #UTF8_BAD END IF
+
+        IF n = 3 THEN
+            cp = (CAST((b0 AND 15) AS U32) SHL 12) OR (CAST((b1 AND 63) AS U32) SHL 6) OR CAST((b2 AND 63) AS U32)
+            IF cp < 2048 THEN RETURN #UTF8_OVERLONG END IF
+            IF cp >= 55296 THEN
+                IF cp <= 57343 THEN RETURN #UTF8_SURROGATE END IF
+            END IF
+            RETURN #UTF8_OK
+        END IF
+
+        IF (b3 AND 192) <> 128 THEN RETURN #UTF8_BAD END IF
+        cp = (CAST((b0 AND 7) AS U32) SHL 18) OR (CAST((b1 AND 63) AS U32) SHL 12) OR (CAST((b2 AND 63) AS U32) SHL 6) OR CAST((b3 AND 63) AS U32)
+        IF cp < 65536 THEN RETURN #UTF8_OVERLONG END IF
+        IF cp > 1114111 THEN RETURN #UTF8_RANGE END IF
+        RETURN #UTF8_OK
+    END FUNCTION
+
+    PROCEDURE StreamReset()
+        stream_count = 0
+        stream_pos = 1
+    END PROCEDURE
+
+    PROCEDURE StreamPut(b AS U8)
+        IF stream_count < 4096 THEN
+            stream_count = stream_count + 1
+            stream_data[stream_count] = b
+        END IF
+    END PROCEDURE
+
+    FUNCTION StreamNext(OUT cp AS U32, OUT nread AS U8) AS U8
+        LET avail AS S32 = stream_count - stream_pos + 1
+        LET b0 AS U8 = 0
+        LET b1 AS U8 = 0
+        LET b2 AS U8 = 0
+        LET b3 AS U8 = 0
+        LET n AS U8 = 0
+        cp = 0
+        nread = 0
+        IF avail < 1 THEN RETURN #UTF8_NEED END IF
+        b0 = stream_data[stream_pos]
+        n = SeqLen(b0)
+        IF n = 0 THEN RETURN #UTF8_BAD END IF
+        IF avail < CAST(n AS S32) THEN RETURN #UTF8_NEED END IF
+        IF n > 1 THEN b1 = stream_data[stream_pos + 1] END IF
+        IF n > 2 THEN b2 = stream_data[stream_pos + 2] END IF
+        IF n > 3 THEN b3 = stream_data[stream_pos + 3] END IF
+        nread = n
+        IF n = 1 THEN
+            cp = CAST(b0 AS U32)
+        ELSE
+            IF (b1 AND 192) <> 128 THEN RETURN #UTF8_BAD END IF
+            IF n = 2 THEN
+                cp = (CAST((b0 AND 31) AS U32) SHL 6) OR CAST((b1 AND 63) AS U32)
+                IF cp < 128 THEN RETURN #UTF8_OVERLONG END IF
+            ELSE
+                IF (b2 AND 192) <> 128 THEN RETURN #UTF8_BAD END IF
+                IF n = 3 THEN
+                    cp = (CAST((b0 AND 15) AS U32) SHL 12) OR (CAST((b1 AND 63) AS U32) SHL 6) OR CAST((b2 AND 63) AS U32)
+                    IF cp < 2048 THEN RETURN #UTF8_OVERLONG END IF
+                    IF cp >= 55296 AND cp <= 57343 THEN RETURN #UTF8_SURROGATE END IF
+                ELSE
+                    IF (b3 AND 192) <> 128 THEN RETURN #UTF8_BAD END IF
+                    cp = (CAST((b0 AND 7) AS U32) SHL 18) OR (CAST((b1 AND 63) AS U32) SHL 12) OR (CAST((b2 AND 63) AS U32) SHL 6) OR CAST((b3 AND 63) AS U32)
+                    IF cp < 65536 THEN RETURN #UTF8_OVERLONG END IF
+                    IF cp > 1114111 THEN RETURN #UTF8_RANGE END IF
+                END IF
+            END IF
+        END IF
+        stream_pos = stream_pos + CAST(nread AS S32)
+        RETURN #UTF8_OK
+    END FUNCTION
+
+    FUNCTION StreamPos() AS S32
+        RETURN stream_pos
+    END FUNCTION
+
+    FUNCTION StreamCount() AS S32
+        RETURN stream_count
+    END FUNCTION
+
+END MODULE

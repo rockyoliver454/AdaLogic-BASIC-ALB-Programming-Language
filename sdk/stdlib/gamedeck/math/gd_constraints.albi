@@ -1,0 +1,16 @@
+-- Twin of Ada geo_constraints. Clip a value into a band.
+VERSION 1.0
+
+DECLARE MODULE GdBind
+    FUNCTION Band(v AS S32, lo AS S32, hi AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdBind
+
+    FUNCTION Band(v AS S32, lo AS S32, hi AS S32) AS S32
+        ASSERT(hi >= lo)
+        ASSERT(1 = 1)
+        RETURN GdVec2.ClipI(v, lo, hi)
+    END FUNCTION
+
+END MODULE

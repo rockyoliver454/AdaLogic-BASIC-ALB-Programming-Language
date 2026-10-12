@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_d3d12.albi"
+
+LET rc = alb_d3d12_sample_run_hello_world()
+IF rc = 0 THEN
+  PRINT "msft hello_world PASS"
+ELSE
+  PRINT "msft hello_world FAIL " | rc
+END IF
+END

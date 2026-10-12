@@ -1,0 +1,58 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+INCLUDE <alb_nuklear.albi>
+
+LET nk AS S64 = 0
+LET gfx AS S64 = 0
+LET ui_i AS S64 = 0
+LET ui_f AS S64 = 0
+LET i AS S32 = 0
+LET rc AS S32 = 0
+LET win_open AS S32 = 0
+LET flags AS S32 = 87
+LET scale AS F64 = 0.55
+LET paused AS S32 = 0
+LET scale_i AS S32 = 0
+
+PRINT "ui probe start"
+LET nk = alb_nuklear_context_create_window(520, 640, 1, "probe ui")
+LET gfx = gfx_init(640, 360)
+LET ui_i = gfx_alloc_memory(64)
+LET ui_f = gfx_alloc_memory(64)
+CALL gfx_write_i32(ui_i, 0, 0)
+CALL gfx_write_f32(ui_f, 0, 0.55)
+IF nk != 0 THEN
+  IF gfx != 0 THEN
+    FOR i = 1 TO 90 THEN
+      CALL gfx_poll_events()
+      LET rc = alb_nuklear_should_close(nk)
+      IF rc != 0 THEN
+        LET i = 90
+      ELSE
+        LET rc = alb_nuklear_new_frame(nk)
+        LET win_open = alb_nuklear_begin(nk, "Probe", 8.0, 8.0, 480.0, 560.0, flags)
+        IF win_open != 0 THEN
+          CALL alb_nuklear_layout_row_dynamic(nk, 22.0, 1)
+          LET rc = alb_nuklear_checkbox_label(nk, "Pause", ui_i)
+          LET rc = alb_nuklear_property_float(nk, "Scale:", 0.2, ui_f, 2.5, 0.05, 0.01)
+        END IF
+        CALL alb_nuklear_end(nk)
+        LET rc = alb_nuklear_render(nk)
+        LET scale = gfx_read_f32(ui_f, 0)
+        LET paused = gfx_read_i32(ui_i, 0)
+        LET scale_i = gfx_read_f32_centi(ui_f, 0)
+        LET rc = gfx_begin_frame(gfx)
+        LET rc = gfx_clear(gfx, 0.1, 0.1, 0.2, 1.0)
+        LET rc = gfx_end_frame(gfx, 1)
+        IF i = 60 THEN
+          PRINT "tick paused=" | paused | " scale_i=" | scale_i
+        END IF
+      END IF
+    END FOR
+    CALL gfx_shutdown(gfx)
+    CALL alb_nuklear_context_destroy(nk)
+  END IF
+END IF
+PRINT "ui probe done"
+END

@@ -1,0 +1,193 @@
+-- ====================================================================
+-- DOS_FIXED.ALBI
+-- Simple 2-decimal fixed-point helpers using S32 storage.
+-- ====================================================================
+
+#DOSFIX_SCALE = 100
+
+FUNCTION DOSFIX_Abs(value AS S32) AS S32
+    IF value < 0 THEN RETURN 0 - value END IF
+    RETURN value
+END FUNCTION
+
+FUNCTION DOSFIX_From_Int(value AS S32) AS S32
+    RETURN CAST(value * #DOSFIX_SCALE AS S32)
+END FUNCTION
+
+FUNCTION DOSFIX_From_Parts(whole_part AS S32, frac_part AS U16) AS S32
+    LET safe_frac AS U16 = frac_part MOD #DOSFIX_SCALE
+
+    IF whole_part < 0 THEN
+        RETURN CAST(whole_part * #DOSFIX_SCALE - S32(safe_frac) AS S32)
+    END IF
+
+    RETURN CAST(whole_part * #DOSFIX_SCALE + S32(safe_frac) AS S32)
+END FUNCTION
+
+FUNCTION DOSFIX_Add(left_value AS S32, right_value AS S32) AS S32
+    RETURN CAST(left_value + right_value AS S32)
+END FUNCTION
+
+FUNCTION DOSFIX_Sub(left_value AS S32, right_value AS S32) AS S32
+    RETURN CAST(left_value - right_value AS S32)
+END FUNCTION
+
+FUNCTION DOSFIX_Mul(left_value AS S32, right_value AS S32) AS S32
+    RETURN CAST((left_value * right_value) / #DOSFIX_SCALE AS S32)
+END FUNCTION
+
+FUNCTION DOSFIX_Div(left_value AS S32, right_value AS S32) AS S32
+    IF right_value = 0 THEN RETURN 0 END IF
+    RETURN CAST((left_value * #DOSFIX_SCALE) / right_value AS S32)
+END FUNCTION
+
+FUNCTION DOSFIX_Percent(base_value AS S32, percent_value AS S32) AS S32
+    RETURN CAST((base_value * percent_value) / 100 AS S32)
+END FUNCTION
+
+FUNCTION DOSFIX_Whole(value AS S32) AS S32
+    LET abs_value AS S32 = DOSFIX_Abs(value)
+    LET whole_value AS S32 = abs_value / #DOSFIX_SCALE
+
+    IF value < 0 THEN RETURN 0 - whole_value END IF
+    RETURN whole_value
+END FUNCTION
+
+FUNCTION DOSFIX_Cents(value AS S32) AS U16
+    LET rem_value AS S32 = DOSFIX_Abs(value) MOD #DOSFIX_SCALE
+    RETURN CAST(rem_value AS U16)
+END FUNCTION
+
+FUNCTION DOSFIX_Digit_Text(digit_value AS U16) AS STRING
+    SELECT digit_value
+        CASE 0 => RETURN "0"
+        CASE 1 => RETURN "1"
+        CASE 2 => RETURN "2"
+        CASE 3 => RETURN "3"
+        CASE 4 => RETURN "4"
+        CASE 5 => RETURN "5"
+        CASE 6 => RETURN "6"
+        CASE 7 => RETURN "7"
+        CASE 8 => RETURN "8"
+        CASE ELSE => RETURN "9"
+    END SELECT
+END FUNCTION
+
+FUNCTION DOSFIX_Two_Digit_Text(value AS U16) AS STRING
+    LET tens_value AS U16 = value / 10
+    LET ones_value AS U16 = value MOD 10
+    LET out_text AS STRING = DOSFIX_Digit_Text(tens_value)
+
+    out_text = CONCAT(out_text, DOSFIX_Digit_Text(ones_value))
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFIX_U32_Text(value AS U32) AS STRING
+    LET out_text AS STRING = ""
+    LET digit_value AS U16 = 0
+    LET started AS BOOL = FALSE
+
+    digit_value = CAST(value / 1000000000 AS U16)
+    IF digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSFIX_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = CAST((value / 100000000) MOD 10 AS U16)
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSFIX_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = CAST((value / 10000000) MOD 10 AS U16)
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSFIX_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = CAST((value / 1000000) MOD 10 AS U16)
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSFIX_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = CAST((value / 100000) MOD 10 AS U16)
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSFIX_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = CAST((value / 10000) MOD 10 AS U16)
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSFIX_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = CAST((value / 1000) MOD 10 AS U16)
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSFIX_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = CAST((value / 100) MOD 10 AS U16)
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSFIX_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = CAST((value / 10) MOD 10 AS U16)
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSFIX_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    out_text = CONCAT(out_text, DOSFIX_Digit_Text(CAST(value MOD 10 AS U16)))
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFIX_S32_Text(value AS S32) AS STRING
+    LET out_text AS STRING = ""
+    LET abs_value AS U32 = 0
+
+    IF value < 0 THEN
+        out_text = "-"
+        abs_value = CAST(0 - value AS U32)
+    ELSE
+        abs_value = CAST(value AS U32)
+    END IF
+
+    out_text = CONCAT(out_text, DOSFIX_U32_Text(abs_value))
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFIX_To_Text(value AS S32) AS STRING
+    LET sign_text AS STRING = ""
+    LET abs_value AS S32 = DOSFIX_Abs(value)
+    LET whole_value AS S32 = abs_value / #DOSFIX_SCALE
+    LET frac_value AS U16 = CAST(abs_value MOD #DOSFIX_SCALE AS U16)
+    LET out_text AS STRING = ""
+
+    IF value < 0 THEN sign_text = "-" END IF
+
+    out_text = sign_text
+    out_text = CONCAT(out_text, DOSFIX_S32_Text(whole_value))
+    out_text = CONCAT(out_text, ".")
+    out_text = CONCAT(out_text, DOSFIX_Two_Digit_Text(frac_value))
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFIX_Round_To_Int(value AS S32) AS S32
+    LET abs_value AS S32 = DOSFIX_Abs(value)
+    LET whole_value AS S32 = abs_value / #DOSFIX_SCALE
+    LET frac_value AS U16 = CAST(abs_value MOD #DOSFIX_SCALE AS U16)
+
+    IF frac_value >= 50 THEN whole_value = whole_value + 1 END IF
+    IF value < 0 THEN RETURN 0 - whole_value END IF
+    RETURN whole_value
+END FUNCTION
+
+FUNCTION DOSFIX_Compare(left_value AS S32, right_value AS S32) AS S32
+    IF left_value < right_value THEN RETURN -1 END IF
+    IF left_value > right_value THEN RETURN 1 END IF
+    RETURN 0
+END FUNCTION

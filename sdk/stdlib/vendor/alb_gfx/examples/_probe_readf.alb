@@ -1,0 +1,25 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+
+LET gfx AS S64 = 0
+LET ui_f AS S64 = 0
+LET scale AS F64 = 0.0
+LET ok AS S32 = 0
+
+PRINT "A"
+LET gfx = gfx_init(320, 240)
+LET ui_f = gfx_alloc_memory(64)
+CALL gfx_write_f32(ui_f, 0, 0.55)
+PRINT "B"
+LET scale = gfx_read_f32(ui_f, 0)
+PRINT "C got read"
+IF scale > 0.5 THEN
+  IF scale < 0.6 THEN
+    LET ok = 1
+  END IF
+END IF
+PRINT "D ok=" | ok
+CALL gfx_shutdown(gfx)
+PRINT "E done"
+END

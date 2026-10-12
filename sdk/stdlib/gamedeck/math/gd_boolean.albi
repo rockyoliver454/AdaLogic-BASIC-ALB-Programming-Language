@@ -1,0 +1,38 @@
+-- Twin of Ada geo_boolean. Axis AABB overlap / union size.
+VERSION 1.0
+
+DECLARE MODULE GdBoolGeo
+    FUNCTION Overlaps(ax AS S32, ay AS S32, aw AS S32, ah AS S32, bx AS S32, by AS S32, bw AS S32, bh AS S32) AS U64
+    FUNCTION UnionW(aw AS S32, bw AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdBoolGeo
+
+    FUNCTION Overlaps(ax AS S32, ay AS S32, aw AS S32, ah AS S32, bx AS S32, by AS S32, bw AS S32, bh AS S32) AS U64
+        ASSERT(aw > 0)
+        ASSERT(ah > 0)
+        IF GdCollision.Aabb(ax, ay, aw, ah, bx, by, bw, bh) THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION UnionW(aw AS S32, bw AS S32) AS S32
+        ASSERT(aw >= 0)
+        ASSERT(bw >= 0)
+        RETURN aw + bw
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF Overlaps(0, 0, 8, 8, 4, 4, 8, 8) = 1 THEN
+            IF UnionW(3, 5) = 8 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

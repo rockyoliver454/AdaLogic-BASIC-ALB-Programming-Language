@@ -1,0 +1,5 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_openblas.albi>
+PRINT "hi_after_openblas_include"
+END

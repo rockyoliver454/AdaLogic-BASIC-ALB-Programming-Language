@@ -1,0 +1,266 @@
+INCLUDE "../ALBHASH.ALBI"
+INCLUDE "Freezer.albi"
+
+IMPORT ALBHash
+IMPORT Freezer
+
+MODULE Freezer
+
+    STRICT buf_u32[16] AS U32
+    STRICT buf_u16[16] AS U16
+    STRICT buf_u8[16] AS U8
+    STRICT buf_u64[4] AS U64
+    STRICT buf_s32[32] AS S32
+    STRICT world_cd[4096] AS U8
+    STRICT world_ch[4096] AS U8
+    STRICT world_cf[4096] AS U8
+    STRICT terrain_buf[2304] AS U8
+    STRICT research_buf[8] AS U8
+
+    PROCEDURE ClearScratch()
+        LET i AS U16 = 1
+        LET world_i AS U32 = 1
+        LET tech_i AS U8 = 1
+        FOR i = 1 TO 16 THEN
+            buf_u32[i] = 0
+            buf_u16[i] = 0
+            buf_u8[i] = 0
+        END FOR
+        FOR i = 1 TO 4 THEN
+            buf_u64[i] = 0
+        END FOR
+        FOR i = 1 TO 32 THEN
+            buf_s32[i] = 0
+        END FOR
+        FOR world_i = 1 TO 4096 THEN
+            world_cd[world_i] = 0
+            world_ch[world_i] = 0
+            world_cf[world_i] = 0
+        END FOR
+        FOR world_i = 1 TO 2304 THEN
+            terrain_buf[world_i] = 0
+        END FOR
+        FOR tech_i = 1 TO 8 THEN
+            research_buf[tech_i] = 0
+        END FOR
+    END PROCEDURE
+
+    FUNCTION ReadStoredChecksum(filename AS STRING) AS U64
+        LET path_name AS STRING = CONCAT(filename, "_SUM")
+        buf_u64[1] = 0
+        LOAD path_name INTO buf_u64
+        RETURN buf_u64[1]
+    END FUNCTION
+
+    PROCEDURE WriteStoredChecksum(filename AS STRING, checksum_value AS U64)
+        LET path_name AS STRING = CONCAT(filename, "_SUM")
+        buf_u64[1] = checksum_value
+        FLUSH buf_u64 INTO path_name
+    END PROCEDURE
+
+    FUNCTION ComputeStateChecksum() AS U64
+        LET hash_value AS U64 = ALBHash.Seed64()
+
+        hash_value = World.MixChecksum(hash_value)
+        hash_value = Terrain.MixChecksum(hash_value)
+        hash_value = Agents.MixChecksum(hash_value)
+
+        hash_value = ALBHash.MixU16(hash_value, Colony.colony_food)
+        hash_value = ALBHash.MixU8(hash_value, Colony.colony_level)
+        hash_value = ALBHash.MixU16(hash_value, Colony.colony_pop)
+        hash_value = ALBHash.MixU16(hash_value, Colony.growth_progress)
+        hash_value = ALBHash.MixU16(hash_value, Colony.colony_wood)
+        hash_value = ALBHash.MixU16(hash_value, Colony.colony_stone)
+
+        hash_value = ALBHash.MixS32(hash_value, Controls.cam_x)
+        hash_value = ALBHash.MixS32(hash_value, Controls.cam_y)
+        hash_value = ALBHash.MixS32(hash_value, Controls.cam_z)
+        hash_value = ALBHash.MixS32(hash_value, Controls.cam_vx)
+        hash_value = ALBHash.MixS32(hash_value, Controls.cam_vy)
+        hash_value = ALBHash.MixS32(hash_value, Controls.zoom_level)
+        hash_value = ALBHash.MixU8(hash_value, Controls.paused)
+        hash_value = ALBHash.MixU8(hash_value, Controls.time_speed)
+        hash_value = ALBHash.MixU8(hash_value, Controls.build_mode)
+        hash_value = ALBHash.MixU8(hash_value, Controls.ui_visible)
+
+        hash_value = Buildings.MixChecksum(hash_value)
+        hash_value = Gathering.MixChecksum(hash_value)
+
+        hash_value = ALBHash.MixU8(hash_value, Weather.weather_type)
+        hash_value = ALBHash.MixU8(hash_value, Weather.weather_intensity)
+        hash_value = ALBHash.MixU16(hash_value, Weather.weather_timer)
+
+        hash_value = Research.MixChecksum(hash_value)
+
+        hash_value = ALBHash.MixU32(hash_value, Simulation.GetFrameCount())
+        RETURN hash_value
+    END FUNCTION
+
+    PROCEDURE freeze_game(filename AS STRING)
+        LET state_checksum AS U64 = ComputeStateChecksum()
+        LET path_name AS STRING = ""
+        LET world_i AS U32 = 1
+        LET tech_i AS U8 = 1
+
+        ClearScratch()
+
+        buf_u32[1] = World.world_time
+        buf_u32[2] = World.tick_count
+        buf_u32[3] = U32(World.initialized)
+        buf_u32[4] = World.DAY_LENGTH
+        path_name = CONCAT(filename, "_W_SCA")
+        FLUSH buf_u32 INTO path_name
+        FOR world_i = 1 TO 4096 THEN
+            world_cd[world_i] = World.chunk_data[world_i]
+            world_ch[world_i] = World.chunk_height[world_i]
+            world_cf[world_i] = World.chunk_flags[world_i]
+        END FOR
+        path_name = CONCAT(filename, "_W_CD")
+        FLUSH world_cd INTO path_name
+        path_name = CONCAT(filename, "_W_CH")
+        FLUSH world_ch INTO path_name
+        path_name = CONCAT(filename, "_W_CF")
+        FLUSH world_cf INTO path_name
+
+        Agents.freeze_module(filename)
+
+        buf_u16[1] = Colony.colony_food
+        buf_u16[2] = U16(Colony.colony_level)
+        buf_u16[3] = Colony.colony_pop
+        buf_u16[4] = Colony.growth_progress
+        buf_u16[5] = Colony.colony_wood
+        buf_u16[6] = Colony.colony_stone
+        path_name = CONCAT(filename, "_C_SCA")
+        FLUSH buf_u16 INTO path_name
+
+        buf_s32[1] = Controls.cam_x
+        buf_s32[2] = Controls.cam_y
+        buf_s32[3] = Controls.cam_z
+        buf_s32[4] = Controls.cam_vx
+        buf_s32[5] = Controls.cam_vy
+        buf_s32[6] = Controls.zoom_level
+        buf_s32[7] = S32(Controls.paused)
+        buf_s32[8] = S32(Controls.time_speed)
+        buf_s32[9] = S32(Controls.build_mode)
+        buf_s32[10] = S32(Controls.ui_visible)
+        buf_s32[11] = S32(Buildings.build_kind)
+        buf_s32[12] = Buildings.cursor_tx
+        buf_s32[13] = Buildings.cursor_ty
+        path_name = CONCAT(filename, "_CT_SCA")
+        FLUSH buf_s32 INTO path_name
+
+        Buildings.freeze_module(filename)
+        FOR world_i = 1 TO 2304 THEN
+            terrain_buf[world_i] = Terrain.grid[world_i]
+        END FOR
+        path_name = CONCAT(filename, "_T_GR")
+        FLUSH terrain_buf INTO path_name
+        Gathering.freeze_module(filename)
+
+        buf_u8[1] = Weather.weather_type
+        buf_u8[2] = Weather.weather_intensity
+        buf_u16[1] = Weather.weather_timer
+        path_name = CONCAT(filename, "_WE_U8")
+        FLUSH buf_u8 INTO path_name
+        path_name = CONCAT(filename, "_WE_U16")
+        FLUSH buf_u16 INTO path_name
+
+        buf_u16[1] = Research.research_progress
+        buf_u16[2] = Research.research_target
+        buf_u16[3] = U16(Research.current_tech)
+        path_name = CONCAT(filename, "_R_SCA")
+        FLUSH buf_u16 INTO path_name
+        FOR tech_i = 1 TO 8 THEN
+            research_buf[tech_i] = Research.tech_levels[tech_i]
+        END FOR
+        path_name = CONCAT(filename, "_R_TL")
+        FLUSH research_buf INTO path_name
+
+        buf_u32[1] = Simulation.GetFrameCount()
+        path_name = CONCAT(filename, "_S_SCA")
+        FLUSH buf_u32 INTO path_name
+        buf_u64[1] = state_checksum
+        path_name = CONCAT(filename, "_SUM")
+        FLUSH buf_u64 INTO path_name
+    END PROCEDURE
+
+    PROCEDURE thaw_game(filename AS STRING)
+        LET i AS U32 = 0
+        LET path_name AS STRING = ""
+        LET tech_i AS U8 = 1
+
+        World.Reset()
+        Terrain.Setup()
+        Agents.Setup()
+        Colony.Setup()
+        Controls.Setup()
+        Buildings.Setup()
+        Gathering.Setup()
+        Weather.Setup()
+        Research.Setup()
+        Simulation.SetFrameCount(CAST(0 AS U32))
+        ClearScratch()
+
+        path_name = CONCAT(filename, "_W_SCA")
+        LOAD path_name INTO buf_u32
+        World.SetWorldTime(buf_u32[1])
+        World.SetTickCount(buf_u32[2])
+        IF buf_u32[4] > 0 THEN World.SetDayLength(buf_u32[4]) END IF
+        path_name = CONCAT(filename, "_W_CD")
+        LOAD path_name INTO world_cd
+        path_name = CONCAT(filename, "_W_CH")
+        LOAD path_name INTO world_ch
+        path_name = CONCAT(filename, "_W_CF")
+        LOAD path_name INTO world_cf
+        FOR i = 1 TO 4096 THEN
+            World.RestoreChunk(i, world_cd[i], world_ch[i], world_cf[i])
+        END FOR
+
+        Agents.thaw_module(filename)
+
+        path_name = CONCAT(filename, "_C_SCA")
+        LOAD path_name INTO buf_u16
+        Colony.SetFoodCount(buf_u16[1])
+        Colony.SetColonyLevel(U8(buf_u16[2]))
+        Colony.SetPopulation(buf_u16[3])
+        Colony.SetGrowthProgress(buf_u16[4])
+        Colony.SetWoodCount(buf_u16[5])
+        Colony.SetStoneCount(buf_u16[6])
+
+        path_name = CONCAT(filename, "_CT_SCA")
+        LOAD path_name INTO buf_s32
+        Controls.RestoreState(buf_s32[1], buf_s32[2], buf_s32[3], buf_s32[4], buf_s32[5], buf_s32[6], U8(buf_s32[7]), U8(buf_s32[8]), U8(buf_s32[9]), U8(buf_s32[10]))
+        Buildings.SetBuildKind(U8(buf_s32[11]))
+        Buildings.SetCursorPos(buf_s32[12], buf_s32[13])
+
+        Buildings.thaw_module(filename)
+        path_name = CONCAT(filename, "_T_GR")
+        LOAD path_name INTO terrain_buf
+        FOR i = 1 TO 2304 THEN
+            Terrain.RestoreTile(i, terrain_buf[i])
+        END FOR
+        Gathering.thaw_module(filename)
+
+        ClearScratch()
+        path_name = CONCAT(filename, "_WE_U8")
+        LOAD path_name INTO buf_u8
+        path_name = CONCAT(filename, "_WE_U16")
+        LOAD path_name INTO buf_u16
+        Weather.SetState(buf_u8[1], buf_u8[2], buf_u16[1])
+
+        path_name = CONCAT(filename, "_R_SCA")
+        LOAD path_name INTO buf_u16
+        Research.SetState(buf_u16[1], buf_u16[2], U8(buf_u16[3]))
+        path_name = CONCAT(filename, "_R_TL")
+        LOAD path_name INTO research_buf
+        FOR tech_i = 1 TO 8 THEN
+            Research.SetTechLevel(tech_i, research_buf[tech_i])
+        END FOR
+
+        path_name = CONCAT(filename, "_S_SCA")
+        LOAD path_name INTO buf_u32
+        Simulation.SetFrameCount(buf_u32[1])
+        Controls.ClearTransientInput()
+    END PROCEDURE
+
+END MODULE

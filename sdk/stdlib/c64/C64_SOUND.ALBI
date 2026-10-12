@@ -1,0 +1,34 @@
+-- ====================================================================
+-- C64_SOUND.ALBI
+-- Thin wrappers around ALB-65 PLAY SOUND (SID beep stub).
+-- ====================================================================
+
+FUNCTION C64Snd_UsingNativeMode() AS BOOL
+    IF C64Gfx_UsingNativeMode() THEN RETURN TRUE END IF
+    RETURN FALSE
+END FUNCTION
+
+PROCEDURE C64Snd_Beep()
+    IF C64Snd_UsingNativeMode() = FALSE THEN RETURN END IF
+    PLAY SOUND "c64_beep.wav"
+END PROCEDURE
+
+PROCEDURE C64Snd_Thump()
+    IF C64Snd_UsingNativeMode() = FALSE THEN RETURN END IF
+    PLAY SOUND "c64_thump.wav"
+END PROCEDURE
+
+PROCEDURE C64Snd_Coin()
+    IF C64Snd_UsingNativeMode() = FALSE THEN RETURN END IF
+    PLAY SOUND "c64_coin.wav"
+END PROCEDURE
+
+PROCEDURE C64Snd_Hit()
+    IF C64Snd_UsingNativeMode() = FALSE THEN RETURN END IF
+    PLAY SOUND "c64_hit.wav"
+END PROCEDURE
+
+PROCEDURE C64Snd_GameOver()
+    IF C64Snd_UsingNativeMode() = FALSE THEN RETURN END IF
+    PLAY SOUND "c64_over.wav"
+END PROCEDURE

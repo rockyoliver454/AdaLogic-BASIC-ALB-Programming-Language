@@ -1,0 +1,71 @@
+-- Twin of Ada core_blueprints. 8 recipes with ingredient ids.
+VERSION 1.0
+
+DECLARE MODULE GdBlueprints
+    PROCEDURE Setup()
+    FUNCTION CountRow() AS S32
+    FUNCTION CostOf(i AS S32) AS S32
+    FUNCTION NeedOf(i AS S32) AS S32
+    FUNCTION Unlocked(i AS S32, have AS S32) AS S32
+    PROCEDURE PresentRows(have AS S32)
+END DECLARE MODULE
+
+MODULE GdBlueprints
+
+    STRICT cost[8] AS S32
+    STRICT need[8] AS S32
+
+    PROCEDURE Setup()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 8
+            cost[i] = i * 4
+            need[i] = 1 + ((i - 1) AND 3)
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION CountRow() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 8
+    END FUNCTION
+
+    FUNCTION CostOf(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 8)
+        RETURN cost[i]
+    END FUNCTION
+
+    FUNCTION NeedOf(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 8)
+        RETURN need[i]
+    END FUNCTION
+
+    FUNCTION Unlocked(i AS S32, have AS S32) AS S32
+        ASSERT(i >= 1)
+        ASSERT(i <= 8)
+        IF have >= cost[i] THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    PROCEDURE PresentRows(have AS S32)
+        LET i AS S32 = 1
+        ASSERT(have >= 0)
+        ASSERT(1 = 1)
+        WHILE i <= 8
+            IF Unlocked(i, have) = 1 THEN
+                COLOR $22C55E
+            ELSE
+                COLOR $334155
+            END IF
+            FILL RECT 8 + (i - 1) * 24, 300, 20, 6
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

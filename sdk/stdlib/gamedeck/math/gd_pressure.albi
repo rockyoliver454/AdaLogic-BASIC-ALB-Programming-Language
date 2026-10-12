@@ -1,0 +1,38 @@
+-- Twin of Ada Pressure. Integer 0..256, not Ada Update().
+VERSION 1.0
+
+DECLARE MODULE GdPressure
+    PROCEDURE Setup()
+    FUNCTION PulseHeat(ticks AS S32, misses AS S32) AS S32
+    FUNCTION LastVal() AS S32
+END DECLARE MODULE
+
+MODULE GdPressure
+
+    LET lastv AS S32 = 0
+
+    PROCEDURE Setup()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        lastv = 0
+    END PROCEDURE
+
+    FUNCTION PulseHeat(ticks AS S32, misses AS S32) AS S32
+        LET v AS S32 = 0
+        ASSERT(ticks >= 0)
+        ASSERT(misses >= 0)
+        v = (ticks / 8) + misses * 16
+        IF v > 256 THEN
+            v = 256
+        END IF
+        lastv = v
+        RETURN v
+    END FUNCTION
+
+    FUNCTION LastVal() AS S32
+        ASSERT(lastv >= 0)
+        ASSERT(lastv <= 256)
+        RETURN lastv
+    END FUNCTION
+
+END MODULE

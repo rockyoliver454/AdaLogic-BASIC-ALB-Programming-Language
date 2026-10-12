@@ -1,0 +1,67 @@
+-- Twin of ZDepth.ALBI.
+VERSION 1.0
+
+DECLARE MODULE GdZDepth
+    FUNCTION Overlaps(ax AS S32, ay AS S32, az AS S32, aw AS S32, ah AS S32, ad AS S32, bx AS S32, by AS S32, bz AS S32, bw AS S32, bh AS S32, bd AS S32) AS BOOL
+    FUNCTION GetRenderPriority(pos_y AS S32, pos_z AS S32) AS S32
+    FUNCTION IsPointInside(px AS S32, py AS S32, pz AS S32, bx AS S32, by AS S32, bz AS S32, bw AS S32, bh AS S32, bd AS S32) AS BOOL
+    FUNCTION PackPri(pos_y AS S32, pos_z AS S32) AS S32
+    FUNCTION UnpackY(pri AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdZDepth
+
+    FUNCTION Overlaps(ax AS S32, ay AS S32, az AS S32, aw AS S32, ah AS S32, ad AS S32, bx AS S32, by AS S32, bz AS S32, bw AS S32, bh AS S32, bd AS S32) AS BOOL
+        ASSERT(aw > 0)
+        ASSERT(ah > 0)
+        IF ax < bx + bw AND ax + aw > bx AND ay < by + bh AND ay + ah > by AND az < bz + bd AND az + ad > bz THEN
+            RETURN TRUE
+        END IF
+        RETURN FALSE
+    END FUNCTION
+
+    FUNCTION GetRenderPriority(pos_y AS S32, pos_z AS S32) AS S32
+        LET floor_off AS S32 = pos_z * 100000
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN floor_off + pos_y
+    END FUNCTION
+
+    FUNCTION IsPointInside(px AS S32, py AS S32, pz AS S32, bx AS S32, by AS S32, bz AS S32, bw AS S32, bh AS S32, bd AS S32) AS BOOL
+        ASSERT(bw >= 0)
+        ASSERT(bh >= 0)
+        IF px >= bx AND px <= bx + bw THEN
+            IF py >= by AND py <= by + bh THEN
+                IF pz >= bz AND pz <= bz + bd THEN
+                    RETURN TRUE
+                END IF
+            END IF
+        END IF
+        RETURN FALSE
+    END FUNCTION
+
+    FUNCTION PackPri(pos_y AS S32, pos_z AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN GetRenderPriority(pos_y, pos_z)
+    END FUNCTION
+
+    FUNCTION UnpackY(pri AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN pri MOD 100000
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF UnpackY(PackPri(12, 3)) = 12 THEN
+            IF Overlaps(0, 0, 0, 4, 4, 4, 2, 2, 2, 4, 4, 4) THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

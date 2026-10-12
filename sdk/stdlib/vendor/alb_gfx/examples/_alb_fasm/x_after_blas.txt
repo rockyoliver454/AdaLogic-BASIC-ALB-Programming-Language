@@ -1,0 +1,8 @@
+============================================================
+  alb_gfx ALL FEATURES  (pure ALB / albt FASM)
+============================================================
+alb_openblas=200
+alb_nuklear=200
+
+=== OpenBLAS suite ===
+after_blas

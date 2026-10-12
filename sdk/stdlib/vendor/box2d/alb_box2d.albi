@@ -1,0 +1,30 @@
+-- ============================================================================
+-- alb_box2d.albi — thin ALB binding for vendor/box2d (C ABI)
+-- ============================================================================
+-- Place alb_box2d.dll beside the program (Box2D is inside the DLL).
+--   INCLUDE "../stdlib/vendor/box2d/alb_box2d.albi"
+-- ============================================================================
+
+VERSION 0.1
+
+IMPORT_DLL FUNCTION alb_box2d_version() AS S32 FROM ("alb_box2d.dll")
+
+IMPORT_DLL FUNCTION alb_box2d_world_create(desc AS S64, out_world AS S64) AS S32 FROM ("alb_box2d.dll")
+IMPORT_DLL PROCEDURE alb_box2d_world_destroy(world AS S64) FROM ("alb_box2d.dll")
+IMPORT_DLL FUNCTION alb_box2d_world_step(world AS S64, time_step AS F64, sub_steps AS S32) AS S32 FROM ("alb_box2d.dll")
+IMPORT_DLL PROCEDURE alb_box2d_world_set_gravity(world AS S64, gx AS F64, gy AS F64) FROM ("alb_box2d.dll")
+IMPORT_DLL FUNCTION alb_box2d_world_body_count(world AS S64) AS S32 FROM ("alb_box2d.dll")
+
+IMPORT_DLL FUNCTION alb_box2d_body_create(world AS S64, desc AS S64, out_body AS S64) AS S32 FROM ("alb_box2d.dll")
+IMPORT_DLL PROCEDURE alb_box2d_body_destroy(body AS S64) FROM ("alb_box2d.dll")
+IMPORT_DLL FUNCTION alb_box2d_body_get_transform(body AS S64, out_xf AS S64) AS S32 FROM ("alb_box2d.dll")
+IMPORT_DLL FUNCTION alb_box2d_body_set_transform(body AS S64, x AS F64, y AS F64, angle AS F64) AS S32 FROM ("alb_box2d.dll")
+IMPORT_DLL FUNCTION alb_box2d_body_get_linear_velocity(body AS S64, out_vx AS S64, out_vy AS S64) AS S32 FROM ("alb_box2d.dll")
+IMPORT_DLL FUNCTION alb_box2d_body_set_linear_velocity(body AS S64, vx AS F64, vy AS F64) AS S32 FROM ("alb_box2d.dll")
+IMPORT_DLL FUNCTION alb_box2d_body_apply_force_to_center(body AS S64, fx AS F64, fy AS F64, wake AS S32) AS S32 FROM ("alb_box2d.dll")
+IMPORT_DLL FUNCTION alb_box2d_body_apply_impulse_to_center(body AS S64, ix AS F64, iy AS F64, wake AS S32) AS S32 FROM ("alb_box2d.dll")
+IMPORT_DLL FUNCTION alb_box2d_body_get_type(body AS S64) AS S32 FROM ("alb_box2d.dll")
+IMPORT_DLL FUNCTION alb_box2d_body_world(body AS S64) AS S64 FROM ("alb_box2d.dll")
+
+IMPORT_DLL FUNCTION alb_box2d_test_hello_world() AS S32 FROM ("alb_box2d.dll")
+IMPORT_DLL FUNCTION alb_box2d_test_stack() AS S32 FROM ("alb_box2d.dll")

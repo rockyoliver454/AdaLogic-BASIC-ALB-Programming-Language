@@ -1,0 +1,714 @@
+-- Twin of SPARK JaySoond. SAX tokenizer, Buffer_Size 4096, Max_Depth 64.
+-- File mode is a refillable 4096 window (ALBW: Init_String / ArmStamp).
+VERSION 1.0
+
+DECLARE MODULE JaySoond
+    PROCEDURE CloseDoc()
+    PROCEDURE InitEmpty()
+    PROCEDURE PutByte(b AS S32)
+    PROCEDURE ArmScan()
+    PROCEDURE ArmStamp(kindn AS S32, x AS S32, y AS S32, w AS S32, h AS S32, tex AS S32, walkn AS S32, tagn AS S32)
+    FUNCTION NextTok() AS S32
+    FUNCTION HasMore() AS S32
+    FUNCTION ReadyN() AS S32
+    FUNCTION IntVal() AS S32
+    FUNCTION KeyId() AS S32
+    FUNCTION BoolVal() AS S32
+    FUNCTION LineN() AS S32
+    FUNCTION ColN() AS S32
+    FUNCTION StampX() AS S32
+    FUNCTION StampY() AS S32
+    FUNCTION StampW() AS S32
+    FUNCTION StampH() AS S32
+    FUNCTION StampTex() AS S32
+    FUNCTION StampWalk() AS S32
+    FUNCTION StampKind() AS S32
+    FUNCTION StampTag() AS S32
+    FUNCTION ParserSize() AS S32
+    PROCEDURE TakeFields()
+    FUNCTION HasErr() AS S32
+END DECLARE MODULE
+
+MODULE JaySoond
+
+    STRICT buf[4096] AS U8
+    STRICT tbuf[64] AS U8
+    STRICT stk[64] AS S32
+    LET buflen AS S32 = 0
+    LET cur AS S32 = 1
+    LET tlen AS S32 = 0
+    LET kindn AS S32 = 0
+    LET ival AS S32 = 0
+    LET bval AS S32 = 0
+    LET keyn AS S32 = 0
+    LET linen AS S32 = 1
+    LET coln AS S32 = 1
+    LET ready AS S32 = 0
+    LET errn AS S32 = 0
+    LET eofn AS S32 = 0
+    LET depth AS S32 = 0
+    LET wantkey AS S32 = 0
+    LET sx AS S32 = 0
+    LET sy AS S32 = 0
+    LET sw AS S32 = 0
+    LET sh AS S32 = 0
+    LET stex AS S32 = 0
+    LET swalk AS S32 = 0
+    LET skind AS S32 = 0
+    LET stag AS S32 = 0
+
+    PROCEDURE CloseDoc()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        buflen = 0
+        cur = 1
+        ready = 0
+        errn = 0
+        eofn = 1
+        depth = 0
+        kindn = 12
+    END PROCEDURE
+
+    PROCEDURE InitEmpty()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        buflen = 0
+        cur = 1
+        tlen = 0
+        kindn = 0
+        ival = 0
+        bval = 0
+        keyn = 0
+        linen = 1
+        coln = 1
+        ready = 0
+        errn = 0
+        eofn = 0
+        depth = 0
+        wantkey = 0
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS S32)
+        ASSERT(b >= 0)
+        ASSERT(b <= 255)
+        IF buflen < 4096 THEN
+            buflen = buflen + 1
+            buf[buflen] = b AND 255
+        END IF
+    END PROCEDURE
+
+    PROCEDURE ArmScan()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        cur = 1
+        ready = 1
+        eofn = 0
+        errn = 0
+        depth = 0
+        wantkey = 0
+        kindn = 0
+    END PROCEDURE
+
+    PROCEDURE EmitNum(n AS S32)
+        LET v AS S32 = n
+        LET d AS S32 = 1000
+        LET started AS S32 = 0
+        ASSERT(1 = 1)
+        IF v < 0 THEN
+            PutByte(45)
+            v = 0 - v
+        END IF
+        WHILE d >= 1
+            IF v / d > 0 THEN
+                started = 1
+            END IF
+            IF started = 1 THEN
+                PutByte(48 + (v / d) MOD 10)
+            END IF
+            IF d = 1 THEN
+                IF started = 0 THEN
+                    PutByte(48)
+                END IF
+            END IF
+            d = d / 10
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE EmitStr(a AS S32, b AS S32, c AS S32, d AS S32, n AS S32)
+        PutByte(34)
+        IF n >= 1 THEN
+            PutByte(a)
+        END IF
+        IF n >= 2 THEN
+            PutByte(b)
+        END IF
+        IF n >= 3 THEN
+            PutByte(c)
+        END IF
+        IF n >= 4 THEN
+            PutByte(d)
+        END IF
+        PutByte(34)
+    END PROCEDURE
+
+    PROCEDURE ArmStamp(kindn2 AS S32, x AS S32, y AS S32, w AS S32, h AS S32, tex AS S32, walkn AS S32, tagn AS S32)
+        ASSERT(kindn2 >= 0)
+        ASSERT(x >= 0)
+        InitEmpty()
+        PutByte(123)
+        PutByte(34)
+        PutByte(107)
+        PutByte(105)
+        PutByte(110)
+        PutByte(100)
+        PutByte(34)
+        PutByte(58)
+        IF kindn2 = 0 THEN
+            EmitStr(102, 105, 108, 108, 4)
+        ELSE
+            IF kindn2 = 1 THEN
+                EmitStr(114, 101, 99, 116, 4)
+            ELSE
+                EmitStr(112, 114, 111, 112, 4)
+            END IF
+        END IF
+        PutByte(44)
+        PutByte(34)
+        PutByte(120)
+        PutByte(34)
+        PutByte(58)
+        EmitNum(x)
+        PutByte(44)
+        PutByte(34)
+        PutByte(121)
+        PutByte(34)
+        PutByte(58)
+        EmitNum(y)
+        PutByte(44)
+        PutByte(34)
+        PutByte(119)
+        PutByte(34)
+        PutByte(58)
+        EmitNum(w)
+        PutByte(44)
+        PutByte(34)
+        PutByte(104)
+        PutByte(34)
+        PutByte(58)
+        EmitNum(h)
+        PutByte(44)
+        PutByte(34)
+        PutByte(116)
+        PutByte(101)
+        PutByte(120)
+        PutByte(34)
+        PutByte(58)
+        EmitNum(tex)
+        PutByte(44)
+        PutByte(34)
+        PutByte(119)
+        PutByte(97)
+        PutByte(108)
+        PutByte(107)
+        PutByte(34)
+        PutByte(58)
+        EmitNum(walkn)
+        PutByte(44)
+        PutByte(34)
+        PutByte(116)
+        PutByte(97)
+        PutByte(103)
+        PutByte(34)
+        PutByte(58)
+        IF tagn = 1 THEN
+            EmitStr(115, 97, 102, 101, 4)
+        ELSE
+            IF tagn = 2 THEN
+                EmitStr(100, 111, 111, 114, 4)
+            ELSE
+                IF tagn = 3 THEN
+                    EmitStr(119, 97, 108, 108, 4)
+                ELSE
+                    EmitStr(0, 0, 0, 0, 0)
+                END IF
+            END IF
+        END IF
+        PutByte(125)
+        ArmScan()
+        TakeFields()
+    END PROCEDURE
+
+    FUNCTION PeekB() AS S32
+        ASSERT(1 = 1)
+        IF cur > buflen THEN
+            RETURN 0
+        END IF
+        RETURN buf[cur]
+    END FUNCTION
+
+    PROCEDURE Bump()
+        ASSERT(1 = 1)
+        IF cur <= buflen THEN
+            IF buf[cur] = 10 THEN
+                linen = linen + 1
+                coln = 1
+            ELSE
+                coln = coln + 1
+            END IF
+            cur = cur + 1
+        END IF
+    END PROCEDURE
+
+    PROCEDURE SkipWs()
+        LET c AS S32 = 0
+        LET go AS S32 = 1
+        ASSERT(1 = 1)
+        WHILE go = 1
+            c = PeekB()
+            go = 0
+            IF c = 32 THEN
+                go = 1
+            END IF
+            IF c = 9 THEN
+                go = 1
+            END IF
+            IF c = 10 THEN
+                go = 1
+            END IF
+            IF c = 13 THEN
+                go = 1
+            END IF
+            IF go = 1 THEN
+                Bump()
+            END IF
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION IdOfText() AS S32
+        ASSERT(1 = 1)
+        IF tlen = 1 THEN
+            IF tbuf[1] = 120 THEN
+                RETURN 3
+            END IF
+            IF tbuf[1] = 121 THEN
+                RETURN 4
+            END IF
+            IF tbuf[1] = 119 THEN
+                RETURN 5
+            END IF
+            IF tbuf[1] = 104 THEN
+                RETURN 6
+            END IF
+        END IF
+        IF tlen = 3 THEN
+            IF tbuf[1] = 116 THEN
+                IF tbuf[2] = 101 THEN
+                    RETURN 7
+                END IF
+                IF tbuf[2] = 97 THEN
+                    RETURN 9
+                END IF
+            END IF
+        END IF
+        IF tlen = 4 THEN
+            IF tbuf[1] = 107 THEN
+                RETURN 2
+            END IF
+            IF tbuf[1] = 119 THEN
+                IF tbuf[2] = 97 THEN
+                    IF tbuf[3] = 108 THEN
+                        IF tbuf[4] = 107 THEN
+                            RETURN 8
+                        END IF
+                        RETURN 16
+                    END IF
+                END IF
+            END IF
+            IF tbuf[1] = 102 THEN
+                RETURN 11
+            END IF
+            IF tbuf[1] = 114 THEN
+                RETURN 12
+            END IF
+            IF tbuf[1] = 112 THEN
+                RETURN 13
+            END IF
+            IF tbuf[1] = 115 THEN
+                RETURN 14
+            END IF
+            IF tbuf[1] = 100 THEN
+                RETURN 15
+            END IF
+        END IF
+        IF tlen = 6 THEN
+            IF tbuf[1] = 115 THEN
+                RETURN 1
+            END IF
+            IF tbuf[1] = 102 THEN
+                RETURN 10
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    PROCEDURE ReadStr()
+        LET c AS S32 = 0
+        ASSERT(1 = 1)
+        tlen = 0
+        Bump()
+        c = PeekB()
+        WHILE c <> 34
+            IF cur > buflen THEN
+                errn = 1
+                c = 34
+            ELSE
+                IF tlen < 64 THEN
+                    tlen = tlen + 1
+                    tbuf[tlen] = c AND 255
+                END IF
+                Bump()
+                c = PeekB()
+            END IF
+        END WHILE
+        IF c = 34 THEN
+            Bump()
+        END IF
+    END PROCEDURE
+
+    PROCEDURE ReadNum()
+        LET c AS S32 = 0
+        LET sign AS S32 = 1
+        ASSERT(1 = 1)
+        ival = 0
+        c = PeekB()
+        IF c = 45 THEN
+            sign = 0 - 1
+            Bump()
+            c = PeekB()
+        END IF
+        WHILE c >= 48
+            IF c <= 57 THEN
+                ival = ival * 10 + (c - 48)
+                Bump()
+                c = PeekB()
+            ELSE
+                c = 0
+            END IF
+        END WHILE
+        ival = ival * sign
+    END PROCEDURE
+
+    FUNCTION NextTok() AS S32
+        LET c AS S32 = 0
+        ASSERT(ready = 1)
+        SkipWs()
+        IF cur > buflen THEN
+            eofn = 1
+            kindn = 12
+            RETURN 12
+        END IF
+        c = PeekB()
+        WHILE c = 44
+            Bump()
+            wantkey = 1
+            SkipWs()
+            c = PeekB()
+        END WHILE
+        WHILE c = 58
+            Bump()
+            wantkey = 0
+            SkipWs()
+            c = PeekB()
+        END WHILE
+        IF c = 123 THEN
+            Bump()
+            kindn = 1
+            wantkey = 1
+            IF depth < 64 THEN
+                depth = depth + 1
+                stk[depth] = 1
+            END IF
+            RETURN 1
+        END IF
+        IF c = 125 THEN
+            Bump()
+            kindn = 2
+            wantkey = 0
+            IF depth > 0 THEN
+                depth = depth - 1
+            END IF
+            RETURN 2
+        END IF
+        IF c = 91 THEN
+            Bump()
+            kindn = 3
+            wantkey = 0
+            IF depth < 64 THEN
+                depth = depth + 1
+                stk[depth] = 2
+            END IF
+            RETURN 3
+        END IF
+        IF c = 93 THEN
+            Bump()
+            kindn = 4
+            IF depth > 0 THEN
+                depth = depth - 1
+            END IF
+            RETURN 4
+        END IF
+        IF c = 34 THEN
+            ReadStr()
+            keyn = IdOfText()
+            IF wantkey = 1 THEN
+                kindn = 5
+                wantkey = 0
+                RETURN 5
+            END IF
+            kindn = 6
+            IF keyn = 11 THEN
+                skind = 0
+            END IF
+            IF keyn = 12 THEN
+                skind = 1
+            END IF
+            IF keyn = 13 THEN
+                skind = 2
+            END IF
+            IF keyn = 14 THEN
+                stag = 1
+            END IF
+            IF keyn = 15 THEN
+                stag = 2
+            END IF
+            IF keyn = 16 THEN
+                stag = 3
+            END IF
+            RETURN 6
+        END IF
+        IF c = 116 THEN
+            Bump()
+            Bump()
+            Bump()
+            Bump()
+            kindn = 9
+            bval = 1
+            RETURN 9
+        END IF
+        IF c = 102 THEN
+            Bump()
+            Bump()
+            Bump()
+            Bump()
+            Bump()
+            kindn = 9
+            bval = 0
+            RETURN 9
+        END IF
+        IF c = 110 THEN
+            Bump()
+            Bump()
+            Bump()
+            Bump()
+            kindn = 10
+            RETURN 10
+        END IF
+        IF c = 45 THEN
+            ReadNum()
+            kindn = 7
+            RETURN 7
+        END IF
+        IF c >= 48 THEN
+            IF c <= 57 THEN
+                ReadNum()
+                c = PeekB()
+                IF c = 46 THEN
+                    Bump()
+                    c = PeekB()
+                    WHILE c >= 48
+                        IF c <= 57 THEN
+                            Bump()
+                            c = PeekB()
+                        ELSE
+                            c = 0
+                        END IF
+                    END WHILE
+                    kindn = 8
+                    RETURN 8
+                END IF
+                kindn = 7
+                RETURN 7
+            END IF
+        END IF
+        errn = 1
+        kindn = 11
+        RETURN 11
+    END FUNCTION
+
+    FUNCTION HasMore() AS S32
+        ASSERT(1 = 1)
+        IF eofn = 1 THEN
+            RETURN 0
+        END IF
+        IF errn = 1 THEN
+            RETURN 0
+        END IF
+        IF cur > buflen THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION ReadyN() AS S32
+        ASSERT(ready >= 0)
+        ASSERT(ready <= 1)
+        RETURN ready
+    END FUNCTION
+
+    FUNCTION IntVal() AS S32
+        ASSERT(1 = 1)
+        RETURN ival
+    END FUNCTION
+
+    FUNCTION KeyId() AS S32
+        ASSERT(keyn >= 0)
+        ASSERT(keyn <= 16)
+        RETURN keyn
+    END FUNCTION
+
+    FUNCTION BoolVal() AS S32
+        ASSERT(bval >= 0)
+        ASSERT(bval <= 1)
+        RETURN bval
+    END FUNCTION
+
+    FUNCTION LineN() AS S32
+        ASSERT(linen >= 1)
+        RETURN linen
+    END FUNCTION
+
+    FUNCTION ColN() AS S32
+        ASSERT(coln >= 1)
+        RETURN coln
+    END FUNCTION
+
+    PROCEDURE TakeFields()
+        LET t AS S32 = 0
+        LET lastk AS S32 = 0
+        ASSERT(1 = 1)
+        sx = 0
+        sy = 0
+        sw = 1
+        sh = 1
+        stex = 0
+        swalk = 0
+        skind = 1
+        stag = 0
+        t = NextTok()
+        WHILE t <> 2
+            IF t = 12 THEN
+                t = 2
+            ELSE
+                IF t = 5 THEN
+                    lastk = keyn
+                END IF
+                IF t = 7 THEN
+                    IF lastk = 3 THEN
+                        sx = ival
+                    END IF
+                    IF lastk = 4 THEN
+                        sy = ival
+                    END IF
+                    IF lastk = 5 THEN
+                        sw = ival
+                    END IF
+                    IF lastk = 6 THEN
+                        sh = ival
+                    END IF
+                    IF lastk = 7 THEN
+                        stex = ival
+                    END IF
+                    IF lastk = 8 THEN
+                        swalk = ival
+                    END IF
+                END IF
+                IF t = 6 THEN
+                    IF lastk = 2 THEN
+                        IF keyn = 11 THEN
+                            skind = 0
+                        END IF
+                        IF keyn = 12 THEN
+                            skind = 1
+                        END IF
+                        IF keyn = 13 THEN
+                            skind = 2
+                        END IF
+                    END IF
+                    IF lastk = 9 THEN
+                        IF keyn = 14 THEN
+                            stag = 1
+                        END IF
+                        IF keyn = 15 THEN
+                            stag = 2
+                        END IF
+                        IF keyn = 16 THEN
+                            stag = 3
+                        END IF
+                    END IF
+                END IF
+                IF t = 11 THEN
+                    t = 2
+                ELSE
+                    IF t <> 2 THEN
+                        t = NextTok()
+                    END IF
+                END IF
+            END IF
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION StampX() AS S32
+        ASSERT(1 = 1)
+        RETURN sx
+    END FUNCTION
+    FUNCTION StampY() AS S32
+        ASSERT(1 = 1)
+        RETURN sy
+    END FUNCTION
+    FUNCTION StampW() AS S32
+        ASSERT(1 = 1)
+        RETURN sw
+    END FUNCTION
+    FUNCTION StampH() AS S32
+        ASSERT(1 = 1)
+        RETURN sh
+    END FUNCTION
+    FUNCTION StampTex() AS S32
+        ASSERT(1 = 1)
+        RETURN stex
+    END FUNCTION
+    FUNCTION StampWalk() AS S32
+        ASSERT(1 = 1)
+        RETURN swalk
+    END FUNCTION
+    FUNCTION StampKind() AS S32
+        ASSERT(1 = 1)
+        RETURN skind
+    END FUNCTION
+    FUNCTION StampTag() AS S32
+        ASSERT(1 = 1)
+        RETURN stag
+    END FUNCTION
+
+    FUNCTION ParserSize() AS S32
+        ASSERT(1 = 1)
+        RETURN 4096
+    END FUNCTION
+
+    FUNCTION HasErr() AS S32
+        ASSERT(errn >= 0)
+        ASSERT(errn <= 1)
+        RETURN errn
+    END FUNCTION
+
+END MODULE

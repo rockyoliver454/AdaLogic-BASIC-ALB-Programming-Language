@@ -1,0 +1,358 @@
+-- ============================================================================
+-- ALBFits — FITS 4.0 primary header + BITPIX-8 cubes
+-- ============================================================================
+-- One 2880-byte header block, then optional data. Axes are 1-based:
+-- Pix(x,y,z) uses FITS FORTRAN order (x fastest).
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_fits.albi"
+--   INCLUDE "../stdlib/io/alb_win.albi"
+--
+-- ReadHeader()  SIMPLE/BITPIX/NAXIS/NAXIS1/2/3/OBJECT/END only.
+-- ReadCube()    header + BITPIX 8 data; fills LoPix/HiPix/DataN.
+-- Pix(x,y,z)    sample as 0..255. PlaneSum(z) sum of that plane.
+-- ObjectCh(i)   first 16 bytes of OBJECT 'quoted' value (1-based).
+-- DataOff()     2881 for a single header block.
+-- Window 16384 bytes. BITPIX 16/32/-32/-64 → status 5 on ReadCube.
+-- See alb_fits_cube.albi for slice helpers after ReadCube.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBFits
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ReadHeader() AS S32
+    FUNCTION ReadCube() AS S32
+    FUNCTION Bitpix() AS S32
+    FUNCTION Naxis() AS S32
+    FUNCTION Naxis1() AS S32
+    FUNCTION Naxis2() AS S32
+    FUNCTION Naxis3() AS S32
+    FUNCTION Simple() AS S32
+    FUNCTION DataOff() AS S32
+    FUNCTION DataN() AS S32
+    FUNCTION Pix(x AS S32, y AS S32, z AS S32) AS S32
+    FUNCTION PlaneSum(z AS S32) AS S32
+    FUNCTION LoPix() AS S32
+    FUNCTION HiPix() AS S32
+    FUNCTION ObjectCh(i AS S32) AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBFits
+
+    -- 1-based window. objch[] holds OBJECT keyword bytes. Pix(x,y,z) is 1-based FITS order.
+    STRICT src[16384] AS U8
+    STRICT objch[16] AS U8
+    LET srclen AS S32 = 0
+    LET bitpixn AS S32 = 0
+    LET naxisn AS S32 = 0
+    LET n1 AS S32 = 0
+    LET n2 AS S32 = 0
+    LET n3 AS S32 = 0
+    LET simplen AS S32 = 0
+    LET doff AS S32 = 0
+    LET dn AS S32 = 0
+    LET loval AS S32 = 0
+    LET hival AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        LET k AS S32 = 1
+        srclen = 0
+        bitpixn = 0
+        naxisn = 0
+        n1 = 0
+        n2 = 0
+        n3 = 0
+        simplen = 0
+        doff = 0
+        dn = 0
+        loval = 0
+        hival = 0
+        lastst = 5
+        WHILE k <= 16
+            objch[k] = 0
+            k = k + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 16384 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION KeyAt(card AS S32, k0 AS S32, k1 AS S32, k2 AS S32, k3 AS S32, k4 AS S32, k5 AS S32) AS S32
+        LET off AS S32 = card * 80 + 1
+        IF src[off] <> CAST(k0 AS U8) THEN
+            RETURN 0
+        END IF
+        IF src[off + 1] <> CAST(k1 AS U8) THEN
+            RETURN 0
+        END IF
+        IF src[off + 2] <> CAST(k2 AS U8) THEN
+            RETURN 0
+        END IF
+        IF src[off + 3] <> CAST(k3 AS U8) THEN
+            RETURN 0
+        END IF
+        IF src[off + 4] <> CAST(k4 AS U8) THEN
+            RETURN 0
+        END IF
+        IF src[off + 5] <> CAST(k5 AS U8) THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION IntFromCard(card AS S32) AS S32
+        LET off AS S32 = card * 80 + 11
+        LET i AS S32 = 0
+        LET v AS S32 = 0
+        LET signn AS S32 = 1
+        LET c AS S32 = 0
+        LET saw AS S32 = 0
+        WHILE i < 20
+            c = CAST(src[off + i] AS S32)
+            IF c = 45 THEN
+                signn = 0 - 1
+            ELSE
+                IF c >= 48 THEN
+                    IF c <= 57 THEN
+                        v = v * 10 + (c - 48)
+                        saw = 1
+                    END IF
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+        IF saw = 0 THEN
+            RETURN 0
+        END IF
+        RETURN v * signn
+    END FUNCTION
+
+    PROCEDURE GrabObject(card AS S32)
+        LET off AS S32 = card * 80 + 11
+        LET i AS S32 = 0
+        LET c AS S32 = 0
+        LET k AS S32 = 1
+        WHILE i < 20
+            c = CAST(src[off + i] AS S32)
+            IF c = 39 THEN
+                i = i + 1
+                WHILE i < 70
+                    c = CAST(src[off + i] AS S32)
+                    IF c = 39 THEN
+                        i = 70
+                    ELSE
+                        IF k <= 16 THEN
+                            objch[k] = CAST(c AS U8)
+                            k = k + 1
+                        END IF
+                    END IF
+                    i = i + 1
+                END WHILE
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION ReadHeader() AS S32
+        LET card AS S32 = 0
+        LET gotend AS S32 = 0
+        bitpixn = 0
+        naxisn = 0
+        n1 = 0
+        n2 = 0
+        n3 = 1
+        simplen = 0
+        doff = 2881
+        IF srclen < 2880 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        WHILE card < 36
+            IF KeyAt(card, 83, 73, 77, 80, 76, 69) <> 0 THEN
+                IF src[card * 80 + 30] = 84 THEN
+                    simplen = 1
+                END IF
+            END IF
+            IF KeyAt(card, 66, 73, 84, 80, 73, 88) <> 0 THEN
+                bitpixn = IntFromCard(card)
+            END IF
+            IF KeyAt(card, 78, 65, 88, 73, 83, 32) <> 0 THEN
+                naxisn = IntFromCard(card)
+            END IF
+            IF KeyAt(card, 78, 65, 88, 73, 83, 49) <> 0 THEN
+                n1 = IntFromCard(card)
+            END IF
+            IF KeyAt(card, 78, 65, 88, 73, 83, 50) <> 0 THEN
+                n2 = IntFromCard(card)
+            END IF
+            IF KeyAt(card, 78, 65, 88, 73, 83, 51) <> 0 THEN
+                n3 = IntFromCard(card)
+            END IF
+            IF KeyAt(card, 79, 66, 74, 69, 67, 84) <> 0 THEN
+                GrabObject(card)
+            END IF
+            IF KeyAt(card, 69, 78, 68, 32, 32, 32) <> 0 THEN
+                gotend = 1
+            END IF
+            card = card + 1
+        END WHILE
+        IF simplen = 0 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF gotend = 0 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION ReadCube() AS S32
+        LET i AS S32 = 0
+        LET v AS S32 = 0
+        LET npix AS S32 = 0
+        lastst = ReadHeader()
+        IF lastst <> 0 THEN
+            RETURN lastst
+        END IF
+        IF bitpixn <> 8 THEN
+            lastst = 5
+            RETURN lastst
+        END IF
+        IF n1 < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF n2 < 1 THEN
+            n2 = 1
+        END IF
+        IF n3 < 1 THEN
+            n3 = 1
+        END IF
+        npix = n1 * n2 * n3
+        dn = npix
+        IF doff + npix - 1 > srclen THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        loval = 255
+        hival = 0
+        i = 0
+        WHILE i < npix
+            v = CAST(src[doff + i] AS S32)
+            IF v < loval THEN
+                loval = v
+            END IF
+            IF v > hival THEN
+                hival = v
+            END IF
+            i = i + 1
+        END WHILE
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION Bitpix() AS S32
+        RETURN bitpixn
+    END FUNCTION
+
+    FUNCTION Naxis() AS S32
+        RETURN naxisn
+    END FUNCTION
+
+    FUNCTION Naxis1() AS S32
+        RETURN n1
+    END FUNCTION
+
+    FUNCTION Naxis2() AS S32
+        RETURN n2
+    END FUNCTION
+
+    FUNCTION Naxis3() AS S32
+        RETURN n3
+    END FUNCTION
+
+    FUNCTION Simple() AS S32
+        RETURN simplen
+    END FUNCTION
+
+    FUNCTION DataOff() AS S32
+        RETURN doff
+    END FUNCTION
+
+    FUNCTION DataN() AS S32
+        RETURN dn
+    END FUNCTION
+
+    FUNCTION Pix(x AS S32, y AS S32, z AS S32) AS S32
+        LET idx AS S32 = 0
+        IF x < 1 THEN
+            RETURN 0
+        END IF
+        IF y < 1 THEN
+            RETURN 0
+        END IF
+        IF z < 1 THEN
+            RETURN 0
+        END IF
+        IF x > n1 THEN
+            RETURN 0
+        END IF
+        IF y > n2 THEN
+            RETURN 0
+        END IF
+        IF z > n3 THEN
+            RETURN 0
+        END IF
+        idx = (z - 1) * n1 * n2 + (y - 1) * n1 + (x - 1)
+        RETURN CAST(src[doff + idx] AS S32)
+    END FUNCTION
+
+    FUNCTION PlaneSum(z AS S32) AS S32
+        LET x AS S32 = 1
+        LET y AS S32 = 1
+        LET s AS S32 = 0
+        WHILE y <= n2
+            x = 1
+            WHILE x <= n1
+                s = s + Pix(x, y, z)
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+        RETURN s
+    END FUNCTION
+
+    FUNCTION LoPix() AS S32
+        RETURN loval
+    END FUNCTION
+
+    FUNCTION HiPix() AS S32
+        RETURN hival
+    END FUNCTION
+
+    FUNCTION ObjectCh(i AS S32) AS S32
+        IF i < 1 THEN
+            RETURN 0
+        END IF
+        IF i > 16 THEN
+            RETURN 0
+        END IF
+        RETURN CAST(objch[i] AS S32)
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

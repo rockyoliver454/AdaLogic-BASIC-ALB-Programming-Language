@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_vulkan.albi"
+
+LET rc = alb_vulkan_test_prism_tetra(90)
+IF rc = 0 THEN
+  PRINT "vulkan prism_tetra PASS"
+ELSE
+  PRINT "vulkan prism_tetra FAIL " | rc
+END IF
+END

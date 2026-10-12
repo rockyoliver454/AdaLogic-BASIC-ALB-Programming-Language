@@ -1,0 +1,14 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+PRINT "gfx probe"
+LET ctx AS S64 = gfx_init(320, 240)
+PRINT "ctx=" | ctx
+IF ctx != 0 THEN
+  LET st AS S32 = gfx_begin_frame(ctx)
+  LET st = gfx_clear(ctx, 0.1, 0.2, 0.3, 1.0)
+  LET st = gfx_end_frame(ctx, 0)
+  CALL gfx_shutdown(ctx)
+  PRINT "gfx probe ok"
+END IF
+END

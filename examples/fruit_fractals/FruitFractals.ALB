@@ -1,0 +1,261 @@
+BEGIN
+    VERSION 1.0
+
+    INCLUDE "SCREEN.ALBI"
+    INCLUDE "StrawBerry.ALBI"
+    IMPORT StrawBerry
+    
+    INCLUDE "ANT.ALBI"
+    IMPORT Ant
+
+    CREATE_WINDOW "Fruit Fractals Engine", 960, 640
+    INIT_SCREEN()
+
+    -- Boot the geometry arrays aince
+    CALL StrawBerry.Setup()
+    CALL Ant.Setup()
+
+    -- ------------------------------------------------------------
+    -- Ant Swarm State (Parallel Array)
+    -- ------------------------------------------------------------
+    LET num_ants AS S32 = 16
+    
+    PARALLEL swarm[16]
+        h AS S32
+        a AS S32
+        heading AS S32
+        vh AS S32
+        va AS S32
+        timer AS S32
+    END PARALLEL
+
+    -- Initialize the Swarm
+    LET boot_i AS S32 = 1
+    WHILE boot_i <= num_ants
+        swarm[boot_i].h = (boot_i * 8) - 40
+        swarm[boot_i].a = boot_i * 22
+        swarm[boot_i].heading = 90
+        swarm[boot_i].vh = 1
+        swarm[boot_i].va = 2
+        swarm[boot_i].timer = 0
+        boot_i = boot_i + 1
+    END WHILE
+
+    -- ------------------------------------------------------------
+    -- Global 3D Camera Controls
+    -- ------------------------------------------------------------
+    LET global_yaw AS S32 = 0
+    LET global_pitch AS S32 = 0
+
+    -- ------------------------------------------------------------
+    -- Z-Buffer Entity Render List
+    -- ------------------------------------------------------------
+    STRICT ent_type[32] AS S32 
+    STRICT ent_sx[32] AS S32
+    STRICT ent_sy[32] AS S32
+    STRICT ent_z[32] AS S32
+    STRICT ent_scale[32] AS S32
+    STRICT ent_yaw[32] AS S32
+
+    ON TICK
+        -- HOISTED VARS TAE FIX JVM COMPILER BUGS
+        LET j AS S32 = 1
+        LET r_va AS U64 = 0
+        LET r_vh AS U64 = 0
+        LET r_time AS U64 = 0
+
+        -- WASD Global Camera Orbital Controls!
+        IF KEY(26) > 0 THEN global_pitch = global_pitch + 2 END IF -- W
+        IF KEY(22) > 0 THEN global_pitch = global_pitch - 2 END IF -- S
+        IF KEY(4) > 0 THEN global_yaw = global_yaw - 2 END IF      -- A
+        IF KEY(7) > 0 THEN global_yaw = global_yaw + 2 END IF      -- D
+
+        -- Clamp the camera so we dinna flip completely upside doon
+        IF global_pitch > 90 THEN global_pitch = 90 END IF
+        IF global_pitch < -90 THEN global_pitch = -90 END IF
+
+        IF global_yaw < 0 THEN global_yaw = global_yaw + 360 END IF
+        IF global_yaw > 359 THEN global_yaw = global_yaw - 360 END IF
+
+        -- ============================================================
+        -- ANT SWARM AI LOGIC
+        -- ============================================================
+        j = 1
+        WHILE j <= num_ants
+            IF swarm[j].timer <= 0 THEN
+                r_va = RND(5) r_vh = RND(5) r_time = RND(40)
+                swarm[j].va = S32(r_va) - 2 swarm[j].vh = S32(r_vh) - 2 swarm[j].timer = 20 + S32(r_time)
+                
+                IF swarm[j].va > 0 THEN swarm[j].heading = 0 END IF
+                IF swarm[j].va < 0 THEN swarm[j].heading = 180 END IF
+                IF swarm[j].va = 0 THEN
+                    IF swarm[j].vh > 0 THEN swarm[j].heading = 270 END IF
+                    IF swarm[j].vh < 0 THEN swarm[j].heading = 90 END IF
+                END IF
+            ELSE
+                swarm[j].timer = swarm[j].timer - 1
+            END IF
+
+            swarm[j].a = swarm[j].a + swarm[j].va
+            swarm[j].h = swarm[j].h + swarm[j].vh
+
+            IF swarm[j].a < 0 THEN swarm[j].a = swarm[j].a + 360 END IF
+            IF swarm[j].a > 359 THEN swarm[j].a = swarm[j].a - 360 END IF
+
+            IF swarm[j].h < -55 THEN 
+                swarm[j].h = -55 swarm[j].vh = 0 - swarm[j].vh swarm[j].timer = 0
+            END IF
+            
+            IF swarm[j].h > 85 THEN 
+                swarm[j].h = 85 swarm[j].vh = 0 - swarm[j].vh swarm[j].timer = 0
+            END IF
+            
+            j = j + 1
+        END WHILE
+    END
+
+    ON PAINT
+        CLEAR $112233
+
+        -- HOISTED VARS TAE FIX JVM COMPILER BUGS
+        LET cam_z AS S32 = 250
+        LET berry_scale AS S32 = 800
+        LET base_ant_scale AS S32 = 180
+        LET cx AS S32 = PCT_X(50)
+        LET cy AS S32 = PCT_Y(50)
+
+        LET u_gyaw AS U64 = 0 LET gy_sin AS PURE = PURE(0,1) LET gy_cos AS PURE = PURE(0,1)
+        LET gysn AS S32 = 0 LET gysd AS S32 = 1 LET gycn AS S32 = 0 LET gycd AS S32 = 1
+        LET u_gpitch AS U64 = 0 LET gp_sin AS PURE = PURE(0,1) LET gp_cos AS PURE = PURE(0,1)
+        LET gpsn AS S32 = 0 LET gpsd AS S32 = 1 LET gpcn AS S32 = 0 LET gpcd AS S32 = 1
+
+        LET ent_count AS S32 = 0
+        LET k AS S32 = 1 LET ah AS S32 = 0 LET aa AS S32 = 0 LET ar AS S32 = 0
+        LET u_ang AS U64 = 0 LET p_sin AS PURE = PURE(0, 1) LET p_cos AS PURE = PURE(0, 1)
+        LET sn AS S32 = 0 LET sd AS S32 = 1 LET cn AS S32 = 0 LET cd AS S32 = 1
+        LET aw_x AS S32 = 0 LET aw_y AS S32 = 0 LET aw_z AS S32 = 0
+        LET tx AS S32 = 0 LET ty AS S32 = 0 LET tz AS S32 = 0
+        LET rc_x AS S32 = 0 LET rc_y AS S32 = 0 LET rc_z AS S32 = 0
+        LET z_depth AS S32 = 0 LET scr_x AS S32 = 0 LET scr_y AS S32 = 0 LET obj_scale AS S32 = 0
+        LET swapped AS U64 = 0 LET s AS S32 = 0 LET temp AS S32 = 0 LET p AS S32 = 0
+
+        -- 1. Calculate Global Camera Matrix Trigs
+        IF global_yaw < 0 THEN u_gyaw = U64(360 + (global_yaw MOD 360)) ELSE u_gyaw = U64(global_yaw MOD 360) END IF
+        gy_sin = ALBMathPure.PureSinDegApprox(u_gyaw) gy_cos = ALBMathPure.PureCosDegApprox(u_gyaw)
+        gysn = ALBMathPure.PureNum(gy_sin) gysd = S32(ALBMathPure.PureDen(gy_sin))
+        gycn = ALBMathPure.PureNum(gy_cos) gycd = S32(ALBMathPure.PureDen(gy_cos))
+
+        IF global_pitch < 0 THEN u_gpitch = U64(360 + (global_pitch MOD 360)) ELSE u_gpitch = U64(global_pitch MOD 360) END IF
+        gp_sin = ALBMathPure.PureSinDegApprox(u_gpitch) gp_cos = ALBMathPure.PureCosDegApprox(u_gpitch)
+        gpsn = ALBMathPure.PureNum(gp_sin) gpsd = S32(ALBMathPure.PureDen(gp_sin))
+        gpcn = ALBMathPure.PureNum(gp_cos) gpcd = S32(ALBMathPure.PureDen(gp_cos))
+
+        ent_count = 0
+
+        -- ============================================================
+        -- ENTITY 1: The Central Static Berry
+        -- ============================================================
+        ent_count = ent_count + 1
+        ent_type[ent_count] = 0
+        ent_z[ent_count] = 0
+        ent_sx[ent_count] = cx
+        ent_sy[ent_count] = cy
+        ent_scale[ent_count] = berry_scale
+        ent_yaw[ent_count] = global_yaw
+
+        -- ============================================================
+        -- ENTITIES 2+: The Ant Swarm
+        -- ============================================================
+        k = 1
+        WHILE k <= num_ants
+            ah = swarm[k].h
+            aa = swarm[k].a
+
+            ar = 0
+            IF ah < -45 THEN ar = ((ah + 65) * 25) / 20 ELSE
+            IF ah < -20 THEN ar = 25 + (((ah + 45) * 20) / 25) ELSE
+            IF ah < 10 THEN ar = 45 + (((ah + 20) * 10) / 30) ELSE
+            IF ah < 40 THEN ar = 55 - (((ah - 10) * 10) / 30) ELSE
+            IF ah < 65 THEN ar = 45 - (((ah - 40) * 15) / 25) ELSE
+            IF ah < 85 THEN ar = 30 - (((ah - 65) * 15) / 20) ELSE
+            ar = 15 - (((ah - 85) * 15) / 10) END IF END IF END IF END IF END IF END IF
+            ar = ar + 5
+
+            u_ang = U64(aa)
+            p_sin = ALBMathPure.PureSinDegApprox(u_ang) p_cos = ALBMathPure.PureCosDegApprox(u_ang)
+            sn = ALBMathPure.PureNum(p_sin) sd = S32(ALBMathPure.PureDen(p_sin))
+            cn = ALBMathPure.PureNum(p_cos) cd = S32(ALBMathPure.PureDen(p_cos))
+
+            aw_x = (ar * cn) / cd
+            aw_y = ah
+            aw_z = (ar * sn) / sd
+
+            -- Apply Global Yaw and Pitch tae the Ant Position!
+            tx = ((aw_x * gycn) / gycd) - ((aw_z * gysn) / gysd)
+            tz = ((aw_x * gysn) / gysd) + ((aw_z * gycn) / gycd)
+            ty = aw_y
+            
+            rc_x = tx
+            rc_z = ((ty * gpsn) / gpsd) + ((tz * gpcn) / gpcd)
+            rc_y = ((ty * gpcn) / gpcd) - ((tz * gpsn) / gpsd)
+
+            z_depth = rc_z + cam_z IF z_depth < 1 THEN z_depth = 1 END IF
+            scr_x = cx + ((rc_x * berry_scale) / z_depth)
+            scr_y = cy + ((rc_y * berry_scale) / z_depth)
+            obj_scale = (base_ant_scale * cam_z) / z_depth
+
+            ent_count = ent_count + 1
+            ent_type[ent_count] = 2
+            ent_z[ent_count] = rc_z
+            ent_sx[ent_count] = scr_x
+            ent_sy[ent_count] = scr_y
+            ent_scale[ent_count] = obj_scale
+            ent_yaw[ent_count] = global_yaw + swarm[k].heading
+            
+            k = k + 1
+        END WHILE
+
+        -- ============================================================
+        -- BUBBLE SORT THE ENTIRE SCENE GRAPH BY Z-DEPTH DESCENDING
+        -- ============================================================
+        swapped = 1
+        WHILE swapped = 1
+            swapped = 0
+            s = 1
+            WHILE s < ent_count
+                IF ent_z[s] < ent_z[s + 1] THEN
+                    temp = ent_z[s] ent_z[s] = ent_z[s + 1] ent_z[s + 1] = temp
+                    temp = ent_type[s] ent_type[s] = ent_type[s + 1] ent_type[s + 1] = temp
+                    temp = ent_sx[s] ent_sx[s] = ent_sx[s + 1] ent_sx[s + 1] = temp
+                    temp = ent_sy[s] ent_sy[s] = ent_sy[s + 1] ent_sy[s + 1] = temp
+                    temp = ent_scale[s] ent_scale[s] = ent_scale[s + 1] ent_scale[s + 1] = temp
+                    temp = ent_yaw[s] ent_yaw[s] = ent_yaw[s + 1] ent_yaw[s + 1] = temp
+                    swapped = 1
+                END IF
+                s = s + 1
+            END WHILE
+        END WHILE
+
+        -- ============================================================
+        -- FINAL RENDER LOOP
+        -- ============================================================
+        p = 1
+        WHILE p <= ent_count
+            IF ent_type[p] = 0 THEN
+                CALL StrawBerry.Render(cam_z, ent_scale[p], ent_yaw[p], global_pitch, ent_sx[p], ent_sy[p])
+            END IF
+            IF ent_type[p] = 2 THEN
+                CALL Ant.Render(cam_z, ent_scale[p], ent_yaw[p], global_pitch, ent_sx[p], ent_sy[p])
+            END IF
+            p = p + 1
+        END WHILE
+
+        -- HUD last so triangles don't cover it
+        COLOR $FFFFFF
+        DRAW TEXT 20, 20, "FRUIT FRACTALS: WASD GLOBAL ORBIT CAMERA"
+        DRAW TEXT 20, 40, "Camera Pitch: " | global_pitch | "  |  Camera Yaw: " | global_yaw
+
+    END
+
+    LISTEN
+END

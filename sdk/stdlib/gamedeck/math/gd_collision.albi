@@ -1,0 +1,54 @@
+-- AABB via first-class COLLIDE_RECT.
+VERSION 1.0
+
+DECLARE MODULE GdCollision
+    FUNCTION Aabb(ax AS S32, ay AS S32, aw AS S32, ah AS S32, bx AS S32, by AS S32, bw AS S32, bh AS S32) AS BOOL
+    FUNCTION AabbPure(ax AS PURE, ay AS PURE, aw AS S32, ah AS S32, bx AS PURE, by AS PURE, bw AS S32, bh AS S32) AS BOOL
+    FUNCTION Circ(ax AS S32, ay AS S32, ar AS S32, bx AS S32, by AS S32, br AS S32) AS BOOL
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdCollision
+
+    FUNCTION Aabb(ax AS S32, ay AS S32, aw AS S32, ah AS S32, bx AS S32, by AS S32, bw AS S32, bh AS S32) AS BOOL
+        ASSERT(aw > 0)
+        ASSERT(ah > 0)
+        IF COLLIDE_RECT(ax, ay, aw, ah, bx, by, bw, bh) THEN
+            RETURN TRUE
+        END IF
+        RETURN FALSE
+    END FUNCTION
+
+    FUNCTION AabbPure(ax AS PURE, ay AS PURE, aw AS S32, ah AS S32, bx AS PURE, by AS PURE, bw AS S32, bh AS S32) AS BOOL
+        ASSERT(aw > 0)
+        ASSERT(ah > 0)
+        IF COLLIDE_RECT(PURE_NUM(ax), PURE_NUM(ay), aw, ah, PURE_NUM(bx), PURE_NUM(by), bw, bh) THEN
+            RETURN TRUE
+        END IF
+        RETURN FALSE
+    END FUNCTION
+
+    FUNCTION Circ(ax AS S32, ay AS S32, ar AS S32, bx AS S32, by AS S32, br AS S32) AS BOOL
+        LET dx AS S32 = ax - bx
+        LET dy AS S32 = ay - by
+        LET rr AS S32 = ar + br
+        ASSERT(ar > 0)
+        ASSERT(br > 0)
+        IF dx * dx + dy * dy <= rr * rr THEN
+            RETURN TRUE
+        END IF
+        RETURN FALSE
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF Aabb(0, 0, 8, 8, 4, 4, 8, 8) THEN
+            IF Circ(0, 0, 4, 3, 0, 2) THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,3 @@
+DECLARE MODULE PixelText
+    PROCEDURE RenderString(x AS S32, y AS S32, text_value AS STRING)
+END DECLARE MODULE

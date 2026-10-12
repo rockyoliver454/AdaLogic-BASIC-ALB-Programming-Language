@@ -1,0 +1,174 @@
+-- ============================================================================
+-- probe_draw_star.alb — prove alb_gfx STAR draws (no UI float reads)
+-- ============================================================================
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+
+LET i AS S32 = 0
+LET tip AS S32 = 0
+LET idx AS S32 = 0
+LET nverts AS S32 = 0
+LET nbytes AS S32 = 0
+LET st AS S32 = 0
+LET gfx AS S64 = 0
+LET vb AS S64 = 0
+LET pipe AS S64 = 0
+LET verts AS S64 = 0
+LET pi AS F64 = 3.141592653589793
+LET a0 AS F64 = 0.0
+LET a1 AS F64 = 0.0
+LET am AS F64 = 0.0
+LET ox AS F64 = 0.0
+LET oy AS F64 = 0.0
+LET mx AS F64 = 0.0
+LET my AS F64 = 0.0
+LET nx AS F64 = 0.0
+LET ny AS F64 = 0.0
+LET rot AS F64 = 0.0
+LET cs AS F64 = 0.0
+LET sn AS F64 = 0.0
+LET vx AS F64 = 0.0
+LET vy AS F64 = 0.0
+LET scale AS F64 = 1.0
+
+PRINT "probe_draw_star start"
+LET gfx = gfx_init(640, 400)
+LET verts = gfx_alloc_memory(2048)
+LET vb = gfx_buffer_create(gfx, 2048, #GFX_BUFFER_USAGE_DYNAMIC)
+LET pipe = gfx_pipeline_create(gfx, 0, 0, #GFX_TOPOLOGY_TRIANGLELIST)
+CALL gfx_pipeline_bind(gfx, pipe)
+CALL gfx_bind_vertex_buffer(gfx, vb)
+
+FOR i = 1 TO 10000 THEN
+  CALL gfx_poll_events()
+  LET rot = rot + 0.03
+  LET cs = COS(rot)
+  LET sn = SIN(rot)
+  LET idx = 0
+  FOR tip = 0 TO 4 THEN
+    LET a0 = -pi * 0.5 + tip * 2.0 * pi / 5.0
+    LET a1 = a0 + 2.0 * pi / 5.0
+    LET am = a0 + pi / 5.0
+    LET ox = 0.55 * COS(a0)
+    LET oy = 0.55 * SIN(a0)
+    LET mx = 0.22 * COS(am)
+    LET my = 0.22 * SIN(am)
+    LET nx = 0.55 * COS(a1)
+    LET ny = 0.55 * SIN(a1)
+
+    CALL gfx_write_f32(verts, idx, 0.0)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.0)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.0)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 1.0)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.55)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.15)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 1.0)
+    LET idx = idx + 1
+
+    LET vx = (ox * cs - oy * sn) * scale
+    LET vy = (ox * sn + oy * cs) * scale
+    CALL gfx_write_f32(verts, idx, vx)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, vy)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.0)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 1.0)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.75)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.2)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 1.0)
+    LET idx = idx + 1
+
+    LET vx = (mx * cs - my * sn) * scale
+    LET vy = (mx * sn + my * cs) * scale
+    CALL gfx_write_f32(verts, idx, vx)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, vy)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.0)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.9)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.5)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.25)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 1.0)
+    LET idx = idx + 1
+
+    CALL gfx_write_f32(verts, idx, 0.0)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.0)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.0)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.95)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.45)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.2)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 1.0)
+    LET idx = idx + 1
+
+    LET vx = (mx * cs - my * sn) * scale
+    LET vy = (mx * sn + my * cs) * scale
+    CALL gfx_write_f32(verts, idx, vx)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, vy)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.0)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.95)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.45)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.2)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 1.0)
+    LET idx = idx + 1
+
+    LET vx = (nx * cs - ny * sn) * scale
+    LET vy = (nx * sn + ny * cs) * scale
+    CALL gfx_write_f32(verts, idx, vx)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, vy)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.0)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.85)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.4)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 0.3)
+    LET idx = idx + 1
+    CALL gfx_write_f32(verts, idx, 1.0)
+    LET idx = idx + 1
+  END FOR
+  LET nverts = 30
+  LET nbytes = nverts * 28
+  CALL gfx_buffer_update(gfx, vb, 0, nbytes, verts)
+  LET st = gfx_begin_frame(gfx)
+  LET st = gfx_clear(gfx, 0.05, 0.07, 0.12, 1.0)
+  CALL gfx_draw_arrays(gfx, nverts, 0)
+  LET st = gfx_end_frame(gfx, 1)
+  IF i = 60 THEN
+    PRINT "probe tick nverts=" | nverts | " nbytes=" | nbytes
+  END IF
+END FOR
+
+CALL gfx_buffer_destroy(gfx, vb)
+CALL gfx_free_memory(verts)
+CALL gfx_shutdown(gfx)
+PRINT "probe_draw_star done"
+END

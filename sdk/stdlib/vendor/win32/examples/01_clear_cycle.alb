@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_win32.albi"
+
+LET rc = alb_win32_test_clear_cycle(60)
+IF rc = 0 THEN
+  PRINT "win32 clear_cycle PASS"
+ELSE
+  PRINT "win32 clear_cycle FAIL " | rc
+END IF
+END

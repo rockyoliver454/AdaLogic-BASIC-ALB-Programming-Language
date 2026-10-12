@@ -1,0 +1,112 @@
+-- ============================================================================
+-- ALBDbf — dBase / xBase DBF header
+-- ============================================================================
+-- Version byte 0x03 / 0x04 / 0x05 / 0x30, then date, RecCount(), HdrSize(),
+-- RecSize(). Field descriptors start at byte 32; this probe does not
+-- enumerate column names.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_dbf.albi"
+--
+-- ProbeBuf()  0 ok. FoxPro memo / dBASE 7 variants outside those version
+-- bytes → status 5. Load the whole header (HdrSize bytes) if you parse fields.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBDbf
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION RecCount() AS S32
+    FUNCTION RecSize() AS S32
+    FUNCTION HdrSize() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBDbf
+
+    -- 1-based window. dBase III header: record count, header size, record size.
+    STRICT src[4096] AS U8
+    LET srclen AS S32 = 0
+    LET nrec AS S32 = 0
+    LET recsz AS S32 = 0
+    LET hdrsz AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        nrec = 0
+        recsz = 0
+        hdrsz = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 4096 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION GetU16(i AS S32) AS S32
+        RETURN CAST(src[i] AS S32) + CAST(src[i + 1] AS S32) * 256
+    END FUNCTION
+
+    FUNCTION GetU32(i AS S32) AS S32
+        RETURN GetU16(i) + GetU16(i + 2) * 65536
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        LET ver AS S32 = 0
+        nrec = 0
+        recsz = 0
+        hdrsz = 0
+        IF srclen < 32 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        ver = CAST(src[1] AS S32)
+        IF ver <> 3 THEN
+            IF ver <> 4 THEN
+                IF ver <> 5 THEN
+                    IF ver <> 48 THEN
+                        lastst = 5
+                        RETURN lastst
+                    END IF
+                END IF
+            END IF
+        END IF
+        nrec = GetU32(5)
+        hdrsz = GetU16(9)
+        recsz = GetU16(11)
+        IF hdrsz < 33 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF recsz < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION RecCount() AS S32
+        RETURN nrec
+    END FUNCTION
+
+    FUNCTION RecSize() AS S32
+        RETURN recsz
+    END FUNCTION
+
+    FUNCTION HdrSize() AS S32
+        RETURN hdrsz
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

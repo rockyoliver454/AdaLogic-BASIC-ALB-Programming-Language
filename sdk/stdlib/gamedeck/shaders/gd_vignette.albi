@@ -1,0 +1,18 @@
+-- Software vignette bars.
+VERSION 1.0
+
+DECLARE MODULE GdVignette
+    PROCEDURE PresentEdge()
+END DECLARE MODULE
+
+MODULE GdVignette
+
+    PROCEDURE PresentEdge()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $020617
+        FILL RECT 0, 0, 640, 8
+        FILL RECT 0, 352, 640, 8
+    END PROCEDURE
+
+END MODULE

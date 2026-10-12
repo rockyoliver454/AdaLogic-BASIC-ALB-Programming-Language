@@ -1,0 +1,41 @@
+-- Twin of Ada core_console_input. Latch / repeat, not Raylib.
+VERSION 1.0
+
+DECLARE MODULE GdConIn
+    PROCEDURE Pulse(code AS S32)
+    FUNCTION Latched() AS S32
+    FUNCTION RepeatN() AS S32
+END DECLARE MODULE
+
+MODULE GdConIn
+
+    LET last AS S32 = 0
+    LET hold AS S32 = 0
+
+    PROCEDURE Pulse(code AS S32)
+        ASSERT(code >= 0)
+        ASSERT(code <= 255)
+        IF code = last THEN
+            hold = hold + 1
+        ELSE
+            hold = 0
+            last = code
+            GdConMore.NoteKey(code)
+        END IF
+        IF hold > 64 THEN
+            hold = 64
+        END IF
+    END PROCEDURE
+
+    FUNCTION Latched() AS S32
+        ASSERT(last >= 0)
+        ASSERT(last <= 255)
+        RETURN last
+    END FUNCTION
+    FUNCTION RepeatN() AS S32
+        ASSERT(hold >= 0)
+        ASSERT(hold <= 64)
+        RETURN hold
+    END FUNCTION
+
+END MODULE

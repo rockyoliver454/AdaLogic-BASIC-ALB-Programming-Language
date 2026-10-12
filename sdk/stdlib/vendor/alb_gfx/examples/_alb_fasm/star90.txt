@@ -1,0 +1,42 @@
+============================================================
+  alb_gfx ALL FEATURES  (pure ALB / albt FASM)
+============================================================
+alb_openblas=200
+alb_nuklear=200
+
+=== OpenBLAS suite ===
+test_all=0
+threads=1
+procs=56
+
+------------------------------------------------------------
+LIVE: Nuklear control + alb_gfx STAR / shapes
+------------------------------------------------------------
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=2 blas=1 nverts=30
+live tick shape=1 blas=1 nverts=6
+live tick shape=1 blas=1 nverts=6
+live tick shape=4 blas=1 nverts=14
+live tick shape=0 blas=1 nverts=3
+
+ALL FEATURES ALB harness OK

@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_ntkernel.albi"
+
+LET rc = alb_ntkernel_test_probe()
+IF rc = 0 THEN
+  PRINT "ntkernel probe PASS"
+ELSE
+  PRINT "ntkernel probe FAIL " | rc
+END IF
+END

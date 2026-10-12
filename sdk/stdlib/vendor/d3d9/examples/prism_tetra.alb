@@ -1,0 +1,20 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_d3d9.albi"
+
+LET ctx = alb_d3d9_context_create_simple(640, 480)
+IF ctx = 0 THEN
+  PRINT "create failed"
+ELSE
+  FOR frame_idx = 0 TO 119 THEN
+    LET yaw = frame_idx * 0.03
+    LET rc = alb_d3d9_context_begin_frame(ctx)
+    IF rc = 0 THEN LET rc = alb_d3d9_context_clear(ctx, 0.08, 0.08, 0.12, 1.0)
+    IF rc = 0 THEN LET rc = alb_d3d9_context_draw_prism_tetra(ctx, yaw, 0.4, 1.0)
+    IF rc = 0 THEN LET rc = alb_d3d9_context_end_frame(ctx, 0)
+    IF rc != 0 THEN PRINT "frame failed " | frame_idx
+  END FOR
+  CALL alb_d3d9_context_destroy(ctx)
+  PRINT "prism_tetra PASS"
+END IF
+END

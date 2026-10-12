@@ -1,0 +1,12 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_nuklear.albi"
+
+PRINT "Opening Nuklear Kitchen Sink — close the window to exit"
+LET rc = alb_nuklear_run_kitchen_sink()
+IF rc = 0 THEN
+  PRINT "nuklear kitchen sink PASS"
+ELSE
+  PRINT "nuklear kitchen sink FAIL " | rc
+END IF
+END

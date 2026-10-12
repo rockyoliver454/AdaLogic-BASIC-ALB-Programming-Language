@@ -1,0 +1,44 @@
+-- Twin of Ada Crops: wheat, turnip, tomato, pumpkin, potato, corn, cabbage, carrot.
+VERSION 1.0
+
+DECLARE MODULE GdCrops
+    FUNCTION RgbOf(kind AS S32) AS S32
+    PROCEDURE PresentKind(kind AS S32, x AS S32)
+    FUNCTION KindN() AS S32
+    FUNCTION AdaId(kind AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdCrops
+
+    FUNCTION AdaId(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 7)
+        IF kind = 0 THEN RETURN 46 END IF
+        IF kind = 1 THEN RETURN 44 END IF
+        IF kind = 2 THEN RETURN 48 END IF
+        IF kind = 3 THEN RETURN 47 END IF
+        IF kind = 4 THEN RETURN 49 END IF
+        IF kind = 5 THEN RETURN 43 END IF
+        IF kind = 6 THEN RETURN 45 END IF
+        RETURN 42
+    END FUNCTION
+
+    FUNCTION RgbOf(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 7)
+        RETURN GdAdaTex.Rgb0(AdaId(kind))
+    END FUNCTION
+
+    PROCEDURE PresentKind(kind AS S32, x AS S32)
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 7)
+        GdAdaTex.Present(AdaId(kind), x, 280)
+    END PROCEDURE
+
+    FUNCTION KindN() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 8
+    END FUNCTION
+
+END MODULE

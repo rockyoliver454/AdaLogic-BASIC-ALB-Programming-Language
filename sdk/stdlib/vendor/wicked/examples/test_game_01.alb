@@ -1,0 +1,150 @@
+-- =====================================================================
+-- test_game_01.alb — Wicked Engine ALB coverage demo (flat control flow)
+-- ALB | is STRING CONCAT. LET once.
+-- Prefer: albo (Odin)   Fallback: albt -t fasm --build
+-- Ends via alb_wicked_process_exit (GPU teardown AVs on some hosts).
+-- =====================================================================
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_wicked.albi"
+
+LET app AS S64 = 0
+LET scene AS S64 = 0
+LET ground AS U64 = 0
+LET cube AS U64 = 0
+LET sphere AS U64 = 0
+LET orb AS U64 = 0
+LET sun AS U64 = 0
+LET lamp AS U64 = 0
+LET spot AS U64 = 0
+LET force_e AS U64 = 0
+LET emitter AS U64 = 0
+LET cam_ent AS U64 = 0
+LET hair AS U64 = 0
+LET decal AS U64 = 0
+LET video AS U64 = 0
+LET sfx AS U64 = 0
+LET mat AS U64 = 0
+LET mesh AS U64 = 0
+LET obj AS U64 = 0
+LET xform AS U64 = 0
+LET frames AS S32 = 0
+LET max_frames AS S32 = 90
+LET alive AS S32 = 1
+LET hit AS S32 = 0
+LET st AS S32 = 0
+LET ang AS F64 = 0.0
+LET bob AS F32 = 0.0
+LET cam_x AS F32 = 0.0
+LET cam_z AS F32 = 0.0
+LET exists AS S32 = 0
+LET ver AS S32 = 0
+LET shape_box AS S32 = 0
+LET shape_sphere AS S32 = 1
+LET light_point AS S32 = 1
+LET light_spot AS S32 = 2
+LET tex_base AS S32 = 0
+LET backend_vulkan AS S32 = 2
+LET vid_len AS F64 = 0.0
+LET exit_code AS S32 = 1
+
+PRINT "=== test_game_01 Wicked coverage ==="
+ver = alb_wicked_version()
+PRINT "alb_wicked version=" | ver
+st = alb_wicked_loader_init()
+PRINT "loader_init status=" | st
+
+-- Vulkan/spirv matches working bin demos on this host.
+app = alb_wicked_app_create_ex(960, 540, "ALB Wicked test_game_01", 1, backend_vulkan)
+PRINT "app=" | app
+scene = alb_wicked_scene_get(app)
+
+alb_wicked_camera_look_at(app, 0.0, 2.5, -6.0, 0.0, 0.5, 0.0)
+alb_wicked_camera_set_fov(app, 1.0)
+alb_wicked_scene_set_weather(app, 0.15, 0.18, 0.22, 0.40, 0.45, 0.55, 0.10, 0.15, 0.35)
+
+ground = alb_wicked_scene_create_plane(app, "ground")
+cube = alb_wicked_scene_create_cube(app, "hero_cube")
+sphere = alb_wicked_scene_create_sphere(app, "orb_sphere", 0.75, 24, 24)
+orb = alb_wicked_scene_create_cube(app, "satellite")
+xform = alb_wicked_scene_create_transform(app, "anchor")
+mat = alb_wicked_scene_create_material(app, "mat_extra")
+mesh = alb_wicked_scene_create_mesh(app, "mesh_empty")
+obj = alb_wicked_scene_create_object(app, "obj_empty")
+sun = alb_wicked_scene_create_light(app, "sun", 3.0, 6.0, -4.0, 1.0, 0.95, 0.85, 12.0, 60.0)
+lamp = alb_wicked_scene_create_light_ex(app, "key", -3.0, 5.0, 2.0, 0.6, 0.7, 1.0, 6.0, 40.0, light_point, 0.8, 0.2)
+spot = alb_wicked_scene_create_light_ex(app, "spot", 0.0, 6.0, 0.0, 1.0, 0.9, 0.7, 10.0, 50.0, light_spot, 0.6, 0.15)
+force_e = alb_wicked_scene_create_force(app, "wind", 0.0, 2.0, 0.0)
+emitter = alb_wicked_scene_create_emitter(app, "sparks", 0.0, 1.5, 0.0)
+alb_wicked_emitter_set_count(app, emitter, 24)
+cam_ent = alb_wicked_scene_create_camera(app, "side_cam", 960.0, 540.0, 0.01, 500.0, 1.0)
+hair = alb_wicked_scene_create_hair(app, "grass", 2.0, 0.0, 2.0)
+alb_wicked_hair_configure(app, hair, 0, 32, 0.25)
+decal = alb_wicked_scene_create_decal(app, "mark", "", "")
+video = alb_wicked_scene_create_video(app, "vid", "missing.mp4")
+vid_len = alb_wicked_video_get_length(app, video)
+alb_wicked_video_set_looped(app, video, 0)
+sfx = alb_wicked_scene_create_sound(app, "sfx", "missing.wav", 0.0, 1.0, 0.0)
+alb_wicked_sound_set_looped(app, sfx, 0)
+alb_wicked_sound_set_volume(app, sfx, 0.25)
+PRINT "created ground=" | ground | " cube=" | cube | " sphere=" | sphere | " video=" | video | " sfx=" | sfx
+
+alb_wicked_entity_set_scale(app, ground, 8.0, 1.0, 8.0)
+alb_wicked_entity_set_base_color(app, ground, 0.35, 0.40, 0.38, 1.0)
+alb_wicked_entity_set_roughness(app, ground, 0.85)
+alb_wicked_entity_set_metalness(app, ground, 0.05)
+alb_wicked_entity_set_translation(app, cube, 0.0, 1.0, 0.0)
+alb_wicked_entity_set_base_color(app, cube, 0.90, 0.35, 0.15, 1.0)
+alb_wicked_entity_set_emissive(app, cube, 0.3, 0.08, 0.0, 0.25)
+alb_wicked_entity_set_roughness(app, cube, 0.35)
+alb_wicked_entity_set_metalness(app, cube, 0.2)
+alb_wicked_entity_set_translation(app, sphere, -2.5, 1.0, 0.5)
+alb_wicked_entity_set_base_color(app, sphere, 0.2, 0.55, 0.95, 1.0)
+alb_wicked_entity_set_metalness(app, sphere, 0.8)
+alb_wicked_entity_set_roughness(app, sphere, 0.15)
+alb_wicked_entity_set_scale(app, orb, 0.35, 0.35, 0.35)
+alb_wicked_entity_set_base_color(app, orb, 0.95, 0.9, 0.2, 1.0)
+alb_wicked_entity_attach(app, orb, cube, 0)
+
+alb_wicked_physics_set_enabled(1)
+alb_wicked_physics_set_simulation_enabled(1)
+PRINT "physics_enabled=" | alb_wicked_physics_is_enabled()
+alb_wicked_physics_add_rigidbody(app, cube, shape_box, 1.0, 0.5, 0.5, 0.5, 0)
+alb_wicked_physics_add_rigidbody(app, sphere, shape_sphere, 0.8, 0.75, 0.0, 0.0, 0)
+alb_wicked_physics_apply_impulse(app, cube, 0.0, 1.0, 0.0)
+alb_wicked_physics_set_linear_velocity(app, cube, 0.0, 0.0, 0.0)
+alb_wicked_material_set_texture(app, mat, tex_base, "")
+alb_wicked_scene_update(scene, 0.016)
+exists = alb_wicked_entity_exists(scene, cube)
+PRINT "cube_exists=" | exists
+hit = alb_wicked_physics_raycast_f(0.0, 5.0, -5.0, 0.0, -1.0, 1.0, 100.0, 0, 0, 0, 0, 0, 0, 0, 0)
+PRINT "physics_raycast_hit=" | hit
+hit = alb_wicked_scene_pick_f(app, 0.0, 5.0, -8.0, 0.0, -0.4, 1.0, 100.0, 0, 0, 0, 0, 0, 0, 0, 0)
+PRINT "scene_pick_hit=" | hit
+PRINT "entering tick loop hwnd=" | alb_wicked_app_hwnd(app)
+
+REPEAT
+  alive = alb_wicked_app_tick(app)
+  frames = frames + 1
+  ang = frames * 0.04
+  cam_x = SIN(ang) * 8.0
+  cam_z = COS(ang) * (0.0 - 8.0)
+  bob = 1.0 + SIN(ang * 2.0) * 0.4
+  alb_wicked_camera_look_at(app, cam_x, 3.0, cam_z, 0.0, 0.8, 0.0)
+  alb_wicked_entity_rotate_rpy(app, cube, 0.0, 0.03, 0.0)
+  alb_wicked_entity_set_translation(app, sphere, -2.5, bob, 0.5)
+  alb_wicked_transform_set_position(scene, orb, 1.2, 0.4, 0.0)
+  IF alive = 0 THEN
+    frames = max_frames
+  END IF
+UNTIL frames >= max_frames
+
+PRINT "frames=" | frames | " vid_len=" | vid_len
+alb_wicked_entity_detach(app, orb)
+alb_wicked_entity_remove(scene, video, 1)
+alb_wicked_app_destroy(app)
+alb_wicked_loader_shutdown()
+PRINT "test_game_01 PASS"
+exit_code = 0
+alb_wicked_process_exit(exit_code)
+END

@@ -1,0 +1,16 @@
+-- Twin of Ada core_sfx_chords. Three-note mix.
+VERSION 1.0
+
+DECLARE MODULE GdSfxChords
+    FUNCTION Mix3(a AS S32, b AS S32, c AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdSfxChords
+
+    FUNCTION Mix3(a AS S32, b AS S32, c AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN (a + b + c) / 3
+    END FUNCTION
+
+END MODULE

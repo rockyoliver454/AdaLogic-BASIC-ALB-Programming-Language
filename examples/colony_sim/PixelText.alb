@@ -1,0 +1,114 @@
+INCLUDE "PixelText.albi"
+IMPORT PixelText
+
+MODULE PixelText
+    LET GLYPH_W AS U8 = 5
+    LET GLYPH_H AS U8 = 7
+    LET GLYPH_ADVANCE AS S32 = 6
+    LET LINE_ADVANCE AS S32 = 8
+
+    FUNCTION Bits7(r0 AS U8, r1 AS U8, r2 AS U8, r3 AS U8, r4 AS U8, r5 AS U8, r6 AS U8, row AS U8) AS U8
+        IF row = 0 THEN RETURN r0 END IF
+        IF row = 1 THEN RETURN r1 END IF
+        IF row = 2 THEN RETURN r2 END IF
+        IF row = 3 THEN RETURN r3 END IF
+        IF row = 4 THEN RETURN r4 END IF
+        IF row = 5 THEN RETURN r5 END IF
+        RETURN r6
+    END FUNCTION
+
+    FUNCTION RowBits(ch AS STRING, row AS U8) AS U8
+        IF ch = "A" THEN RETURN Bits7(14, 17, 17, 31, 17, 17, 17, row) END IF
+        IF ch = "B" THEN RETURN Bits7(30, 17, 17, 30, 17, 17, 30, row) END IF
+        IF ch = "C" THEN RETURN Bits7(14, 17, 16, 16, 16, 17, 14, row) END IF
+        IF ch = "D" THEN RETURN Bits7(30, 17, 17, 17, 17, 17, 30, row) END IF
+        IF ch = "E" THEN RETURN Bits7(31, 16, 16, 30, 16, 16, 31, row) END IF
+        IF ch = "F" THEN RETURN Bits7(31, 16, 16, 30, 16, 16, 16, row) END IF
+        IF ch = "G" THEN RETURN Bits7(14, 17, 16, 23, 17, 17, 14, row) END IF
+        IF ch = "H" THEN RETURN Bits7(17, 17, 17, 31, 17, 17, 17, row) END IF
+        IF ch = "I" THEN RETURN Bits7(14, 4, 4, 4, 4, 4, 14, row) END IF
+        IF ch = "J" THEN RETURN Bits7(7, 2, 2, 2, 18, 18, 12, row) END IF
+        IF ch = "K" THEN RETURN Bits7(17, 18, 20, 24, 20, 18, 17, row) END IF
+        IF ch = "L" THEN RETURN Bits7(16, 16, 16, 16, 16, 16, 31, row) END IF
+        IF ch = "M" THEN RETURN Bits7(17, 27, 21, 21, 17, 17, 17, row) END IF
+        IF ch = "N" THEN RETURN Bits7(17, 25, 21, 19, 17, 17, 17, row) END IF
+        IF ch = "O" THEN RETURN Bits7(14, 17, 17, 17, 17, 17, 14, row) END IF
+        IF ch = "P" THEN RETURN Bits7(30, 17, 17, 30, 16, 16, 16, row) END IF
+        IF ch = "Q" THEN RETURN Bits7(14, 17, 17, 17, 21, 18, 13, row) END IF
+        IF ch = "R" THEN RETURN Bits7(30, 17, 17, 30, 20, 18, 17, row) END IF
+        IF ch = "S" THEN RETURN Bits7(15, 16, 16, 14, 1, 1, 30, row) END IF
+        IF ch = "T" THEN RETURN Bits7(31, 4, 4, 4, 4, 4, 4, row) END IF
+        IF ch = "U" THEN RETURN Bits7(17, 17, 17, 17, 17, 17, 14, row) END IF
+        IF ch = "V" THEN RETURN Bits7(17, 17, 17, 17, 17, 10, 4, row) END IF
+        IF ch = "W" THEN RETURN Bits7(17, 17, 17, 21, 21, 21, 10, row) END IF
+        IF ch = "X" THEN RETURN Bits7(17, 17, 10, 4, 10, 17, 17, row) END IF
+        IF ch = "Y" THEN RETURN Bits7(17, 17, 10, 4, 4, 4, 4, row) END IF
+        IF ch = "Z" THEN RETURN Bits7(31, 1, 2, 4, 8, 16, 31, row) END IF
+        IF ch = "0" THEN RETURN Bits7(14, 17, 19, 21, 25, 17, 14, row) END IF
+        IF ch = "1" THEN RETURN Bits7(4, 12, 4, 4, 4, 4, 14, row) END IF
+        IF ch = "2" THEN RETURN Bits7(14, 17, 1, 2, 4, 8, 31, row) END IF
+        IF ch = "3" THEN RETURN Bits7(30, 1, 1, 14, 1, 1, 30, row) END IF
+        IF ch = "4" THEN RETURN Bits7(2, 6, 10, 18, 31, 2, 2, row) END IF
+        IF ch = "5" THEN RETURN Bits7(31, 16, 16, 30, 1, 1, 30, row) END IF
+        IF ch = "6" THEN RETURN Bits7(14, 16, 16, 30, 17, 17, 14, row) END IF
+        IF ch = "7" THEN RETURN Bits7(31, 1, 2, 4, 8, 8, 8, row) END IF
+        IF ch = "8" THEN RETURN Bits7(14, 17, 17, 14, 17, 17, 14, row) END IF
+        IF ch = "9" THEN RETURN Bits7(14, 17, 17, 15, 1, 1, 14, row) END IF
+        IF ch = ":" THEN RETURN Bits7(0, 4, 4, 0, 4, 4, 0, row) END IF
+        IF ch = "." THEN RETURN Bits7(0, 0, 0, 0, 0, 4, 4, row) END IF
+        IF ch = "," THEN RETURN Bits7(0, 0, 0, 0, 0, 4, 8, row) END IF
+        IF ch = "-" THEN RETURN Bits7(0, 0, 0, 14, 0, 0, 0, row) END IF
+        IF ch = "_" THEN RETURN Bits7(0, 0, 0, 0, 0, 0, 31, row) END IF
+        IF ch = "/" THEN RETURN Bits7(1, 2, 2, 4, 8, 8, 16, row) END IF
+        IF ch = "<" THEN RETURN Bits7(0, 2, 4, 8, 4, 2, 0, row) END IF
+        IF ch = ">" THEN RETURN Bits7(0, 8, 4, 2, 4, 8, 0, row) END IF
+        IF ch = "[" THEN RETURN Bits7(14, 8, 8, 8, 8, 8, 14, row) END IF
+        IF ch = "]" THEN RETURN Bits7(14, 2, 2, 2, 2, 2, 14, row) END IF
+        IF ch = "(" THEN RETURN Bits7(2, 4, 8, 8, 8, 4, 2, row) END IF
+        IF ch = ")" THEN RETURN Bits7(8, 4, 2, 2, 2, 4, 8, row) END IF
+        IF ch = "!" THEN RETURN Bits7(4, 4, 4, 4, 4, 0, 4, row) END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION ColMask(col AS U8) AS U8
+        IF col = 0 THEN RETURN 16 END IF
+        IF col = 1 THEN RETURN 8 END IF
+        IF col = 2 THEN RETURN 4 END IF
+        IF col = 3 THEN RETURN 2 END IF
+        RETURN 1
+    END FUNCTION
+
+    PROCEDURE DrawGlyph(x AS S32, y AS S32, ch AS STRING)
+        LET row AS U8 = 0
+        LET col AS U8 = 0
+        LET bits AS U8 = 0
+        FOR row = 0 TO GLYPH_H - 1 THEN
+            bits = RowBits(ch, row)
+            FOR col = 0 TO GLYPH_W - 1 THEN
+                IF (bits AND ColMask(col)) != 0 THEN
+                    FILL RECT x + S32(col), y + S32(row), 1, 1
+                END IF
+            END FOR
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE RenderString(x AS S32, y AS S32, text_value AS STRING)
+        LET text_len AS U16 = CAST(LEN(text_value) AS U16)
+        LET pos AS U16 = 1
+        LET cursor_x AS S32 = x
+        LET cursor_y AS S32 = y
+        LET ch AS STRING = ""
+
+        WHILE pos <= text_len
+            ch = MID(text_value, pos, 1)
+            IF ch = "\n" THEN
+                cursor_x = x
+                cursor_y = cursor_y + LINE_ADVANCE
+            ELSE
+                DrawGlyph(cursor_x, cursor_y, ch)
+                cursor_x = cursor_x + GLYPH_ADVANCE
+            END IF
+            pos = pos + 1
+        END WHILE
+    END PROCEDURE
+END MODULE

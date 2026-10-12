@@ -1,0 +1,131 @@
+-- ====================================================================
+-- DOS_MEMORY.ALBI
+-- Small scratch-buffer and mark-slot helpers for DOS utilities.
+-- ====================================================================
+
+LET DOSMEM_SLOT1 AS STRING = ""
+LET DOSMEM_SLOT2 AS STRING = ""
+LET DOSMEM_SLOT3 AS STRING = ""
+LET DOSMEM_SLOT4 AS STRING = ""
+LET DOSMEM_SLOT5 AS STRING = ""
+LET DOSMEM_SLOT6 AS STRING = ""
+LET DOSMEM_SLOT7 AS STRING = ""
+LET DOSMEM_SLOT8 AS STRING = ""
+
+LET DOSMEM_MARK1 AS U16 = 0
+LET DOSMEM_MARK2 AS U16 = 0
+LET DOSMEM_MARK3 AS U16 = 0
+LET DOSMEM_MARK4 AS U16 = 0
+
+FUNCTION DOSMEM_Substr(source_text AS STRING, first_idx AS U16, count AS U16) AS STRING
+    LET out_text AS STRING = ""
+    LET idx AS U16 = 0
+    LET text_len AS U16 = CAST(LEN(source_text) AS U16)
+
+    IF count = 0 THEN RETURN "" END IF
+    IF first_idx = 0 THEN RETURN "" END IF
+    IF first_idx > text_len THEN RETURN "" END IF
+
+    FOR idx = 0 TO count - 1 THEN
+        IF first_idx + idx <= text_len THEN
+            out_text = CONCAT(out_text, MID$(source_text, first_idx + idx, 1))
+        END IF
+    END FOR
+
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+PROCEDURE DOSMEM_Clear_All()
+    DOSMEM_SLOT1 = ""
+    DOSMEM_SLOT2 = ""
+    DOSMEM_SLOT3 = ""
+    DOSMEM_SLOT4 = ""
+    DOSMEM_SLOT5 = ""
+    DOSMEM_SLOT6 = ""
+    DOSMEM_SLOT7 = ""
+    DOSMEM_SLOT8 = ""
+    DOSMEM_MARK1 = 0
+    DOSMEM_MARK2 = 0
+    DOSMEM_MARK3 = 0
+    DOSMEM_MARK4 = 0
+END PROCEDURE
+
+PROCEDURE DOSMEM_Clear(slot_value AS U16)
+    SELECT slot_value
+        CASE 1 => DOSMEM_SLOT1 = ""
+        CASE 2 => DOSMEM_SLOT2 = ""
+        CASE 3 => DOSMEM_SLOT3 = ""
+        CASE 4 => DOSMEM_SLOT4 = ""
+        CASE 5 => DOSMEM_SLOT5 = ""
+        CASE 6 => DOSMEM_SLOT6 = ""
+        CASE 7 => DOSMEM_SLOT7 = ""
+        CASE ELSE => DOSMEM_SLOT8 = ""
+    END SELECT
+END PROCEDURE
+
+PROCEDURE DOSMEM_Store(slot_value AS U16, text_value AS STRING)
+    SELECT slot_value
+        CASE 1 => DOSMEM_SLOT1 = text_value
+        CASE 2 => DOSMEM_SLOT2 = text_value
+        CASE 3 => DOSMEM_SLOT3 = text_value
+        CASE 4 => DOSMEM_SLOT4 = text_value
+        CASE 5 => DOSMEM_SLOT5 = text_value
+        CASE 6 => DOSMEM_SLOT6 = text_value
+        CASE 7 => DOSMEM_SLOT7 = text_value
+        CASE ELSE => DOSMEM_SLOT8 = text_value
+    END SELECT
+END PROCEDURE
+
+FUNCTION DOSMEM_Load(slot_value AS U16) AS STRING
+    SELECT slot_value
+        CASE 1 => RETURN DOSMEM_SLOT1
+        CASE 2 => RETURN DOSMEM_SLOT2
+        CASE 3 => RETURN DOSMEM_SLOT3
+        CASE 4 => RETURN DOSMEM_SLOT4
+        CASE 5 => RETURN DOSMEM_SLOT5
+        CASE 6 => RETURN DOSMEM_SLOT6
+        CASE 7 => RETURN DOSMEM_SLOT7
+        CASE ELSE => RETURN DOSMEM_SLOT8
+    END SELECT
+END FUNCTION
+
+FUNCTION DOSMEM_Length(slot_value AS U16) AS U16
+    RETURN CAST(LEN(DOSMEM_Load(slot_value)) AS U16)
+END FUNCTION
+
+FUNCTION DOSMEM_Is_Empty(slot_value AS U16) AS BOOL
+    IF DOSMEM_Length(slot_value) = 0 THEN RETURN TRUE END IF
+    RETURN FALSE
+END FUNCTION
+
+PROCEDURE DOSMEM_Copy(source_slot AS U16, target_slot AS U16)
+    CALL DOSMEM_Store(target_slot, DOSMEM_Load(source_slot))
+END PROCEDURE
+
+PROCEDURE DOSMEM_Swap(left_slot AS U16, right_slot AS U16)
+    LET temp_text AS STRING = DOSMEM_Load(left_slot)
+    CALL DOSMEM_Store(left_slot, DOSMEM_Load(right_slot))
+    CALL DOSMEM_Store(right_slot, temp_text)
+END PROCEDURE
+
+FUNCTION DOSMEM_Slice(slot_value AS U16, first_idx AS U16, count AS U16) AS STRING
+    RETURN DOSMEM_Substr(DOSMEM_Load(slot_value), first_idx, count)
+END FUNCTION
+
+PROCEDURE DOSMEM_Set_Mark(mark_slot AS U16, value AS U16)
+    SELECT mark_slot
+        CASE 1 => DOSMEM_MARK1 = value
+        CASE 2 => DOSMEM_MARK2 = value
+        CASE 3 => DOSMEM_MARK3 = value
+        CASE ELSE => DOSMEM_MARK4 = value
+    END SELECT
+END PROCEDURE
+
+FUNCTION DOSMEM_Get_Mark(mark_slot AS U16) AS U16
+    SELECT mark_slot
+        CASE 1 => RETURN DOSMEM_MARK1
+        CASE 2 => RETURN DOSMEM_MARK2
+        CASE 3 => RETURN DOSMEM_MARK3
+        CASE ELSE => RETURN DOSMEM_MARK4
+    END SELECT
+END FUNCTION

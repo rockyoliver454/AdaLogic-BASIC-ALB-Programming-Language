@@ -1,0 +1,58 @@
+-- Ridged multi-octave hash: 255 - abs(n-128)*2 (no Perlin).
+VERSION 1.0
+
+DECLARE MODULE GdRidged
+    FUNCTION RidgeAt(x AS S32, y AS S32, seed AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdRidged
+
+    FUNCTION RidgeAt(x AS S32, y AS S32, seed AS S32) AS S32
+        LET o0 AS S32 = 0
+        LET o1 AS S32 = 0
+        LET o2 AS S32 = 0
+        LET o3 AS S32 = 0
+        LET n AS S32 = 0
+        LET d AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        o0 = GdHash.ByteOf(x, y, seed)
+        o1 = GdHash.ByteOf(x / 2, y / 2, seed + 1)
+        o2 = GdHash.ByteOf(x / 4, y / 4, seed + 2)
+        o3 = GdHash.ByteOf(x / 8, y / 8, seed + 3)
+        n = (o0 * 8 + o1 * 4 + o2 * 2 + o3) / 15
+        d = n - 128
+        IF d < 0 THEN
+            d = 0 - d
+        END IF
+        n = 255 - d * 2
+        RETURN GdVec2.ClipI(n, 0, 255)
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        a = RidgeAt(0, 0, 3)
+        b = RidgeAt(40, 24, 3)
+        IF a = b THEN
+            RETURN 0
+        END IF
+        IF a < 0 THEN
+            RETURN 0
+        END IF
+        IF a > 255 THEN
+            RETURN 0
+        END IF
+        IF b < 0 THEN
+            RETURN 0
+        END IF
+        IF b > 255 THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,32 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+
+LET cs AS F64 = 0.0
+LET sn AS F64 = 0.0
+LET st AS S32 = 0
+LET rot AS F64 = 1.0
+LET gfx AS S64 = 0
+LET i AS S32 = 0
+
+PRINT "probe start"
+LET cs = COS(rot)
+LET sn = SIN(rot)
+LET st = 1
+PRINT "st=" | st
+PRINT "cos_sin_ready"
+
+LET gfx = gfx_init(400, 300)
+IF gfx = 0 THEN
+  PRINT "gfx fail"
+ELSE
+  FOR i = 1 TO 30 THEN
+    LET st = gfx_begin_frame(gfx)
+    LET st = gfx_clear(gfx, 0.05, 0.2, 0.45, 1.0)
+    LET st = gfx_end_frame(gfx, 1)
+  END FOR
+  CALL gfx_shutdown(gfx)
+  PRINT "gfx blue clear ok"
+END IF
+PRINT "probe done"
+END

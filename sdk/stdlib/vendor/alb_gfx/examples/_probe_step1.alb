@@ -1,0 +1,12 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+INCLUDE <alb_openblas.albi>
+INCLUDE <alb_nuklear.albi>
+PRINT "step1 all includes"
+LET ver_blas AS S32 = alb_openblas_version()
+PRINT "blas=" | ver_blas
+LET ver_nk AS S32 = alb_nuklear_version()
+PRINT "nk=" | ver_nk
+PRINT "step1 OK"
+END

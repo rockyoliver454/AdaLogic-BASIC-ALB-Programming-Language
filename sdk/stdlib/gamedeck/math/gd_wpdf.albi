@@ -1,0 +1,53 @@
+-- Twin of Ada weighted_pdf. Cap 8 integer weights.
+VERSION 1.0
+
+DECLARE MODULE GdWpdf
+    PROCEDURE Setup()
+    PROCEDURE NoteW(slot AS S32, w AS S32)
+    FUNCTION Roll(pressure AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdWpdf
+
+    STRICT wgt[8] AS S32
+
+    PROCEDURE Setup()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 8
+            wgt[i] = i
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE NoteW(slot AS S32, w AS S32)
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 8)
+        wgt[slot] = GdVec2.ClipI(w, 1, 64)
+    END PROCEDURE
+
+    FUNCTION Roll(pressure AS S32) AS S32
+        LET i AS S32 = 1
+        LET sum AS S32 = 0
+        LET pick AS S32 = 0
+        LET acc AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 8
+            sum = sum + wgt[i]
+            i = i + 1
+        END WHILE
+        pick = (GdRng.NextMod(sum) + pressure) MOD sum
+        i = 1
+        WHILE i <= 8
+            acc = acc + wgt[i]
+            IF pick < acc THEN
+                RETURN i
+            END IF
+            i = i + 1
+        END WHILE
+        RETURN 1
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_d3d11.albi"
+
+LET rc = alb_d3d11_test_rectangles(90)
+IF rc = 0 THEN
+  PRINT "d3d11 rectangles PASS"
+ELSE
+  PRINT "d3d11 rectangles FAIL " | rc
+END IF
+END

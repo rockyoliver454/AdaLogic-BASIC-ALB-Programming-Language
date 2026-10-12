@@ -1,0 +1,8 @@
+DECLARE MODULE Simulation
+    PROCEDURE Setup()
+    PROCEDURE Stage1_Input()
+    PROCEDURE Stage2_Simulate()
+    PROCEDURE Stage3_Render()
+    FUNCTION GetFrameCount() AS U32
+    PROCEDURE SetFrameCount(value AS U32)
+END DECLARE MODULE

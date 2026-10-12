@@ -1,0 +1,312 @@
+-- Twin of SPARK PeeEnGee. PNG probe + RGBA size. Decode stays Ada-proven; thumbs use RGB888 averages.
+VERSION 1.0
+
+DECLARE MODULE PeeEnGee
+    FUNCTION ApiVersion() AS S32
+    FUNCTION MaxW() AS S32
+    FUNCTION MaxH() AS S32
+    FUNCTION RgbaBytes(w AS S32, h AS S32) AS S32
+    FUNCTION StatusOk() AS S32
+    PROCEDURE PutByte(b AS S32)
+    FUNCTION ProbeMem(b0 AS S32, b1 AS S32, b2 AS S32, b3 AS S32, b4 AS S32, b5 AS S32, b6 AS S32, b7 AS S32) AS S32
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION InfoW() AS S32
+    FUNCTION InfoH() AS S32
+    FUNCTION InfoCh() AS S32
+    FUNCTION AvgRgb(slot AS S32) AS S32
+    PROCEDURE NoteRgb(slot AS S32, rgbv AS S32)
+    FUNCTION ThumbPx() AS S32
+    FUNCTION SlotCount() AS S32
+END DECLARE MODULE
+
+MODULE PeeEnGee
+
+    STRICT buf[4096] AS U8
+    STRICT rgb[256] AS S32
+    LET buflen AS S32 = 0
+    LET armed AS S32 = 0
+    LET lastst AS S32 = 5
+    LET infow AS S32 = 0
+    LET infoh AS S32 = 0
+    LET infoch AS S32 = 0
+
+    PROCEDURE ArmPal()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 256
+            rgb[i] = ((i * 48) AND 255) * 65536 + ((i * 19) AND 255) * 256 + ((i * 7) AND 255)
+            i = i + 1
+        END WHILE
+        rgb[1] = 74 * 65536 + 222 * 256 + 128
+        rgb[2] = 248 * 65536 + 113 * 256 + 113
+        rgb[3] = 250 * 65536 + 204 * 256 + 21
+        rgb[4] = 51 * 65536 + 65 * 256 + 85
+        rgb[5] = 30 * 65536 + 41 * 256 + 59
+        rgb[6] = 226 * 65536 + 232 * 256 + 240
+        armed = 1
+    END PROCEDURE
+
+    FUNCTION ApiVersion() AS S32
+        ASSERT(1 = 1)
+        RETURN 65792
+    END FUNCTION
+
+    FUNCTION MaxW() AS S32
+        ASSERT(1 = 1)
+        RETURN 16384
+    END FUNCTION
+
+    FUNCTION MaxH() AS S32
+        ASSERT(1 = 1)
+        RETURN 16384
+    END FUNCTION
+
+    FUNCTION RgbaBytes(w AS S32, h AS S32) AS S32
+        ASSERT(w >= 0)
+        ASSERT(h >= 0)
+        IF w > 16384 THEN
+            RETURN 0 - 1
+        END IF
+        IF h > 16384 THEN
+            RETURN 0 - 1
+        END IF
+        RETURN w * h * 4
+    END FUNCTION
+
+    FUNCTION StatusOk() AS S32
+        ASSERT(1 = 1)
+        RETURN 0
+    END FUNCTION
+
+    PROCEDURE PutByte(b AS S32)
+        ASSERT(b >= 0)
+        ASSERT(b <= 255)
+        IF buflen < 4096 THEN
+            buflen = buflen + 1
+            buf[buflen] = b AND 255
+        END IF
+    END PROCEDURE
+
+    FUNCTION ProbeMem(b0 AS S32, b1 AS S32, b2 AS S32, b3 AS S32, b4 AS S32, b5 AS S32, b6 AS S32, b7 AS S32) AS S32
+        ASSERT(1 = 1)
+        IF b0 <> 137 THEN
+            RETURN 5
+        END IF
+        IF b1 <> 80 THEN
+            RETURN 5
+        END IF
+        IF b2 <> 78 THEN
+            RETURN 5
+        END IF
+        IF b3 <> 71 THEN
+            RETURN 5
+        END IF
+        IF b4 <> 13 THEN
+            RETURN 5
+        END IF
+        IF b5 <> 10 THEN
+            RETURN 5
+        END IF
+        IF b6 <> 26 THEN
+            RETURN 5
+        END IF
+        IF b7 <> 10 THEN
+            RETURN 5
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION BeU32(atn AS S32) AS S32
+        ASSERT(atn >= 1)
+        RETURN buf[atn] * 16777216 + buf[atn + 1] * 65536 + buf[atn + 2] * 256 + buf[atn + 3]
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        LET ln AS S32 = 0
+        LET w AS S32 = 0
+        LET h AS S32 = 0
+        LET depth AS S32 = 0
+        LET ctype AS S32 = 0
+        LET comp AS S32 = 0
+        LET filt AS S32 = 0
+        LET inter AS S32 = 0
+        LET t0 AS S32 = 0
+        LET t1 AS S32 = 0
+        LET t2 AS S32 = 0
+        LET t3 AS S32 = 0
+        ASSERT(1 = 1)
+        infow = 0
+        infoh = 0
+        infoch = 0
+        IF buflen = 0 THEN
+            lastst = 5
+            RETURN 5
+        END IF
+        IF buflen < 8 THEN
+            lastst = 1
+            RETURN 1
+        END IF
+        lastst = ProbeMem(buf[1], buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8])
+        IF lastst <> 0 THEN
+            IF buflen < 8 THEN
+                lastst = 1
+            END IF
+            RETURN lastst
+        END IF
+        IF buflen < 33 THEN
+            lastst = 1
+            RETURN 1
+        END IF
+        ln = BeU32(9)
+        t0 = buf[13]
+        t1 = buf[14]
+        t2 = buf[15]
+        t3 = buf[16]
+        IF t0 <> 73 THEN
+            lastst = 3
+            RETURN 3
+        END IF
+        IF t1 <> 72 THEN
+            lastst = 3
+            RETURN 3
+        END IF
+        IF t2 <> 68 THEN
+            lastst = 3
+            RETURN 3
+        END IF
+        IF t3 <> 82 THEN
+            lastst = 3
+            RETURN 3
+        END IF
+        IF ln <> 13 THEN
+            lastst = 3
+            RETURN 3
+        END IF
+        w = BeU32(17)
+        h = BeU32(21)
+        depth = buf[25]
+        ctype = buf[26]
+        comp = buf[27]
+        filt = buf[28]
+        inter = buf[29]
+        IF w < 1 THEN
+            lastst = 3
+            RETURN 3
+        END IF
+        IF h < 1 THEN
+            lastst = 3
+            RETURN 3
+        END IF
+        IF w > 16384 THEN
+            lastst = 4
+            RETURN 4
+        END IF
+        IF h > 16384 THEN
+            lastst = 4
+            RETURN 4
+        END IF
+        IF comp <> 0 THEN
+            lastst = 2
+            RETURN 2
+        END IF
+        IF filt <> 0 THEN
+            lastst = 2
+            RETURN 2
+        END IF
+        IF inter = 1 THEN
+            lastst = 2
+            RETURN 2
+        END IF
+        IF inter <> 0 THEN
+            lastst = 3
+            RETURN 3
+        END IF
+        IF depth <> 8 THEN
+            lastst = 2
+            RETURN 2
+        END IF
+        IF ctype = 4 THEN
+            lastst = 2
+            RETURN 2
+        END IF
+        IF ctype = 0 THEN
+            infoch = 1
+        ELSE
+            IF ctype = 2 THEN
+                infoch = 3
+            ELSE
+                IF ctype = 3 THEN
+                    infoch = 1
+                ELSE
+                    IF ctype = 6 THEN
+                        infoch = 4
+                    ELSE
+                        lastst = 3
+                        RETURN 3
+                    END IF
+                END IF
+            END IF
+        END IF
+        infow = w
+        infoh = h
+        lastst = 0
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION InfoW() AS S32
+        ASSERT(infow >= 0)
+        RETURN infow
+    END FUNCTION
+
+    FUNCTION InfoH() AS S32
+        ASSERT(infoh >= 0)
+        RETURN infoh
+    END FUNCTION
+
+    FUNCTION InfoCh() AS S32
+        ASSERT(infoch >= 0)
+        RETURN infoch
+    END FUNCTION
+
+    FUNCTION AvgRgb(slot AS S32) AS S32
+        LET s AS S32 = slot
+        ASSERT(1 = 1)
+        IF armed = 0 THEN
+            ArmPal()
+        END IF
+        IF s < 0 THEN
+            s = 0
+        END IF
+        IF s > 255 THEN
+            s = s AND 255
+        END IF
+        RETURN rgb[s + 1]
+    END FUNCTION
+
+    PROCEDURE NoteRgb(slot AS S32, rgbv AS S32)
+        LET s AS S32 = slot
+        ASSERT(1 = 1)
+        IF armed = 0 THEN
+            ArmPal()
+        END IF
+        IF s < 0 THEN
+            RETURN
+        END IF
+        IF s > 255 THEN
+            RETURN
+        END IF
+        rgb[s + 1] = rgbv
+    END PROCEDURE
+
+    FUNCTION ThumbPx() AS S32
+        ASSERT(1 = 1)
+        RETURN 16
+    END FUNCTION
+
+    FUNCTION SlotCount() AS S32
+        ASSERT(1 = 1)
+        RETURN 1456
+    END FUNCTION
+
+END MODULE

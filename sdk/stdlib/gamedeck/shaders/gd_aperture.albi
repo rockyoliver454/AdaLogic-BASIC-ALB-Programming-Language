@@ -1,0 +1,50 @@
+-- Software aperture vignette. shaders/ meaning, not GLSL.
+VERSION 1.0
+
+DECLARE MODULE GdAperture
+    PROCEDURE Present()
+    PROCEDURE ApplyFb()
+END DECLARE MODULE
+
+MODULE GdAperture
+
+    PROCEDURE Present()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $000000
+        FILL RECT 0, 0, 640, 8
+        FILL RECT 0, 352, 640, 8
+        FILL RECT 0, 0, 8, 360
+        FILL RECT 632, 0, 8, 360
+    END PROCEDURE
+
+    PROCEDURE ApplyFb()
+        LET x AS S32 = 0
+        LET y AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE y < GdVgpu.FbH()
+            x = 0
+            WHILE x < GdVgpu.FbW()
+                IF y < 4 THEN
+                    GdVgpu.Put(x, y, 0)
+                ELSE
+                    IF y >= GdVgpu.FbH() - 4 THEN
+                        GdVgpu.Put(x, y, 0)
+                    ELSE
+                        IF x < 4 THEN
+                            GdVgpu.Put(x, y, 0)
+                        ELSE
+                            IF x >= GdVgpu.FbW() - 4 THEN
+                                GdVgpu.Put(x, y, 0)
+                            END IF
+                        END IF
+                    END IF
+                END IF
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

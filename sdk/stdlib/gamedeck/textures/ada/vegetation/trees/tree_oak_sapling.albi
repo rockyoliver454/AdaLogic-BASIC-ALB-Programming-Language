@@ -1,0 +1,46 @@
+-- Twin of Ada Tree_Oak_Sapling. Load -> ArmTex. Raster is GdAdaTex id 41.
+VERSION 1.0
+
+DECLARE MODULE TreeOakSapling
+    FUNCTION TexId() AS S32
+    PROCEDURE ArmTex()
+    PROCEDURE PresentAt(x AS S32, y AS S32)
+    FUNCTION TileW() AS S32
+    FUNCTION TileH() AS S32
+    FUNCTION RgbA() AS S32
+END DECLARE MODULE
+
+MODULE TreeOakSapling
+
+    FUNCTION TexId() AS S32
+        ASSERT(1 = 1)
+        RETURN 41
+    END FUNCTION
+
+    PROCEDURE ArmTex()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        GdAdaTex.BakeTile(TexId())
+    END PROCEDURE
+
+    PROCEDURE PresentAt(x AS S32, y AS S32)
+        ASSERT(1 = 1)
+        GdAdaTex.Present(41, x, y)
+    END PROCEDURE
+
+    FUNCTION TileW() AS S32
+        ASSERT(1 = 1)
+        RETURN 16
+    END FUNCTION
+
+    FUNCTION TileH() AS S32
+        ASSERT(1 = 1)
+        RETURN 16
+    END FUNCTION
+
+    FUNCTION RgbA() AS S32
+        ASSERT(1 = 1)
+        RETURN GdAdaTex.Rgb0(41)
+    END FUNCTION
+
+END MODULE

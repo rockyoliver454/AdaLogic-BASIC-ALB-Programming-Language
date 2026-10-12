@@ -1,0 +1,37 @@
+alb_gfx=300  alb_openblas=200  alb_nuklear=200
+
+Opening alb_gfx + Nuklear live overhaul...
+(GPU gates MSAA/tex/timestamps are soft-skipped on the RHI path)
+
+live v2 ready (STAR default). ESC / Quit / close a window to exit.
+note: MSAA/tex/timestamps toggles are UI-only on alb_gfx RHI
+f=30 shape=2 blas=0.900 inst=1 | DGEMM+DGEMV nrm2=0.900
+f=60 shape=2 blas=0.863 inst=1 | DGEMM+DGEMV nrm2=0.863
+f=90 shape=2 blas=0.765 inst=1 | DGEMM+DGEMV nrm2=0.765
+f=120 shape=2 blas=0.624 inst=1 | DGEMM+DGEMV nrm2=0.624
+f=150 shape=2 blas=0.432 inst=1 | DGEMM+DGEMV nrm2=0.432
+f=180 shape=2 blas=0.223 inst=1 | DGEMM+DGEMV nrm2=0.223
+f=210 shape=2 blas=0.011 inst=1 | DGEMM+DGEMV nrm2=0.011
+f=240 shape=2 blas=0.224 inst=1 | DGEMM+DGEMV nrm2=0.224
+f=270 shape=2 blas=0.433 inst=1 | DGEMM+DGEMV nrm2=0.433
+f=300 shape=2 blas=0.615 inst=1 | DGEMM+DGEMV nrm2=0.615
+f=330 shape=2 blas=0.759 inst=1 | DGEMM+DGEMV nrm2=0.759
+f=360 shape=2 blas=0.855 inst=1 | DGEMM+DGEMV nrm2=0.855
+f=390 shape=2 blas=0.899 inst=1 | DGEMM+DGEMV nrm2=0.899
+f=420 shape=2 blas=0.887 inst=1 | DGEMM+DGEMV nrm2=0.887
+f=450 shape=2 blas=0.819 inst=1 | DGEMM+DGEMV nrm2=0.819
+f=480 shape=2 blas=0.701 inst=1 | DGEMM+DGEMV nrm2=0.701
+f=510 shape=2 blas=0.539 inst=1 | DGEMM+DGEMV nrm2=0.539
+f=540 shape=2 blas=0.343 inst=1 | DGEMM+DGEMV nrm2=0.343
+f=570 shape=2 blas=0.127 inst=1 | DGEMM+DGEMV nrm2=0.127
+f=600 shape=2 blas=0.099 inst=1 | DGEMM+DGEMV nrm2=0.099
+f=630 shape=2 blas=0.317 inst=1 | DGEMM+DGEMV nrm2=0.317
+f=660 shape=2 blas=0.516 inst=1 | DGEMM+DGEMV nrm2=0.516
+f=690 shape=2 blas=0.682 inst=1 | DGEMM+DGEMV nrm2=0.682
+f=720 shape=2 blas=0.807 inst=1 | DGEMM+DGEMV nrm2=0.807
+f=750 shape=2 blas=0.881 inst=1 | DGEMM+DGEMV nrm2=0.881
+f=780 shape=2 blas=0.900 inst=1 | DGEMM+DGEMV nrm2=0.900
+f=810 shape=2 blas=0.864 inst=1 | DGEMM+DGEMV nrm2=0.864
+f=840 shape=2 blas=0.774 inst=1 | DGEMM+DGEMV nrm2=0.774
+f=870 shape=2 blas=0.635 inst=1 | DGEMM+DGEMV nrm2=0.635
+f=900 shape=2 blas=0.458 inst=1 | DGEMM+DGEMV nrm2=0.458

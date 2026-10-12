@@ -1,0 +1,68 @@
+-- ====================================================================
+-- C64_UI.ALBI
+-- Text-mode HUD and panel helpers (C64 TEXT rows 1..25).
+-- ====================================================================
+
+PROCEDURE C64UI_Text(row AS U8, col AS U8, col_idx AS U8, message AS STRING)
+    CALL C64Gfx_SetColor(col_idx)
+    TEXT col, row, message
+END PROCEDURE
+
+PROCEDURE C64UI_Header(title AS STRING)
+    CALL C64Gfx_SetColor(#C64_COL_CYAN)
+    TEXT 2, 1, title
+    CALL C64Gfx_SetColor(#C64_COL_DKGRAY)
+    TEXT 2, 2, "----------------------------------------"
+END PROCEDURE
+
+PROCEDURE C64UI_Status(row AS U8, label AS STRING, value AS U16)
+    CALL C64Gfx_SetColor(#C64_COL_LTGRAY)
+    TEXT 2, row, label
+    CALL C64Gfx_SetColor(#C64_COL_WHITE)
+    TEXT 12, row, "      "
+    TEXT 12, row, "" | value
+END PROCEDURE
+
+PROCEDURE C64UI_StatusU8(row AS U8, label AS STRING, value AS U8)
+    CALL C64Gfx_SetColor(#C64_COL_LTGRAY)
+    TEXT 2, row, label
+    CALL C64Gfx_SetColor(#C64_COL_WHITE)
+    TEXT 12, row, "      "
+    TEXT 12, row, "" | value
+END PROCEDURE
+
+PROCEDURE C64UI_Prompt(row AS U8, message AS STRING)
+    CALL C64Gfx_SetColor(#C64_COL_YELLOW)
+    TEXT 2, row, message
+END PROCEDURE
+
+PROCEDURE C64UI_DrawScoreBar(row AS U8, score AS U16, lives AS U8)
+    CALL C64Gfx_SetColor(#C64_COL_GREEN)
+    TEXT 2, row, "SCORE"
+    CALL C64Gfx_SetColor(#C64_COL_DKGRAY)
+    TEXT 10, row, "      "
+    CALL C64Gfx_SetColor(#C64_COL_WHITE)
+    TEXT 10, row, "" | score
+    CALL C64Gfx_SetColor(#C64_COL_RED)
+    TEXT 24, row, "LIVES"
+    TEXT 31, row, "" | lives
+END PROCEDURE
+
+PROCEDURE C64UI_GameOverPanel(title AS STRING, hint AS STRING)
+    CALL C64Gfx_SetColor(#C64_COL_RED)
+    TEXT 12, 10, title
+    CALL C64Gfx_SetColor(#C64_COL_YELLOW)
+    TEXT 8, 12, hint
+END PROCEDURE
+
+PROCEDURE C64UI_MenuItem(row AS U8, selected AS U8, label AS STRING)
+    IF selected > 0 THEN
+        CALL C64Gfx_SetColor(#C64_COL_YELLOW)
+        TEXT 10, row, ">"
+    ELSE
+        CALL C64Gfx_SetColor(#C64_COL_DKGRAY)
+        TEXT 10, row, " "
+    END IF
+    CALL C64Gfx_SetColor(#C64_COL_WHITE)
+    TEXT 12, row, label
+END PROCEDURE

@@ -1,0 +1,57 @@
+INCLUDE "lighting.albi"
+IMPORT Lighting
+
+MODULE Lighting
+    PROCEDURE Setup()
+    END PROCEDURE
+
+    FUNCTION GetAmbientBrightness(day_time AS U32, day_len AS U32, season AS U8, weather AS U8) AS U8
+        LET brightness AS U8 = 255
+        LET halfway AS U32 = day_len / 2
+        LET quarter AS U32 = day_len / 4
+        LET three_quarter AS U32 = halfway + quarter
+
+        IF day_time < quarter THEN
+            brightness = U8(180 + S32(day_time) * 75 / S32(quarter))
+        ELSE
+            IF day_time < three_quarter THEN
+                brightness = 255
+            ELSE
+                brightness = U8(255 - S32(day_time - three_quarter) * 75 / S32(quarter))
+                IF brightness < 180 THEN brightness = 180 END IF
+            END IF
+        END IF
+
+        IF weather = 1 THEN
+            IF brightness > 220 THEN brightness = 220 END IF
+        END IF
+        IF weather = 2 THEN brightness = brightness * 9 / 10 END IF
+        IF weather = 3 THEN brightness = brightness * 9 / 10 END IF
+
+        IF season = 1 THEN brightness = brightness * 95 / 100 END IF
+        IF season = 3 THEN brightness = brightness * 90 / 100 END IF
+
+        RETURN brightness
+    END FUNCTION
+
+    PROCEDURE DrawLightOverlay(brightness AS U8, weather AS U8, intensity AS U8, scr_w AS S32, scr_h AS S32)
+        IF brightness > 240 THEN RETURN END IF
+
+        LET dark_col AS S32 = 0
+        IF brightness > 210 THEN dark_col = $030308
+        ELSE
+            IF brightness > 190 THEN dark_col = $060610
+            ELSE
+                IF brightness > 170 THEN dark_col = $0A0A18
+                ELSE dark_col = $0E0E22
+                END IF
+            END IF
+        END IF
+
+        IF weather = 1 THEN dark_col = dark_col + $030302 END IF
+        IF weather = 2 THEN dark_col = dark_col + $030303 END IF
+
+        COLOR dark_col
+        FILL RECT 0, 0, scr_w, scr_h
+    END PROCEDURE
+END MODULE

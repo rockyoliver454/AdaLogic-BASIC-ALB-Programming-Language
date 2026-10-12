@@ -1,0 +1,8 @@
+DECLARE MODULE Weather
+    PROCEDURE Setup()
+    PROCEDURE Process()
+    PROCEDURE SetState(next_type AS U8, next_intensity AS U8, next_timer AS U16)
+    FUNCTION GetWeather() AS U8
+    FUNCTION GetWeatherIntensity() AS U8
+    FUNCTION GetAmbientColor() AS S32
+END DECLARE MODULE

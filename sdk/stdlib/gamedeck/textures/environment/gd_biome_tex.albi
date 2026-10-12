@@ -1,0 +1,40 @@
+-- Twin of Ada Biomes: tropical, temperate, boreal, arid forest tints.
+VERSION 1.0
+
+DECLARE MODULE GdBiomeTex
+    FUNCTION RgbOf(kind AS S32) AS S32
+    PROCEDURE PresentTile(kind AS S32, x AS S32, y AS S32)
+    FUNCTION KindN() AS S32
+    FUNCTION AdaId(kind AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdBiomeTex
+
+    FUNCTION AdaId(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 3)
+        IF kind = 0 THEN RETURN 30 END IF
+        IF kind = 1 THEN RETURN 29 END IF
+        IF kind = 2 THEN RETURN 28 END IF
+        RETURN 31
+    END FUNCTION
+
+    FUNCTION RgbOf(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 3)
+        RETURN GdAdaTex.Rgb0(AdaId(kind))
+    END FUNCTION
+
+    PROCEDURE PresentTile(kind AS S32, x AS S32, y AS S32)
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 3)
+        GdAdaTex.Present(AdaId(kind), x, y)
+    END PROCEDURE
+
+    FUNCTION KindN() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 4
+    END FUNCTION
+
+END MODULE

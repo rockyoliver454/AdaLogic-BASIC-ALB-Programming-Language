@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_opengl.albi"
+
+LET rc = alb_opengl_test_colored_quad(90)
+IF rc = 0 THEN
+  PRINT "opengl colored_quad PASS"
+ELSE
+  PRINT "opengl colored_quad FAIL " | rc
+END IF
+END

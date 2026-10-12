@@ -1,0 +1,12 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_nuklear.albi"
+
+PRINT "Opening Nuklear Demo window — close the window to exit"
+LET rc = alb_nuklear_run_demo()
+IF rc = 0 THEN
+  PRINT "nuklear demo PASS"
+ELSE
+  PRINT "nuklear demo FAIL " | rc
+END IF
+END

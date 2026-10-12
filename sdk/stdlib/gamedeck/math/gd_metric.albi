@@ -1,0 +1,63 @@
+-- Twin of Ada geo_metric. Manhattan / Chebyshev.
+VERSION 1.0
+
+DECLARE MODULE GdMetric
+    FUNCTION Manh(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+    FUNCTION Cheb(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+    FUNCTION Dist2(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdMetric
+
+    FUNCTION Manh(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+        LET dx AS S32 = ax - bx
+        LET dy AS S32 = ay - by
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF dx < 0 THEN
+            dx = 0 - dx
+        END IF
+        IF dy < 0 THEN
+            dy = 0 - dy
+        END IF
+        RETURN dx + dy
+    END FUNCTION
+
+    FUNCTION Cheb(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+        LET dx AS S32 = ax - bx
+        LET dy AS S32 = ay - by
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF dx < 0 THEN
+            dx = 0 - dx
+        END IF
+        IF dy < 0 THEN
+            dy = 0 - dy
+        END IF
+        IF dx > dy THEN
+            RETURN dx
+        END IF
+        RETURN dy
+    END FUNCTION
+
+    FUNCTION Dist2(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+        LET dx AS S32 = ax - bx
+        LET dy AS S32 = ay - by
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN dx * dx + dy * dy
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF Manh(0, 0, 3, 4) = 7 THEN
+            IF Dist2(0, 0, 3, 4) = 25 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

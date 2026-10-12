@@ -1,0 +1,39 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_nuklear.albi>
+
+LET nk AS S64 = 0
+LET rc AS S32 = 0
+LET i AS S32 = 0
+LET win_open AS S32 = 0
+LET clicked AS S32 = 0
+LET flags AS S32 = 87
+LET running AS S32 = 1
+
+PRINT "nuklear-only probe"
+LET nk = alb_nuklear_context_create_window(480, 360, 1, "ALB Nuklear Only")
+IF nk = 0 THEN
+  PRINT "nk FAIL"
+ELSE
+  CALL alb_nuklear_set_clear_color(nk, 0.15, 0.25, 0.40, 1.0)
+  CALL alb_nuklear_style_set_theme(nk, #ALB_NK_THEME_DARK)
+  FOR i = 1 TO 120 THEN
+    LET rc = alb_nuklear_should_close(nk)
+    IF rc != 0 THEN
+      LET i = 120
+    ELSE
+      LET rc = alb_nuklear_new_frame(nk)
+      LET win_open = alb_nuklear_begin(nk, "Panel", 20.0, 20.0, 400.0, 280.0, flags)
+      IF win_open != 0 THEN
+        CALL alb_nuklear_layout_row_dynamic(nk, 30.0, 1)
+        CALL alb_nuklear_label(nk, "If you see this, nuklear works", #ALB_NK_TEXT_LEFT)
+        LET clicked = alb_nuklear_button_label(nk, "OK")
+      END IF
+      CALL alb_nuklear_end(nk)
+      LET rc = alb_nuklear_render(nk)
+    END IF
+  END FOR
+  CALL alb_nuklear_context_destroy(nk)
+  PRINT "nuklear-only OK"
+END IF
+END

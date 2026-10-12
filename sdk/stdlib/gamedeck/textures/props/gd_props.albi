@@ -1,0 +1,45 @@
+-- Twin of Ada Props: hydrant, trash, pole, dish, AC, scarecrow, fence, chain H/V.
+VERSION 1.0
+
+DECLARE MODULE GdProps
+    FUNCTION RgbOf(kind AS S32) AS S32
+    PROCEDURE PresentTile(kind AS S32, x AS S32, y AS S32)
+    FUNCTION KindN() AS S32
+    FUNCTION AdaId(kind AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdProps
+
+    FUNCTION AdaId(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 8)
+        IF kind = 0 THEN RETURN 95 END IF
+        IF kind = 1 THEN RETURN 94 END IF
+        IF kind = 2 THEN RETURN 93 END IF
+        IF kind = 3 THEN RETURN 99 END IF
+        IF kind = 4 THEN RETURN 98 END IF
+        IF kind = 5 THEN RETURN 59 END IF
+        IF kind = 6 THEN RETURN 55 END IF
+        IF kind = 7 THEN RETURN 80 END IF
+        RETURN 81
+    END FUNCTION
+
+    FUNCTION RgbOf(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 8)
+        RETURN GdAdaTex.Rgb0(AdaId(kind))
+    END FUNCTION
+
+    PROCEDURE PresentTile(kind AS S32, x AS S32, y AS S32)
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 8)
+        GdAdaTex.Present(AdaId(kind), x, y)
+    END PROCEDURE
+
+    FUNCTION KindN() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 9
+    END FUNCTION
+
+END MODULE

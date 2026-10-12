@@ -1,0 +1,139 @@
+-- ============================================================================
+-- ALBFat — FAT12 / FAT16 / FAT32 boot sector
+-- ============================================================================
+-- Jump 0xEB or 0xE9, then BPB. Kind() is 12, 16, or 32 from the OEM name
+-- field ("FAT12   " at offset 54, or "FAT32   " at offset 82).
+-- Bps() bytes per sector (512/1024/4096). Spc() sectors per cluster.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_fat.albi"
+--
+-- ProbeBuf()  0 ok. This is not a cluster walker and does not list files.
+-- A 512-byte boot image is enough (see io_samples/tiny.fat).
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBFat
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION Kind() AS S32
+    FUNCTION Bps() AS S32
+    FUNCTION Spc() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBFat
+
+    -- 1-based window. BPB bytes/sector and sectors/cluster. Kind 12/16/32 from the FAT type field.
+    STRICT src[4096] AS U8
+    LET srclen AS S32 = 0
+    LET kindn AS S32 = 0
+    LET bpsn AS S32 = 0
+    LET spcn AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        kindn = 0
+        bpsn = 0
+        spcn = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 4096 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION GetU16(i AS S32) AS S32
+        RETURN CAST(src[i] AS S32) + CAST(src[i + 1] AS S32) * 256
+    END FUNCTION
+
+    FUNCTION Tag(i AS S32, a AS S32, b AS S32, c AS S32, d AS S32, e AS S32) AS S32
+        IF CAST(src[i] AS S32) <> a THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 1] AS S32) <> b THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 2] AS S32) <> c THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 3] AS S32) <> d THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 4] AS S32) <> e THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        kindn = 0
+        bpsn = 0
+        spcn = 0
+        IF srclen < 62 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        IF src[1] <> 235 THEN
+            IF src[1] <> 233 THEN
+                lastst = 3
+                RETURN lastst
+            END IF
+        END IF
+        bpsn = GetU16(12)
+        spcn = CAST(src[14] AS S32)
+        IF bpsn <> 512 THEN
+            IF bpsn <> 1024 THEN
+                IF bpsn <> 4096 THEN
+                    lastst = 5
+                    RETURN lastst
+                END IF
+            END IF
+        END IF
+        IF srclen >= 90 THEN
+            IF Tag(83, 70, 65, 84, 51, 50) <> 0 THEN
+                kindn = 32
+                lastst = 0
+                RETURN lastst
+            END IF
+        END IF
+        IF srclen >= 62 THEN
+            IF Tag(55, 70, 65, 84, 49, 54) <> 0 THEN
+                kindn = 16
+                lastst = 0
+                RETURN lastst
+            END IF
+            IF Tag(55, 70, 65, 84, 49, 50) <> 0 THEN
+                kindn = 12
+                lastst = 0
+                RETURN lastst
+            END IF
+        END IF
+        lastst = 3
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION Kind() AS S32
+        RETURN kindn
+    END FUNCTION
+
+    FUNCTION Bps() AS S32
+        RETURN bpsn
+    END FUNCTION
+
+    FUNCTION Spc() AS S32
+        RETURN spcn
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

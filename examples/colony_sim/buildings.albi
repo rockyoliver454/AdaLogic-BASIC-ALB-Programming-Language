@@ -1,0 +1,22 @@
+DECLARE MODULE Buildings
+    PROCEDURE Setup()
+    PROCEDURE PlaceBuilding(tx AS S32, ty AS S32, tz AS S32, kind AS U8)
+    PROCEDURE ProcessAll()
+    FUNCTION GetBuildingCount() AS U16
+    FUNCTION GetBuildingX(idx AS U16) AS S32
+    FUNCTION GetBuildingY(idx AS U16) AS S32
+    FUNCTION GetBuildingKind(idx AS U16) AS U8
+    FUNCTION GetBuildingState(idx AS U16) AS U8
+    FUNCTION GetBuildingHP(idx AS U16) AS U8
+    FUNCTION IsTileBlocked(tx AS S32, ty AS S32, tz AS S32) AS U8
+    FUNCTION GetBuildMode() AS U8
+    PROCEDURE SetBuildMode(mode AS U8)
+    FUNCTION GetBuildKind() AS U8
+    PROCEDURE SetBuildKind(kind AS U8)
+    FUNCTION GetCursorX() AS S32
+    FUNCTION GetCursorY() AS S32
+    PROCEDURE SetCursorPos(tx AS S32, ty AS S32)
+    FUNCTION MixChecksum(hash_value AS U64) AS U64
+    PROCEDURE freeze_module(filename AS STRING)
+    PROCEDURE thaw_module(filename AS STRING)
+END DECLARE MODULE

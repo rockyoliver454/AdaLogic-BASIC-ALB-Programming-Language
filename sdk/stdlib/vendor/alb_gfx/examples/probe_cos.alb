@@ -1,0 +1,29 @@
+-- ============================================================================
+-- probe_cos.alb — check builtin COS/SIN F64 returns
+-- ============================================================================
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+
+LET mem AS S64 = 0
+LET c0 AS S32 = 0
+LET c1 AS S32 = 0
+LET s1 AS S32 = 0
+LET x AS F64 = 0.0
+
+LET mem = gfx_alloc_memory(64)
+LET x = COS(0.0)
+CALL gfx_write_f32(mem, 0, x)
+LET c0 = gfx_read_f32_centi(mem, 0)
+
+LET x = COS(1.57079632679)
+CALL gfx_write_f32(mem, 1, x)
+LET c1 = gfx_read_f32_centi(mem, 1)
+
+LET x = SIN(1.57079632679)
+CALL gfx_write_f32(mem, 2, x)
+LET s1 = gfx_read_f32_centi(mem, 2)
+
+PRINT "cos0_centi=" | c0 | " cos_pi2_centi=" | c1 | " sin_pi2_centi=" | s1
+CALL gfx_free_memory(mem)
+END

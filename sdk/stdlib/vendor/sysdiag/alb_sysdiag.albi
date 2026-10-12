@@ -1,0 +1,19 @@
+-- ============================================================================
+-- alb_sysdiag.albi — thin ALB binding for vendor/sysdiag (psapi + setupapi)
+-- ============================================================================
+VERSION 0.1
+
+IMPORT_DLL FUNCTION alb_sysdiag_version() AS S32 FROM ("alb_sysdiag.dll")
+IMPORT_DLL FUNCTION alb_sysdiag_loader_init() AS S32 FROM ("alb_sysdiag.dll")
+IMPORT_DLL PROCEDURE alb_sysdiag_loader_shutdown() FROM ("alb_sysdiag.dll")
+IMPORT_DLL FUNCTION alb_sysdiag_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_sysdiag.dll")
+IMPORT_DLL PROCEDURE alb_sysdiag_device_destroy(device AS S64) FROM ("alb_sysdiag.dll")
+IMPORT_DLL FUNCTION alb_sysdiag_get_process_memory(pid AS S32, out_mem AS S64) AS S32 FROM ("alb_sysdiag.dll")
+IMPORT_DLL FUNCTION alb_sysdiag_get_performance(out_perf AS S64) AS S32 FROM ("alb_sysdiag.dll")
+IMPORT_DLL FUNCTION alb_sysdiag_enum_process_ids(ids AS S64, max_ids AS S32, out_count AS S64) AS S32 FROM ("alb_sysdiag.dll")
+IMPORT_DLL FUNCTION alb_sysdiag_get_process_name(pid AS S32, buf AS S64, buflen AS S32) AS S32 FROM ("alb_sysdiag.dll")
+IMPORT_DLL FUNCTION alb_sysdiag_refresh_devices() AS S32 FROM ("alb_sysdiag.dll")
+IMPORT_DLL FUNCTION alb_sysdiag_device_count() AS S32 FROM ("alb_sysdiag.dll")
+IMPORT_DLL FUNCTION alb_sysdiag_device_get(index AS S32, desc_buf AS S64, desc_len AS S32, id_buf AS S64, id_len AS S32) AS S32 FROM ("alb_sysdiag.dll")
+IMPORT_DLL FUNCTION alb_sysdiag_last_win32_error() AS S32 FROM ("alb_sysdiag.dll")
+IMPORT_DLL FUNCTION alb_sysdiag_test_probe() AS S32 FROM ("alb_sysdiag.dll")

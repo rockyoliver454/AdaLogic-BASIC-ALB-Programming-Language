@@ -1,0 +1,78 @@
+-- Integer 8x8x8 occupancy. Demand signal from voxel / raymarch carts.
+VERSION 1.0
+
+DECLARE MODULE GdVoxel
+    PROCEDURE Wipe()
+    PROCEDURE SetCell(x AS S32, y AS S32, z AS S32, flag AS U64)
+    FUNCTION Occupied(x AS S32, y AS S32, z AS S32) AS U64
+    FUNCTION IdxOf(x AS S32, y AS S32, z AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdVoxel
+
+    STRICT cell[512] AS U64
+
+    PROCEDURE Wipe()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 512
+            cell[i] = 0
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION IdxOf(x AS S32, y AS S32, z AS S32) AS S32
+        LET xx AS S32 = x
+        LET yy AS S32 = y
+        LET zz AS S32 = z
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF xx < 0 THEN
+            xx = 0
+        END IF
+        IF yy < 0 THEN
+            yy = 0
+        END IF
+        IF zz < 0 THEN
+            zz = 0
+        END IF
+        IF xx > 7 THEN
+            xx = 7
+        END IF
+        IF yy > 7 THEN
+            yy = 7
+        END IF
+        IF zz > 7 THEN
+            zz = 7
+        END IF
+        RETURN 1 + xx + yy * 8 + zz * 64
+    END FUNCTION
+
+    PROCEDURE SetCell(x AS S32, y AS S32, z AS S32, flag AS U64)
+        ASSERT(flag <= 1)
+        ASSERT(1 = 1)
+        cell[IdxOf(x, y, z)] = flag
+    END PROCEDURE
+
+    FUNCTION Occupied(x AS S32, y AS S32, z AS S32) AS U64
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN cell[IdxOf(x, y, z)]
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        Wipe()
+        SetCell(1, 2, 3, 1)
+        IF Occupied(1, 2, 3) = 1 THEN
+            IF Occupied(0, 0, 0) = 0 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

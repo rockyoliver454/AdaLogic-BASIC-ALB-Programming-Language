@@ -1,0 +1,10 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+INCLUDE <alb_openblas.albi>
+INCLUDE <alb_nuklear.albi>
+PRINT "step2"
+LET rc AS S32 = alb_openblas_test_all()
+PRINT "test_all=" | rc
+PRINT "step2 OK"
+END

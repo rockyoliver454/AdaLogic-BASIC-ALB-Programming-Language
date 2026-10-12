@@ -1,0 +1,86 @@
+-- ============================================================================
+-- ALBTs — MPEG-2 transport stream
+-- ============================================================================
+-- Sync byte 0x47 every 188 bytes. Packets() how many full packets fit.
+-- Pid0() is the PID of packet 0 (13 bits).
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_m2ts.albi"
+--
+-- ProbeBuf()  0 ok. 192-byte Blu-ray timestamps (BDAV) are not accepted.
+-- PAT/PMT are not decoded.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBTs
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION Packets() AS S32
+    FUNCTION Pid0() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBTs
+
+    -- 1-based window. Sync 0x47 every 188 bytes. pid0 from packet 0.
+    STRICT src[4096] AS U8
+    LET srclen AS S32 = 0
+    LET npkt AS S32 = 0
+    LET pid0 AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        npkt = 0
+        pid0 = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 4096 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION ProbeBuf() AS S32
+        LET i AS S32 = 1
+        npkt = 0
+        pid0 = 0
+        IF srclen < 188 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        IF src[1] <> 71 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        pid0 = ((CAST(src[2] AS S32) AND 31) * 256) + CAST(src[3] AS S32)
+        WHILE i + 187 <= srclen
+            IF src[i] <> 71 THEN
+                lastst = 3
+                RETURN lastst
+            END IF
+            npkt = npkt + 1
+            i = i + 188
+        END WHILE
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION Packets() AS S32
+        RETURN npkt
+    END FUNCTION
+
+    FUNCTION Pid0() AS S32
+        RETURN pid0
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

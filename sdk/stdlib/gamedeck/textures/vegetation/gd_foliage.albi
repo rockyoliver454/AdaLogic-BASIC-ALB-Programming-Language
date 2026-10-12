@@ -1,0 +1,42 @@
+-- Twin of Ada Foliage: tumbleweed, oleander, leaves, grass, tall grass, saguaro.
+VERSION 1.0
+
+DECLARE MODULE GdFoliage
+    FUNCTION RgbOf(kind AS S32) AS S32
+    PROCEDURE PresentKind(kind AS S32, x AS S32)
+    FUNCTION KindN() AS S32
+    FUNCTION AdaId(kind AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdFoliage
+
+    FUNCTION AdaId(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 5)
+        IF kind = 0 THEN RETURN 101 END IF
+        IF kind = 1 THEN RETURN 100 END IF
+        IF kind = 2 THEN RETURN 15 END IF
+        IF kind = 3 THEN RETURN 1 END IF
+        IF kind = 4 THEN RETURN 11 END IF
+        RETURN 27
+    END FUNCTION
+
+    FUNCTION RgbOf(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 5)
+        RETURN GdAdaTex.Rgb0(AdaId(kind))
+    END FUNCTION
+
+    PROCEDURE PresentKind(kind AS S32, x AS S32)
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 5)
+        GdAdaTex.Present(AdaId(kind), x, 280)
+    END PROCEDURE
+
+    FUNCTION KindN() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 6
+    END FUNCTION
+
+END MODULE

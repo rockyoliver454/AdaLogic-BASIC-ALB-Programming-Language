@@ -1,0 +1,71 @@
+-- Twin of Ada core_noise_cellular. Worley F1 over 3x3 cell neighborhood.
+VERSION 1.0
+
+DECLARE MODULE GdCellular
+    FUNCTION CellAt(x AS S32, y AS S32, seed AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdCellular
+
+    FUNCTION CellAt(x AS S32, y AS S32, seed AS S32) AS S32
+        LET cx AS S32 = 0
+        LET cy AS S32 = 0
+        LET ox AS S32 = 0
+        LET oy AS S32 = 0
+        LET sx AS S32 = 0
+        LET sy AS S32 = 0
+        LET d AS S32 = 0
+        LET best AS S32 = 999999
+        LET nx AS S32 = 0
+        LET ny AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        cx = x / 16
+        cy = y / 16
+        ox = 0 - 1
+        WHILE ox <= 1
+            oy = 0 - 1
+            WHILE oy <= 1
+                nx = cx + ox
+                ny = cy + oy
+                sx = nx * 16 + GdHash.ByteOf(nx, ny, seed) / 16
+                sy = ny * 16 + GdHash.ByteOf(nx, ny, seed + 1) / 16
+                d = GdVec2.Dist2(x, y, sx, sy)
+                IF d < best THEN
+                    best = d
+                END IF
+                oy = oy + 1
+            END WHILE
+            ox = ox + 1
+        END WHILE
+        -- Dist2 scaled (no ISqrt dep): ~0..255 for local cell radii
+        RETURN GdVec2.ClipI(best / 4, 0, 255)
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        a = CellAt(0, 0, 3)
+        b = CellAt(40, 24, 3)
+        IF a = b THEN
+            RETURN 0
+        END IF
+        IF a < 0 THEN
+            RETURN 0
+        END IF
+        IF a > 255 THEN
+            RETURN 0
+        END IF
+        IF b < 0 THEN
+            RETURN 0
+        END IF
+        IF b > 255 THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+END MODULE

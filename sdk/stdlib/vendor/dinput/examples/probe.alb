@@ -1,0 +1,12 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_dinput.albi"
+
+LET rc = alb_dinput_test_probe()
+IF rc = 0 THEN
+  PRINT "dinput probe PASS"
+ELSE
+  PRINT "dinput probe FAIL " | rc
+END IF
+END
+

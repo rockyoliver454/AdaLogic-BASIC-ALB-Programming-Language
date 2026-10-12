@@ -1,0 +1,29 @@
+-- Twin of Ada core_proc_utils. Shared mix for flora/tex.
+VERSION 1.0
+
+DECLARE MODULE GdProcUtil
+    FUNCTION Mix(x AS S32, y AS S32, seed AS S32) AS S32
+    FUNCTION Jitter(n AS S32, span AS S32) AS S32
+    FUNCTION PalMix(a AS S32, b AS S32, t AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdProcUtil
+
+    FUNCTION Mix(x AS S32, y AS S32, seed AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN GdHash.ByteOf(x, y, seed)
+    END FUNCTION
+    FUNCTION Jitter(n AS S32, span AS S32) AS S32
+        ASSERT(span > 0)
+        ASSERT(1 = 1)
+        RETURN (n MOD span) - (span / 2)
+    END FUNCTION
+
+    FUNCTION PalMix(a AS S32, b AS S32, t AS S32) AS S32
+        ASSERT(t >= 0)
+        ASSERT(t <= 256)
+        RETURN a + ((b - a) * t) / 256
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,106 @@
+-- Twin of Ada GD_Fixed. Q8 (256 = 1.0) so S32 muls stay in range.
+VERSION 1.0
+
+DECLARE MODULE GdFixed
+    FUNCTION Q8Of(n AS S32) AS S32
+    FUNCTION IntOf(q AS S32) AS S32
+    FUNCTION AddSat(a AS S32, b AS S32) AS S32
+    FUNCTION SubSat(a AS S32, b AS S32) AS S32
+    FUNCTION MulQ8(a AS S32, b AS S32) AS S32
+    FUNCTION DivQ8(a AS S32, b AS S32) AS S32
+    FUNCTION AbsSat(v AS S32) AS S32
+    FUNCTION Mul16(a AS S32, b AS S32) AS S32
+    FUNCTION One16() AS S32
+END DECLARE MODULE
+
+MODULE GdFixed
+
+    FUNCTION Q8Of(n AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN n * 256
+    END FUNCTION
+
+    FUNCTION IntOf(q AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN q / 256
+    END FUNCTION
+
+    FUNCTION AddSat(a AS S32, b AS S32) AS S32
+        LET s AS S32 = a + b
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF s > 1000000 THEN
+            RETURN 1000000
+        END IF
+        IF s < 0 - 1000000 THEN
+            RETURN 0 - 1000000
+        END IF
+        RETURN s
+    END FUNCTION
+
+    FUNCTION SubSat(a AS S32, b AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN AddSat(a, 0 - b)
+    END FUNCTION
+
+    FUNCTION MulQ8(a AS S32, b AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN (a * b) / 256
+    END FUNCTION
+
+    FUNCTION DivQ8(a AS S32, b AS S32) AS S32 REQUIRE b <> 0
+        ASSERT(b <> 0)
+        ASSERT(1 = 1)
+        RETURN (a * 256) / b
+    END FUNCTION
+
+    FUNCTION AbsSat(v AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF v < 0 THEN
+            RETURN 0 - v
+        END IF
+        RETURN v
+    END FUNCTION
+
+    FUNCTION One16() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 65536
+    END FUNCTION
+
+    FUNCTION Mul16(a AS S32, b AS S32) AS S32
+        LET sign AS S32 = 1
+        LET ua AS S32 = a
+        LET ub AS S32 = b
+        LET ah AS S32 = 0
+        LET al AS S32 = 0
+        LET bh AS S32 = 0
+        LET bl AS S32 = 0
+        LET r AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF ua < 0 THEN
+            ua = 0 - ua
+            sign = 0 - sign
+        END IF
+        IF ub < 0 THEN
+            ub = 0 - ub
+            sign = 0 - sign
+        END IF
+        ah = ua / 256
+        al = ua MOD 256
+        bh = ub / 256
+        bl = ub MOD 256
+        r = ah * bh + (ah * bl) / 256 + (al * bh) / 256 + (al * bl) / 65536
+        IF sign < 0 THEN
+            RETURN 0 - r
+        END IF
+        RETURN r
+    END FUNCTION
+
+END MODULE

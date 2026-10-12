@@ -1,0 +1,231 @@
+INCLUDE "Settings.albi"
+IMPORT Settings
+
+MODULE Settings
+    LET sound_on AS U8 = 1
+    LET music_on AS U8 = 1
+    LET fullscreen_on AS U8 = 0
+    LET stretchy_on AS U8 = 1
+    LET resizable_on AS U8 = 1
+    LET show_fps AS U8 = 1
+    LET dev_mode AS U8 = 0
+
+    LET start_season AS U8 = 0
+    LET start_hour AS U8 = 7
+    LET start_day_length AS U32 = 1440
+    LET start_berries AS U16 = 20
+    LET start_food AS U16 = 20
+    LET start_agents AS U16 = 6
+    LET start_wood AS U16 = 50
+    LET start_stone AS U16 = 30
+    LET mood_bonus AS U8 = 0
+
+    PROCEDURE ApplyWindowFlags()
+        IF fullscreen_on = 1 THEN
+            SETFULLSCREEN TRUE
+        ELSE
+            SETFULLSCREEN FALSE
+        END IF
+
+        IF stretchy_on = 1 THEN
+            SETSTRETCHY TRUE
+        ELSE
+            SETSTRETCHY FALSE
+        END IF
+
+        IF resizable_on = 1 THEN
+            SETRESIZABLE TRUE
+        ELSE
+            SETRESIZABLE FALSE
+        END IF
+    END PROCEDURE
+
+    PROCEDURE Setup()
+        sound_on = 1
+        music_on = 1
+        fullscreen_on = 0
+        stretchy_on = 1
+        resizable_on = 1
+        show_fps = 1
+        dev_mode = 0
+        ResetStartupSettings()
+        ApplyWindowFlags()
+    END PROCEDURE
+
+    PROCEDURE ResetStartupSettings()
+        start_season = 0
+        start_hour = 7
+        start_day_length = 1440
+        start_berries = 20
+        start_food = 20
+        start_agents = 6
+        start_wood = 50
+        start_stone = 30
+        mood_bonus = 0
+    END PROCEDURE
+
+    PROCEDURE ToggleSound()
+        IF sound_on = 1 THEN sound_on = 0 ELSE sound_on = 1 END IF
+    END PROCEDURE
+
+    PROCEDURE ToggleMusic()
+        IF music_on = 1 THEN music_on = 0 ELSE music_on = 1 END IF
+    END PROCEDURE
+
+    PROCEDURE ToggleFullscreen()
+        IF fullscreen_on = 1 THEN fullscreen_on = 0 ELSE fullscreen_on = 1 END IF
+        ApplyWindowFlags()
+    END PROCEDURE
+
+    PROCEDURE ToggleStretchy()
+        IF stretchy_on = 1 THEN stretchy_on = 0 ELSE stretchy_on = 1 END IF
+        ApplyWindowFlags()
+    END PROCEDURE
+
+    PROCEDURE ToggleResizable()
+        IF resizable_on = 1 THEN resizable_on = 0 ELSE resizable_on = 1 END IF
+        ApplyWindowFlags()
+    END PROCEDURE
+
+    PROCEDURE ToggleShowFPS()
+        IF show_fps = 1 THEN show_fps = 0 ELSE show_fps = 1 END IF
+    END PROCEDURE
+
+    PROCEDURE ToggleDevMode()
+        IF dev_mode = 1 THEN dev_mode = 0 ELSE dev_mode = 1 END IF
+    END PROCEDURE
+
+    PROCEDURE CycleStartSeason(delta AS S32)
+        LET next_val AS S32 = S32(start_season) + delta
+        IF next_val < 0 THEN next_val = 3 END IF
+        IF next_val > 3 THEN next_val = 0 END IF
+        start_season = U8(next_val)
+    END PROCEDURE
+
+    PROCEDURE CycleStartHour(delta AS S32)
+        LET next_val AS S32 = S32(start_hour) + delta
+        IF next_val < 0 THEN next_val = 23 END IF
+        IF next_val > 23 THEN next_val = 0 END IF
+        start_hour = U8(next_val)
+    END PROCEDURE
+
+    PROCEDURE CycleDayLength(delta AS S32)
+        LET next_val AS S32 = S32(start_day_length) + delta * 360
+        IF next_val < 720 THEN next_val = 2880 END IF
+        IF next_val > 2880 THEN next_val = 720 END IF
+        start_day_length = U32(next_val)
+    END PROCEDURE
+
+    PROCEDURE CycleStartBerries(delta AS S32)
+        LET next_val AS S32 = S32(start_berries) + delta * 4
+        IF next_val < 4 THEN next_val = 4 END IF
+        IF next_val > 64 THEN next_val = 64 END IF
+        start_berries = U16(next_val)
+    END PROCEDURE
+
+    PROCEDURE CycleStartFood(delta AS S32)
+        LET next_val AS S32 = S32(start_food) + delta * 5
+        IF next_val < 0 THEN next_val = 0 END IF
+        IF next_val > 200 THEN next_val = 200 END IF
+        start_food = U16(next_val)
+    END PROCEDURE
+
+    PROCEDURE CycleStartAgents(delta AS S32)
+        LET next_val AS S32 = S32(start_agents) + delta
+        IF next_val < 1 THEN next_val = 1 END IF
+        IF next_val > 16 THEN next_val = 16 END IF
+        start_agents = U16(next_val)
+    END PROCEDURE
+
+    PROCEDURE CycleStartWood(delta AS S32)
+        LET next_val AS S32 = S32(start_wood) + delta * 5
+        IF next_val < 0 THEN next_val = 0 END IF
+        IF next_val > 300 THEN next_val = 300 END IF
+        start_wood = U16(next_val)
+    END PROCEDURE
+
+    PROCEDURE CycleStartStone(delta AS S32)
+        LET next_val AS S32 = S32(start_stone) + delta * 5
+        IF next_val < 0 THEN next_val = 0 END IF
+        IF next_val > 300 THEN next_val = 300 END IF
+        start_stone = U16(next_val)
+    END PROCEDURE
+
+    PROCEDURE CycleMoodBonus(delta AS S32)
+        LET next_val AS S32 = S32(mood_bonus) + delta * 5
+        IF next_val < 0 THEN next_val = 0 END IF
+        IF next_val > 40 THEN next_val = 40 END IF
+        mood_bonus = U8(next_val)
+    END PROCEDURE
+
+    FUNCTION IsSoundOn() AS U8
+        RETURN sound_on
+    END FUNCTION
+
+    FUNCTION IsMusicOn() AS U8
+        RETURN music_on
+    END FUNCTION
+
+    FUNCTION IsFullscreen() AS U8
+        RETURN fullscreen_on
+    END FUNCTION
+
+    FUNCTION IsStretchy() AS U8
+        RETURN stretchy_on
+    END FUNCTION
+
+    FUNCTION IsResizable() AS U8
+        RETURN resizable_on
+    END FUNCTION
+
+    FUNCTION IsShowFPS() AS U8
+        RETURN show_fps
+    END FUNCTION
+
+    FUNCTION IsDevMode() AS U8
+        RETURN dev_mode
+    END FUNCTION
+
+    FUNCTION GetStartSeason() AS U8
+        RETURN start_season
+    END FUNCTION
+
+    FUNCTION GetStartHour() AS U8
+        RETURN start_hour
+    END FUNCTION
+
+    FUNCTION GetStartDayLength() AS U32
+        RETURN start_day_length
+    END FUNCTION
+
+    FUNCTION GetStartBerries() AS U16
+        RETURN start_berries
+    END FUNCTION
+
+    FUNCTION GetStartFood() AS U16
+        RETURN start_food
+    END FUNCTION
+
+    FUNCTION GetStartAgents() AS U16
+        RETURN start_agents
+    END FUNCTION
+
+    FUNCTION GetStartWood() AS U16
+        RETURN start_wood
+    END FUNCTION
+
+    FUNCTION GetStartStone() AS U16
+        RETURN start_stone
+    END FUNCTION
+
+    FUNCTION GetMoodBonus() AS U8
+        RETURN mood_bonus
+    END FUNCTION
+
+    FUNCTION GetSeasonName() AS STRING
+        IF start_season = 0 THEN RETURN "SPRING" END IF
+        IF start_season = 1 THEN RETURN "SUMMER" END IF
+        IF start_season = 2 THEN RETURN "AUTUMN" END IF
+        RETURN "WINTER"
+    END FUNCTION
+END MODULE

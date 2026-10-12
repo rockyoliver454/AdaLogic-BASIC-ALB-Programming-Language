@@ -1,0 +1,29 @@
+DECLARE MODULE SaveGame
+    PROCEDURE Setup()
+    PROCEDURE RefreshCatalog()
+    PROCEDURE SelectNewest()
+    PROCEDURE SelectNext()
+    PROCEDURE SelectPrev()
+    PROCEDURE PollNameInput()
+    PROCEDURE ClearPendingName()
+    PROCEDURE CaptureLiveThumbnail()
+    PROCEDURE DrawLiveThumbnail(x AS S32, y AS S32, pixel_size AS S32)
+    PROCEDURE DrawSelectedThumbnail(x AS S32, y AS S32, pixel_size AS S32)
+    FUNCTION SaveCurrentGame() AS U8
+    FUNCTION LoadSelectedGame() AS U8
+    FUNCTION GetCatalogCount() AS U16
+    FUNCTION GetSelectedIndex() AS U16
+    FUNCTION GetPendingName() AS STRING
+    FUNCTION GetStatusText() AS STRING
+    FUNCTION GetEntryLabel(idx AS U16) AS STRING
+    FUNCTION GetSelectedName() AS STRING
+    FUNCTION GetSelectedRoot() AS STRING
+    FUNCTION GetSelectedWorldTime() AS U32
+    FUNCTION GetSelectedSeason() AS U8
+    FUNCTION GetSelectedFood() AS U16
+    FUNCTION GetSelectedWood() AS U16
+    FUNCTION GetSelectedStone() AS U16
+    FUNCTION GetSelectedLevel() AS U8
+    FUNCTION GetSelectedAgents() AS U16
+    FUNCTION HasEntries() AS U8
+END DECLARE MODULE

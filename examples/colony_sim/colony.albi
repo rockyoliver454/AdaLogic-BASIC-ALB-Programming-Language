@@ -1,0 +1,21 @@
+DECLARE MODULE Colony
+    PROCEDURE Setup()
+    PROCEDURE Process()
+    FUNCTION GetFoodCount() AS U16
+    FUNCTION GetColonyLevel() AS U8
+    FUNCTION GetPopulation() AS U16
+    FUNCTION GetWoodCount() AS U16
+    FUNCTION GetStoneCount() AS U16
+    FUNCTION GetGrowthProgress() AS U16
+    PROCEDURE AddFood(amount AS U16)
+    PROCEDURE RemoveFood(amount AS U16)
+    PROCEDURE AddWood(amount AS U16)
+    PROCEDURE AddStone(amount AS U16)
+    PROCEDURE SetFoodCount(amount AS U16)
+    PROCEDURE SetWoodCount(amount AS U16)
+    PROCEDURE SetStoneCount(amount AS U16)
+    PROCEDURE SetPopulation(amount AS U16)
+    PROCEDURE SetColonyLevel(level AS U8)
+    PROCEDURE SetGrowthProgress(amount AS U16)
+    FUNCTION HasFood(amount AS U16) AS U8
+END DECLARE MODULE

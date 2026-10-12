@@ -1,0 +1,17 @@
+-- Twin of Ada geo_render. Column bars from a value.
+VERSION 1.0
+
+DECLARE MODULE GdProcDraw
+    PROCEDURE PresentCol(x AS S32, h AS S32, rgb AS S32)
+END DECLARE MODULE
+
+MODULE GdProcDraw
+
+    PROCEDURE PresentCol(x AS S32, h AS S32, rgb AS S32)
+        ASSERT(h >= 0)
+        ASSERT(1 = 1)
+        COLOR rgb
+        FILL RECT x, 200 - h, 8, h
+    END PROCEDURE
+
+END MODULE

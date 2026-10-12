@@ -1,0 +1,275 @@
+-- ====================================================================
+-- C64_GFX.ALBI
+-- Bitmap drawing helpers for the ALB-65 320x200 virtual framebuffer.
+-- ====================================================================
+
+PROCEDURE C64Gfx_ClearScreen(col_idx AS U8)
+    SELECT col_idx
+        CASE #C64_COL_WHITE => CLEAR $FFFFF1
+        CASE #C64_COL_RED => CLEAR $813332
+        CASE #C64_COL_CYAN => CLEAR $75CEC3
+        CASE #C64_COL_PURPLE => CLEAR $8E3C94
+        CASE #C64_COL_GREEN => CLEAR $56AC45
+        CASE #C64_COL_BLUE => CLEAR $2E2C96
+        CASE #C64_COL_YELLOW => CLEAR $EDF177
+        CASE #C64_COL_ORANGE => CLEAR $8E5028
+        CASE #C64_COL_BROWN => CLEAR $553809
+        CASE #C64_COL_LTRED => CLEAR $C46C7A
+        CASE #C64_COL_DKGRAY => CLEAR $4A4A4B
+        CASE #C64_COL_MIDGRAY => CLEAR $7B7B7C
+        CASE #C64_COL_LTGREEN => CLEAR $A9FF9D
+        CASE #C64_COL_LTBLUE => CLEAR $706DEE
+        CASE #C64_COL_LTGRAY => CLEAR $D0D0DF
+        CASE ELSE => CLEAR $000000
+    END SELECT
+END PROCEDURE
+
+PROCEDURE C64Gfx_SetColor(col_idx AS U8)
+    SELECT col_idx
+        CASE #C64_COL_WHITE => COLOR $FFFFF1
+        CASE #C64_COL_RED => COLOR $813332
+        CASE #C64_COL_CYAN => COLOR $75CEC3
+        CASE #C64_COL_PURPLE => COLOR $8E3C94
+        CASE #C64_COL_GREEN => COLOR $56AC45
+        CASE #C64_COL_BLUE => COLOR $2E2C96
+        CASE #C64_COL_YELLOW => COLOR $EDF177
+        CASE #C64_COL_ORANGE => COLOR $8E5028
+        CASE #C64_COL_BROWN => COLOR $553809
+        CASE #C64_COL_LTRED => COLOR $C46C7A
+        CASE #C64_COL_DKGRAY => COLOR $4A4A4B
+        CASE #C64_COL_MIDGRAY => COLOR $7B7B7C
+        CASE #C64_COL_LTGREEN => COLOR $A9FF9D
+        CASE #C64_COL_LTBLUE => COLOR $706DEE
+        CASE #C64_COL_LTGRAY => COLOR $D0D0DF
+        CASE ELSE => COLOR $000000
+    END SELECT
+END PROCEDURE
+
+PROCEDURE C64Gfx_FillRect(x AS U16, y AS U16, w AS U16, h AS U16, col_idx AS U8)
+    CALL C64Gfx_SetColor(col_idx)
+    FILL RECT x, y, w, h
+END PROCEDURE
+
+PROCEDURE C64Gfx_DrawRect(x AS U16, y AS U16, w AS U16, h AS U16, col_idx AS U8)
+    CALL C64Gfx_SetColor(col_idx)
+    DRAW RECT x, y, w, h
+END PROCEDURE
+
+PROCEDURE C64Gfx_FillCell(cx AS U16, cy AS U16, cell AS U16, col_idx AS U8)
+    LET px AS U16 = cx * cell
+    LET py AS U16 = cy * cell
+    CALL C64Gfx_FillRect(px, py, cell, cell, col_idx)
+END PROCEDURE
+
+PROCEDURE C64Gfx_FillCellAt(ox AS U16, oy AS U16, cx AS U16, cy AS U16, cell AS U16, col_idx AS U8)
+    LET px AS U16 = ox + cx * cell
+    LET py AS U16 = oy + cy * cell
+    CALL C64Gfx_FillRect(px, py, cell, cell, col_idx)
+END PROCEDURE
+
+PROCEDURE C64Gfx_DrawCell(cx AS U16, cy AS U16, cell AS U16, col_idx AS U8)
+    LET px AS U16 = cx * cell
+    LET py AS U16 = cy * cell
+    CALL C64Gfx_DrawRect(px, py, cell, cell, col_idx)
+END PROCEDURE
+
+PROCEDURE C64Gfx_Plot(x AS U16, y AS U16, col_idx AS U8)
+    CALL C64Gfx_SetColor(col_idx)
+    PLOT x, y
+END PROCEDURE
+
+PROCEDURE C64Gfx_HLine(x AS U16, y AS U16, w AS U16, col_idx AS U8)
+    CALL C64Gfx_FillRect(x, y, w, 1, col_idx)
+END PROCEDURE
+
+PROCEDURE C64Gfx_VLine(x AS U16, y AS U16, h AS U16, col_idx AS U8)
+    CALL C64Gfx_FillRect(x, y, 1, h, col_idx)
+END PROCEDURE
+
+PROCEDURE C64Gfx_Frame(x AS U16, y AS U16, w AS U16, h AS U16, col_idx AS U8)
+    CALL C64Gfx_DrawRect(x, y, w, h, col_idx)
+END PROCEDURE
+
+PROCEDURE C64Gfx_Crosshair(x AS U16, y AS U16, size AS U16, col_idx AS U8)
+    CALL C64Gfx_HLine(x - size, y, size * 2 + 1, col_idx)
+    CALL C64Gfx_VLine(x, y - size, size * 2 + 1, col_idx)
+END PROCEDURE
+
+PROCEDURE C64Gfx_FillCircle(x AS U16, y AS U16, radius AS U16, col_idx AS U8)
+    CALL C64Gfx_SetColor(col_idx)
+    FILL CIRCLE x, y, radius
+END PROCEDURE
+
+PROCEDURE C64Gfx_DrawCircle(x AS U16, y AS U16, radius AS U16, col_idx AS U8)
+    CALL C64Gfx_SetColor(col_idx)
+    DRAW CIRCLE x, y, radius
+END PROCEDURE
+
+#C64_SPRITE_SHAPE_NONE = 0
+#C64_SPRITE_SHAPE_PADDLE = 1
+#C64_SPRITE_SHAPE_BALL = 2
+
+LET C64Gfx_Native_Mode AS U8 = 0
+
+FUNCTION C64Gfx_UsingNativeMode() AS BOOL
+    IF C64Gfx_Native_Mode > 0 THEN RETURN TRUE END IF
+    RETURN FALSE
+END FUNCTION
+
+-- Whether games should render moving actors as C64 hardware sprites.
+-- This is deliberately OFF: the C64 target renders through the shared
+-- portable full-redraw path (every actor drawn into the double-buffered
+-- framebuffer each frame), the same pipeline proven on the
+-- fasm/fasm16/web backends. The hardware-sprite path left moving actors
+-- invisible/glitchy because sprite placement depends on runtime-only VIC
+-- details that cannot be validated without real hardware. Keeping
+-- C64Gfx_UsingNativeMode() TRUE preserves SID sound and C64 detection;
+-- flip this to the flag-based check to re-enable the experimental sprite
+-- path once it can be verified on hardware.
+FUNCTION C64Gfx_UsingSprites() AS BOOL
+    RETURN FALSE
+END FUNCTION
+
+PROCEDURE C64Gfx_PrimeBorder()
+    C64Gfx_Native_Mode = 0
+    ENABLEASM_6502
+ASM
+    LDA #$01
+    STA alb_var_C64GFX_NATIVE_MODE
+    LDA #$06
+    STA $D020
+    LDA #$00
+    STA $D021
+END ASM
+    DISABLEASM
+END PROCEDURE
+
+PROCEDURE C64Gfx_CaptureStatic()
+    ENABLEASM_6502
+ASM
+    JSR alb_capture_static_frame
+END ASM
+    DISABLEASM
+END PROCEDURE
+
+PROCEDURE C64Gfx_RestoreStatic()
+    ENABLEASM_6502
+ASM
+    JSR alb_restore_static_frame
+END ASM
+    DISABLEASM
+END PROCEDURE
+
+PROCEDURE C64Gfx_EnableAutoRestore()
+    ENABLEASM_6502
+ASM
+    LDA #$01
+    STA alb_auto_restore_paint
+END ASM
+    DISABLEASM
+END PROCEDURE
+
+PROCEDURE C64Gfx_DisableAutoRestore()
+    ENABLEASM_6502
+ASM
+    LDA #$00
+    STA alb_auto_restore_paint
+END ASM
+    DISABLEASM
+END PROCEDURE
+
+PROCEDURE C64Gfx_PresentFrame()
+    ENABLEASM_6502
+ASM
+    JSR alb_present_frame
+END ASM
+    DISABLEASM
+END PROCEDURE
+
+PROCEDURE C64Gfx_SpriteSetShape(slot AS U8, shape AS U8)
+    ENABLEASM_6502
+ASM
+    LDA alb_var_C64GFX_SPRITESETSHAPE__SLOT
+    STA alb_c64_sprite_slot
+    LDA alb_var_C64GFX_SPRITESETSHAPE__SHAPE
+    STA alb_c64_sprite_shape
+    JSR alb_c64_sprite_set_shape
+END ASM
+    DISABLEASM
+END PROCEDURE
+
+PROCEDURE C64Gfx_SpriteSetColor(slot AS U8, col_idx AS U8)
+    ENABLEASM_6502
+ASM
+    LDA alb_var_C64GFX_SPRITESETCOLOR__SLOT
+    STA alb_c64_sprite_slot
+    LDA alb_var_C64GFX_SPRITESETCOLOR__COL_IDX
+    STA alb_c64_sprite_color
+    JSR alb_c64_sprite_set_color
+END ASM
+    DISABLEASM
+END PROCEDURE
+
+PROCEDURE C64Gfx_SpriteSetPos(slot AS U8, x AS U16, y AS U8)
+    ENABLEASM_6502
+ASM
+    LDA alb_var_C64GFX_SPRITESETPOS__SLOT
+    STA alb_c64_sprite_slot
+    LDA alb_var_C64GFX_SPRITESETPOS__X
+    STA alb_c64_sprite_x_lo
+    LDA alb_var_C64GFX_SPRITESETPOS__X+1
+    STA alb_c64_sprite_x_hi
+    LDA alb_var_C64GFX_SPRITESETPOS__Y
+    STA alb_c64_sprite_y
+    JSR alb_c64_sprite_set_pos
+END ASM
+    DISABLEASM
+END PROCEDURE
+
+PROCEDURE C64Gfx_SpriteEnable(slot AS U8)
+    ENABLEASM_6502
+ASM
+    LDA alb_var_C64GFX_SPRITEENABLE__SLOT
+    STA alb_c64_sprite_slot
+    LDA #$01
+    STA alb_c64_sprite_value
+    JSR alb_c64_sprite_set_enable
+END ASM
+    DISABLEASM
+END PROCEDURE
+
+PROCEDURE C64Gfx_SpriteDisable(slot AS U8)
+    ENABLEASM_6502
+ASM
+    LDA alb_var_C64GFX_SPRITEDISABLE__SLOT
+    STA alb_c64_sprite_slot
+    LDA #$00
+    STA alb_c64_sprite_value
+    JSR alb_c64_sprite_set_enable
+END ASM
+    DISABLEASM
+END PROCEDURE
+
+PROCEDURE C64Gfx_SpriteExpandX(slot AS U8, enabled AS U8)
+    ENABLEASM_6502
+ASM
+    LDA alb_var_C64GFX_SPRITEEXPANDX__SLOT
+    STA alb_c64_sprite_slot
+    LDA alb_var_C64GFX_SPRITEEXPANDX__ENABLED
+    STA alb_c64_sprite_value
+    JSR alb_c64_sprite_set_expand_x
+END ASM
+    DISABLEASM
+END PROCEDURE
+
+PROCEDURE C64Gfx_SpriteExpandY(slot AS U8, enabled AS U8)
+    ENABLEASM_6502
+ASM
+    LDA alb_var_C64GFX_SPRITEEXPANDY__SLOT
+    STA alb_c64_sprite_slot
+    LDA alb_var_C64GFX_SPRITEEXPANDY__ENABLED
+    STA alb_c64_sprite_value
+    JSR alb_c64_sprite_set_expand_y
+END ASM
+    DISABLEASM
+END PROCEDURE

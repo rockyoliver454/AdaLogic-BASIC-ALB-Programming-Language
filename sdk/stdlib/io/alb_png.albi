@@ -1,0 +1,298 @@
+-- ============================================================================
+-- ALBPng — PNG raster (8-bit gray / RGB / RGBA)
+-- ============================================================================
+-- Signature, IHDR, zlib IDAT, then unfilters 0..4 into a packed pixel buffer.
+-- INCLUDE these three files *before* this one (same folder, no search path):
+--   alb_crc32.albi
+--   alb_inflate.albi
+--   alb_png_filters.albi
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_crc32.albi"
+--   INCLUDE "../stdlib/io/alb_inflate.albi"
+--   INCLUDE "../stdlib/io/alb_png_filters.albi"
+--   INCLUDE "../stdlib/io/alb_png.albi"
+--   INCLUDE "../stdlib/io/alb_win.albi"
+--
+-- DecodeBuf()   0 ok. W()/H() size. Ch() 1 gray, 3 RGB, 4 RGBA.
+-- PixAt(i)      1-based sample in scanline order (R then G then B…).
+-- Caps: 256×256, source window 8192, pixel buffer 16384. Bit depth 8 only.
+-- Interlace, 16-bit, palette, and 16-bit tRNS are status 5.
+-- Feed with ALBWin.LoadPath — PNG starts with 0x89, so LoadText will clip.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBPng
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION DecodeBuf() AS S32
+    FUNCTION W() AS S32
+    FUNCTION H() AS S32
+    FUNCTION Ch() AS S32
+    FUNCTION PixAt(i AS S32) AS U8
+    FUNCTION PixN() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBPng
+
+    -- src[] is the file window (cap 8192). pix[] is unpacked 8-bit samples
+    -- after unfilter (cap 16384). Indexes are 1-based.
+    STRICT src[8192] AS U8
+    STRICT pix[16384] AS U8
+    LET srclen AS S32 = 0
+    LET pixn AS S32 = 0
+    LET pw AS S32 = 0
+    LET ph AS S32 = 0
+    LET pch AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        pixn = 0
+        pw = 0
+        ph = 0
+        pch = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 8192 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION Be32(i AS S32) AS S32
+        -- Big-endian U32 at 1-based index i (PNG chunk length / IHDR fields).
+        RETURN CAST(src[i] AS S32) * 16777216 + CAST(src[i + 1] AS S32) * 65536 + CAST(src[i + 2] AS S32) * 256 + CAST(src[i + 3] AS S32)
+    END FUNCTION
+
+    FUNCTION Paeth(a AS U8, b AS U8, c AS U8) AS U8
+        RETURN PeeEnGee_Filters.Paeth_Predictor(a, b, c)
+    END FUNCTION
+
+    FUNCTION DecodeBuf() AS S32
+        LET i AS S32 = 1
+        LET clen AS S32 = 0
+        LET t0 AS S32 = 0
+        LET t1 AS S32 = 0
+        LET t2 AS S32 = 0
+        LET t3 AS S32 = 0
+        LET bitd AS S32 = 0
+        LET ctype AS S32 = 0
+        LET bpp AS S32 = 0
+        LET rowb AS S32 = 0
+        LET y AS S32 = 0
+        LET x AS S32 = 0
+        LET filt AS S32 = 0
+        LET rawi AS S32 = 1
+        LET outi AS S32 = 1
+        LET a AS U8 = 0
+        LET b AS U8 = 0
+        LET c AS U8 = 0
+        LET v AS S32 = 0
+        pixn = 0
+        pw = 0
+        ph = 0
+        pch = 0
+        IF srclen < 33 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        -- 137 80 78 71 = 0x89 'P' 'N' 'G' (then 0D 0A 1A 0A in a full signature).
+        IF src[1] <> 137 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[2] <> 80 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[3] <> 78 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[4] <> 71 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        PeeEnGee_Inflate.SrcReset()
+        i = 9
+        WHILE i + 12 <= srclen + 1
+            clen = Be32(i)
+            IF clen < 0 THEN
+                lastst = 4
+                RETURN lastst
+            END IF
+            IF i + 8 + clen + 4 - 1 > srclen THEN
+                lastst = 4
+                RETURN lastst
+            END IF
+            t0 = CAST(src[i + 4] AS S32)
+            t1 = CAST(src[i + 5] AS S32)
+            t2 = CAST(src[i + 6] AS S32)
+            t3 = CAST(src[i + 7] AS S32)
+            -- Chunk type at i+4: "IHDR" width/height/bit-depth/color-type.
+            IF t0 = 73 THEN
+                IF t1 = 72 THEN
+                    IF t2 = 68 THEN
+                        IF t3 = 82 THEN
+                            IF clen < 13 THEN
+                                lastst = 4
+                                RETURN lastst
+                            END IF
+                            pw = Be32(i + 8)
+                            ph = Be32(i + 12)
+                            bitd = CAST(src[i + 16] AS S32)
+                            ctype = CAST(src[i + 17] AS S32)
+                            IF bitd <> 8 THEN
+                                lastst = 5
+                                RETURN lastst
+                            END IF
+                            IF pw < 1 THEN
+                                lastst = 3
+                                RETURN lastst
+                            END IF
+                            IF ph < 1 THEN
+                                lastst = 3
+                                RETURN lastst
+                            END IF
+                            IF pw > 256 THEN
+                                lastst = 2
+                                RETURN lastst
+                            END IF
+                            IF ph > 256 THEN
+                                lastst = 2
+                                RETURN lastst
+                            END IF
+                            -- Color type 0 gray, 2 RGB, 6 RGBA. Others → status 5.
+                            IF ctype = 0 THEN
+                                pch = 1
+                            ELSE
+                                IF ctype = 2 THEN
+                                    pch = 3
+                                ELSE
+                                    IF ctype = 6 THEN
+                                        pch = 4
+                                    ELSE
+                                        lastst = 5
+                                        RETURN lastst
+                                    END IF
+                                END IF
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+            -- "IDAT": append compressed bytes to the inflater, then skip CRC (4).
+            IF t0 = 73 THEN
+                IF t1 = 68 THEN
+                    IF t2 = 65 THEN
+                        IF t3 = 84 THEN
+                            LET k AS S32 = 0
+                            WHILE k < clen
+                                PeeEnGee_Inflate.SrcPut(src[i + 8 + k])
+                                k = k + 1
+                            END WHILE
+                        END IF
+                    END IF
+                END IF
+            END IF
+            i = i + 12 + clen
+        END WHILE
+        IF pch = 0 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF PeeEnGee_Inflate.InflateZlib() <> 0 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        bpp = pch
+        rowb = 1 + pw * bpp
+        -- Each scanline is filter-byte + width*channels samples. Filters 0..4.
+        IF PeeEnGee_Inflate.OutLen() < ph * rowb THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        y = 0
+        WHILE y < ph
+            filt = CAST(PeeEnGee_Inflate.OutAt(rawi) AS S32)
+            rawi = rawi + 1
+            x = 0
+            WHILE x < pw * bpp
+                v = CAST(PeeEnGee_Inflate.OutAt(rawi) AS S32)
+                rawi = rawi + 1
+                a = 0
+                b = 0
+                c = 0
+                IF x >= bpp THEN
+                    a = pix[outi - bpp]
+                END IF
+                IF y > 0 THEN
+                    b = pix[outi - pw * bpp]
+                    IF x >= bpp THEN
+                        c = pix[outi - pw * bpp - bpp]
+                    END IF
+                END IF
+                IF filt = 1 THEN
+                    v = (v + CAST(a AS S32)) AND 255
+                END IF
+                IF filt = 2 THEN
+                    v = (v + CAST(b AS S32)) AND 255
+                END IF
+                IF filt = 3 THEN
+                    v = (v + ((CAST(a AS S32) + CAST(b AS S32)) / 2)) AND 255
+                END IF
+                IF filt = 4 THEN
+                    v = (v + CAST(Paeth(a, b, c) AS S32)) AND 255
+                END IF
+                IF filt > 4 THEN
+                    lastst = 5
+                    RETURN lastst
+                END IF
+                pix[outi] = CAST(v AS U8)
+                outi = outi + 1
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+        pixn = pw * ph * pch
+        lastst = 0
+                    RETURN lastst
+    END FUNCTION
+
+    FUNCTION W() AS S32
+        RETURN pw
+    END FUNCTION
+
+    FUNCTION H() AS S32
+        RETURN ph
+    END FUNCTION
+
+    FUNCTION Ch() AS S32
+        RETURN pch
+    END FUNCTION
+
+    FUNCTION PixAt(i AS S32) AS U8
+        IF i < 1 THEN
+            RETURN 0
+        END IF
+        IF i > pixn THEN
+            RETURN 0
+        END IF
+        RETURN pix[i]
+    END FUNCTION
+
+    FUNCTION PixN() AS S32
+        RETURN pixn
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

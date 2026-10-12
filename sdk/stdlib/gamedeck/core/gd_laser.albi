@@ -1,0 +1,123 @@
+-- Twin of Ada laser.ads: beam present + audio Generate (square glide + noise grit).
+VERSION 1.0
+
+DECLARE MODULE GdLaser
+    PROCEDURE PresentBeam(x0 AS S32, y0 AS S32, x1 AS S32, y1 AS S32)
+    FUNCTION SampleAt(t AS S32) AS S32
+    PROCEDURE Generate(n AS S32, seed AS S32)
+    FUNCTION BlockAt(i AS S32) AS S32
+    FUNCTION BlockN() AS S32
+    FUNCTION Energy() AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdLaser
+
+    STRICT blk[256] AS S32
+    LET bn AS S32 = 0
+    LET eng AS S32 = 0
+
+    PROCEDURE PresentBeam(x0 AS S32, y0 AS S32, x1 AS S32, y1 AS S32)
+        LET i AS S32 = 0
+        LET x AS S32 = 0
+        LET y AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $F87171
+        WHILE i <= 16
+            x = x0 + ((x1 - x0) * i) / 16
+            y = y0 + ((y1 - y0) * i) / 16
+            FILL RECT x, y, 2, 2
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION SampleAt(t AS S32) AS S32
+        LET p AS S32 = t AND 63
+        LET sq AS S32 = 80
+        LET grit AS S32 = 0
+        ASSERT(t >= 0)
+        ASSERT(1 = 1)
+        IF p < 8 THEN
+            sq = 100 - p * 4
+        ELSE
+            IF p < 40 THEN
+                sq = 40
+            ELSE
+                sq = 0
+            END IF
+        END IF
+        grit = (GdHash.ByteOf(t, 3, 5) AND 15) - 8
+        RETURN sq + grit
+    END FUNCTION
+
+    PROCEDURE Generate(n AS S32, seed AS S32)
+        LET i AS S32 = 1
+        LET phase AS S32 = 0
+        LET sq AS S32 = 0
+        LET grit AS S32 = 0
+        LET lim AS S32 = 0
+        ASSERT(n >= 1)
+        ASSERT(n <= 256)
+        lim = n
+        bn = lim
+        eng = 0
+        phase = seed AND 127
+        i = 1
+        WHILE i <= lim
+            phase = phase + 7 + (i AND 3)
+            IF (phase AND 16) = 0 THEN
+                sq = 90
+            ELSE
+                sq = 0 - 90
+            END IF
+            grit = GdHash.ByteOf(i, seed, 11) - 128
+            grit = grit / 4
+            blk[i] = sq + grit
+            IF blk[i] < 0 THEN
+                eng = eng - blk[i]
+            ELSE
+                eng = eng + blk[i]
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION BlockAt(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 256)
+        IF i > bn THEN
+            RETURN 0
+        END IF
+        RETURN blk[i]
+    END FUNCTION
+
+    FUNCTION BlockN() AS S32
+        ASSERT(bn >= 0)
+        ASSERT(bn <= 256)
+        RETURN bn
+    END FUNCTION
+
+    FUNCTION Energy() AS S32
+        ASSERT(eng >= 0)
+        RETURN eng
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET we AS S32 = 0
+        LET le AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        Generate(128, 5)
+        le = Energy()
+        IF SampleAt(0) > 50 THEN
+            IF le > 0 THEN
+                IF BlockN() = 128 THEN
+                    RETURN 1
+                END IF
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,12 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_wasapi.albi"
+
+LET rc = alb_wasapi_test_probe()
+IF rc = 0 THEN
+  PRINT "wasapi probe PASS"
+ELSE
+  PRINT "wasapi probe FAIL " | rc
+END IF
+END
+

@@ -1,0 +1,1387 @@
+-- ============================================================================
+-- ALBMATH_PURE.ALBI — exact rationals (type PURE)
+-- ============================================================================
+-- From release\examples\:
+--   INCLUDE "../stdlib/lang/ALBMATH_PURE.ALBI"
+--
+-- PURE is a numerator (S32) / denominator (U64) pair. There are no
+-- IEEE floats in this module and no platform libm calls. Predicates
+-- return U64 0 or 1 (not BOOL).
+--
+-- PureMake(n, d) reduces. Division by zero and overflow follow the
+-- implementation in this file (read PureDiv / PureMul before relying
+-- on a sentinel). PureSinDegApprox and friends are documented rational
+-- approximations in degrees — they do not claim machine-libm accuracy.
+--
+-- | is string concatenation (not used here). AND / OR / XOR are bitwise
+-- if they appear. STRICT arrays, where used, are 1-based.
+-- ============================================================================
+
+VERSION 0.0.0.1 -- BASE INITIAL VERSION
+
+DECLAREMODULE ALBMathPure
+
+    -- ------------------------------------------------------------
+    -- Constructors and canonical values
+    -- ------------------------------------------------------------
+    FUNCTION PureZero() AS PURE
+    FUNCTION PureOne() AS PURE
+    FUNCTION PureNegOne() AS PURE
+    FUNCTION PureFromU64(N AS U64) AS PURE
+    FUNCTION PureFromS32(N AS S32) AS PURE
+    FUNCTION PureMake(Num AS S32, Den AS U64) AS PURE
+    FUNCTION PureReduce(X AS PURE) AS PURE
+
+    -- ------------------------------------------------------------
+    -- Extractors and basic predicates
+    -- ------------------------------------------------------------
+    FUNCTION PureNum(X AS PURE) AS S32
+    FUNCTION PureDen(X AS PURE) AS U64
+    FUNCTION PureIsZero(X AS PURE) AS U64
+    FUNCTION PureIsPositive(X AS PURE) AS U64
+    FUNCTION PureIsNegative(X AS PURE) AS U64
+    FUNCTION PureIsWhole(X AS PURE) AS U64
+    FUNCTION PureIsUnitInterval(X AS PURE) AS U64
+
+    -- ------------------------------------------------------------
+    -- Basic rational arithmetic
+    -- ------------------------------------------------------------
+    FUNCTION PureAbs(X AS PURE) AS PURE
+    FUNCTION PureNeg(X AS PURE) AS PURE
+    FUNCTION PureReciprocal(X AS PURE) AS PURE
+    FUNCTION PureAdd(A AS PURE, B AS PURE) AS PURE
+    FUNCTION PureSub(A AS PURE, B AS PURE) AS PURE
+    FUNCTION PureMul(A AS PURE, B AS PURE) AS PURE
+    FUNCTION PureDiv(A AS PURE, B AS PURE) AS PURE
+    FUNCTION PureSqr(X AS PURE) AS PURE
+    FUNCTION PurePowU64(Base AS PURE, Exp AS U64) AS PURE
+
+    -- ------------------------------------------------------------
+    -- Comparisons
+    -- ------------------------------------------------------------
+    FUNCTION PureEq(A AS PURE, B AS PURE) AS U64
+    FUNCTION PureNeq(A AS PURE, B AS PURE) AS U64
+    FUNCTION PureLt(A AS PURE, B AS PURE) AS U64
+    FUNCTION PureLte(A AS PURE, B AS PURE) AS U64
+    FUNCTION PureGt(A AS PURE, B AS PURE) AS U64
+    FUNCTION PureGte(A AS PURE, B AS PURE) AS U64
+
+    -- ------------------------------------------------------------
+    -- Ordering and bounds
+    -- ------------------------------------------------------------
+    FUNCTION PureMin(A AS PURE, B AS PURE) AS PURE
+    FUNCTION PureMax(A AS PURE, B AS PURE) AS PURE
+    FUNCTION PureClamp(X AS PURE, Lo AS PURE, Hi AS PURE) AS PURE
+    FUNCTION PureInRange(X AS PURE, Lo AS PURE, Hi AS PURE) AS U64
+
+    -- ------------------------------------------------------------
+    -- Integer extraction policy
+    -- These are exact rational-to-integer policies, not float casts.
+    -- ------------------------------------------------------------
+    FUNCTION PureFloorS32(X AS PURE) AS S32
+    FUNCTION PureCeilS32(X AS PURE) AS S32
+    FUNCTION PureRoundS32(X AS PURE) AS S32
+    FUNCTION PureTruncS32(X AS PURE) AS S32
+    FUNCTION PureFloorU64(X AS PURE) AS U64
+    FUNCTION PureCeilU64(X AS PURE) AS U64
+    FUNCTION PureRoundU64(X AS PURE) AS U64
+    FUNCTION PureTruncU64(X AS PURE) AS U64
+
+    -- ------------------------------------------------------------
+    -- Fractional decomposition
+    -- ------------------------------------------------------------
+    FUNCTION PureWholePart(X AS PURE) AS PURE
+    FUNCTION PureFractionPart(X AS PURE) AS PURE
+    FUNCTION PureProperFraction(X AS PURE) AS PURE
+
+    -- ------------------------------------------------------------
+    -- Rational roots
+    -- Exact root helpers report/check exactness.
+    -- Approx helpers return deterministic rational approximations.
+    -- ------------------------------------------------------------
+    FUNCTION PureSqrtFloorU64(N AS U64) AS U64
+    FUNCTION PureIsPerfectSquareU64(N AS U64) AS U64
+    FUNCTION PureIsPerfectSquarePure(X AS PURE) AS U64
+    FUNCTION PureSqrtExact(X AS PURE) AS PURE
+    FUNCTION PureSqrtFloor(X AS PURE) AS PURE
+    FUNCTION PureSqrtCeil(X AS PURE) AS PURE
+    FUNCTION PureSqrtApprox(X AS PURE, Steps AS U64) AS PURE
+
+    -- ------------------------------------------------------------
+    -- Rational scaling and conversion
+    -- ------------------------------------------------------------
+    FUNCTION PureToScaledFloor(X AS PURE, Scale AS U64) AS S32
+    FUNCTION PureToScaledCeil(X AS PURE, Scale AS U64) AS S32
+    FUNCTION PureToScaledRound(X AS PURE, Scale AS U64) AS S32
+    FUNCTION PureFromScaled(Value AS S32, Scale AS U64) AS PURE
+
+    -- ------------------------------------------------------------
+    -- Ratios, percent, and interpolation
+    -- ------------------------------------------------------------
+    FUNCTION PureRatio(Part AS U64, Whole AS U64) AS PURE
+    FUNCTION PurePercent(Pct AS U64) AS PURE
+    FUNCTION PureBasisPoints(Bps AS U64) AS PURE
+    FUNCTION PurePercentOf(Value AS U64, Pct AS PURE) AS U64
+    FUNCTION PureLerp(A AS PURE, B AS PURE, TVal AS PURE) AS PURE
+    FUNCTION PureInverseLerp(A AS PURE, B AS PURE, X AS PURE) AS PURE
+    FUNCTION PureRemap(X AS PURE, A1 AS PURE, B1 AS PURE, A2 AS PURE, B2 AS PURE) AS PURE
+
+    -- ------------------------------------------------------------
+    -- Rational trig seeds
+    -- These are rational approximations by contract.
+    -- Angle input is degrees; implementations should normalize.
+    -- ------------------------------------------------------------
+    FUNCTION PureSinDegApprox(A AS U64) AS PURE
+    FUNCTION PureCosDegApprox(A AS U64) AS PURE
+    FUNCTION PureTanDegApprox(A AS U64) AS PURE
+    FUNCTION PureTanDegDefined(A AS U64) AS U64
+
+ENDMODULE
+
+-- ====================================================================
+-- Implementation. PURE(n, d) is the language constructor (num, den).
+-- Predicates return U64 1 for true, 0 for false.
+-- ====================================================================
+
+MODULE ALBMathPure
+
+
+    -- ------------------------------------------------------------
+    -- Constructors and canonical values
+    -- These functions form the public construction layer for PURE.
+    -- They keep callers away from raw constructor details where possible.
+    -- ------------------------------------------------------------
+
+    FUNCTION PureZero() AS PURE
+    BEGIN
+        -- 0/1. Denominator is never 0 in the canonical constructors.
+        LET Result AS PURE = PURE(0, 1)
+        RETURN Result
+    END FUNCTION
+
+    FUNCTION PureOne() AS PURE
+    BEGIN
+        LET Result AS PURE = PURE(1, 1)
+        RETURN Result
+    END FUNCTION
+
+    FUNCTION PureNegOne() AS PURE
+    BEGIN
+        LET ZeroVal AS PURE = PURE(0, 1)
+        LET OneVal AS PURE = PURE(1, 1)
+        LET Result AS PURE = PURE_SUB(ZeroVal, OneVal)
+
+        RETURN Result
+    END FUNCTION
+
+    FUNCTION PureFromU64(N AS U64) AS PURE
+    BEGIN
+        LET Result AS PURE = PURE(N, 1)
+        RETURN Result
+    END FUNCTION
+
+    FUNCTION PureFromS32(N AS S32) AS PURE
+    BEGIN
+        LET Result AS PURE = PURE(N, 1)
+        RETURN Result
+    END FUNCTION
+
+    FUNCTION PureMake(Num AS S32, Den AS U64) AS PURE
+    BEGIN
+        LET Result AS PURE = PURE(Num, Den)
+        RETURN Result
+    END FUNCTION
+
+    FUNCTION PureReduce(X AS PURE) AS PURE
+    BEGIN
+        -- Strict runtimes should throw on denominator-zero impossible schemas.
+        -- If such a value is ever presented here by a permissive backend,
+        -- reduction must not silently transform it.
+        LET NumPart AS S32 = PURE_NUM(X)
+        LET DenPart AS U64 = PURE_DEN(X)
+
+        LET AbsNum AS U64 = 0
+        LET A AS U64 = 0
+        LET B AS U64 = 0
+        LET Temp AS U64 = 0
+        LET GcdVal AS U64 = 0
+
+        LET ReducedAbs AS U64 = 0
+        LET ReducedDen AS U64 = 1
+
+        LET ZeroVal AS PURE = PURE(0, 1)
+        LET PosResult AS PURE = PURE(0, 1)
+        LET Result AS PURE = PURE(0, 1)
+
+        IF DenPart == 0 THEN
+            RETURN X
+        END IF
+
+        IF NumPart == 0 THEN
+            RETURN ZeroVal
+        END IF
+
+        IF NumPart < 0 THEN
+            AbsNum = 0 - NumPart
+        ELSE
+            AbsNum = NumPart
+        END IF
+
+        A = AbsNum
+        B = DenPart
+
+        WHILE B != 0
+            Temp = A MOD B
+            A = B
+            B = Temp
+        END WHILE
+
+        GcdVal = A
+
+        IF GcdVal == 0 THEN
+            RETURN X
+        END IF
+
+        ReducedAbs = AbsNum / GcdVal
+        ReducedDen = DenPart / GcdVal
+
+        PosResult = PURE(ReducedAbs, ReducedDen)
+
+        IF NumPart < 0 THEN
+            Result = PURE_SUB(ZeroVal, PosResult)
+        ELSE
+            Result = PosResult
+        END IF
+
+        RETURN Result
+    END FUNCTION
+
+    -- ------------------------------------------------------------
+    -- Extractors and basic predicates
+    -- These wrap the built-in PURE accessors so user code can stay
+    -- library-oriented instead of reaching into representation details.
+    -- ------------------------------------------------------------
+
+    FUNCTION PureNum(X AS PURE) AS S32
+    BEGIN
+        LET Result AS S32 = PURE_NUM(X)
+        RETURN Result
+    END FUNCTION
+
+    FUNCTION PureDen(X AS PURE) AS U64
+    BEGIN
+        LET Result AS U64 = PURE_DEN(X)
+        RETURN Result
+    END FUNCTION
+
+    FUNCTION PureIsZero(X AS PURE) AS U64
+    BEGIN
+        LET NumPart AS S32 = PURE_NUM(X)
+        LET DenPart AS U64 = PURE_DEN(X)
+
+        IF DenPart == 0 THEN
+            RETURN 0
+        END IF
+
+        IF NumPart == 0 THEN
+            RETURN 1
+        END IF
+
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION PureIsPositive(X AS PURE) AS U64
+    BEGIN
+        LET ZeroVal AS PURE = PURE(0, 1)
+
+        IF X > ZeroVal THEN
+            RETURN 1
+        END IF
+
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION PureIsNegative(X AS PURE) AS U64
+    BEGIN
+        LET ZeroVal AS PURE = PURE(0, 1)
+
+        IF X < ZeroVal THEN
+            RETURN 1
+        END IF
+
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION PureIsWhole(X AS PURE) AS U64
+    BEGIN
+        LET ZeroVal AS PURE = PURE(0, 1)
+        LET Work AS PURE = X
+
+        LET DenPart AS U64 = PURE_DEN(X)
+        LET AbsNum AS U64 = 0
+        LET RemPart AS U64 = 0
+
+        IF DenPart == 0 THEN
+            RETURN 0
+        END IF
+
+        IF DenPart == 1 THEN
+            RETURN 1
+        END IF
+
+        IF X < ZeroVal THEN
+            Work = PURE_SUB(ZeroVal, X)
+        END IF
+
+        AbsNum = PURE_NUM(Work)
+        RemPart = AbsNum MOD DenPart
+
+        IF RemPart == 0 THEN
+            RETURN 1
+        END IF
+
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION PureIsUnitInterval(X AS PURE) AS U64
+    BEGIN
+        LET ZeroVal AS PURE = PURE(0, 1)
+        LET OneVal AS PURE = PURE(1, 1)
+
+        IF X < ZeroVal THEN
+            RETURN 0
+        END IF
+
+        IF X > OneVal THEN
+            RETURN 0
+        END IF
+
+        RETURN 1
+    END FUNCTION
+
+    -- ------------------------------------------------------------
+    -- Comparisons
+    -- Equality is defined through ordering, so equivalent forms like
+    -- 1/2 and 2/4 compare equal even when the stored parts differ.
+    -- ------------------------------------------------------------
+
+    FUNCTION PureEq(A AS PURE, B AS PURE) AS U64
+    BEGIN
+        IF A < B THEN
+            RETURN 0
+        END IF
+
+        IF A > B THEN
+            RETURN 0
+        END IF
+
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION PureNeq(A AS PURE, B AS PURE) AS U64
+    BEGIN
+        LET EqVal AS U64 = 0
+
+        EqVal = ALBMathPure.PureEq(A, B)
+
+        IF EqVal == 1 THEN
+            RETURN 0
+        END IF
+
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION PureLt(A AS PURE, B AS PURE) AS U64
+    BEGIN
+        IF A < B THEN
+            RETURN 1
+        END IF
+
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION PureLte(A AS PURE, B AS PURE) AS U64
+    BEGIN
+        IF A < B THEN
+            RETURN 1
+        END IF
+
+        IF A > B THEN
+            RETURN 0
+        END IF
+
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION PureGt(A AS PURE, B AS PURE) AS U64
+    BEGIN
+        IF A > B THEN
+            RETURN 1
+        END IF
+
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION PureGte(A AS PURE, B AS PURE) AS U64
+    BEGIN
+        IF A > B THEN
+            RETURN 1
+        END IF
+
+        IF A < B THEN
+            RETURN 0
+        END IF
+
+        RETURN 1
+    END FUNCTION
+
+    -- ------------------------------------------------------------
+    -- Ordering and bounds
+    -- Clamp and range normalize inverted bounds so callers get safe,
+    -- deterministic behavior instead of hidden branch surprises.
+    -- ------------------------------------------------------------
+
+    FUNCTION PureMin(A AS PURE, B AS PURE) AS PURE
+    BEGIN
+        LET Result AS PURE = A
+
+        IF B < A THEN
+            Result = B
+        END IF
+
+        RETURN Result
+    END FUNCTION
+
+    FUNCTION PureMax(A AS PURE, B AS PURE) AS PURE
+    BEGIN
+        LET Result AS PURE = A
+
+        IF B > A THEN
+            Result = B
+        END IF
+
+        RETURN Result
+    END FUNCTION
+
+    FUNCTION PureClamp(X AS PURE, Lo AS PURE, Hi AS PURE) AS PURE
+    BEGIN
+        LET Low AS PURE = Lo
+        LET High AS PURE = Hi
+        LET Result AS PURE = X
+
+        IF Hi < Lo THEN
+            Low = Hi
+            High = Lo
+        END IF
+
+        IF X < Low THEN
+            Result = Low
+        ELSE
+            IF X > High THEN
+                Result = High
+            END IF
+        END IF
+
+        RETURN Result
+    END FUNCTION
+
+    FUNCTION PureInRange(X AS PURE, Lo AS PURE, Hi AS PURE) AS U64
+    BEGIN
+        LET Low AS PURE = Lo
+        LET High AS PURE = Hi
+
+        IF Hi < Lo THEN
+            Low = Hi
+            High = Lo
+        END IF
+
+        IF X < Low THEN
+            RETURN 0
+        END IF
+
+        IF X > High THEN
+            RETURN 0
+        END IF
+
+        RETURN 1
+    END FUNCTION
+
+    -- ------------------------------------------------------------
+    -- Integer extraction and fractional decomposition
+    -- ------------------------------------------------------------
+    -- IMPORTANT IMPLEMENTATION RULE:
+    -- ALB module locals currently lower to ModuleName_LocalName in FASM.
+    -- That means locals are module-scoped, not function-scoped.
+    --
+    -- Therefore every local in this block uses a function-specific prefix:
+    --
+    --   PFS_ = PureFloorS32
+    --   PCS_ = PureCeilS32
+    --   PRS_ = PureRoundS32
+    --   PTS_ = PureTruncS32
+    --   PFU_ = PureFloorU64
+    --   PCU_ = PureCeilU64
+    --   PRU_ = PureRoundU64
+    --   PTU_ = PureTruncU64
+    --   PWP_ = PureWholePart
+    --   PFP_ = PureFractionPart
+    --   PPF_ = PureProperFraction
+    --
+    -- Policy choices in this block:
+    -- - denominator-zero PURE values are impossible schemas and should
+    --   raise DIV_BY_ZERO in strict runtimes before policy logic continues
+    -- - signed round uses exact half-away-from-zero behavior
+    -- - whole part truncates toward zero
+    -- - fraction part is the non-negative magnitude of the proper remainder
+    -- ------------------------------------------------------------
+
+    FUNCTION PureFloorS32(X AS PURE) AS S32
+    BEGIN
+        LET PFS_NumS AS S32 = 0
+        LET PFS_DenU AS U64 = 0
+        LET PFS_AbsNumU AS U64 = 0
+        LET PFS_WholeU AS U64 = 0
+        LET PFS_RemU AS U64 = 0
+        LET PFS_ResultS AS S32 = 0
+
+        PFS_NumS = ALBMathPure.PureNum(X)
+        PFS_DenU = ALBMathPure.PureDen(X)
+
+        IF PFS_DenU == 0 THEN
+            RETURN 0
+        END IF
+
+        IF PFS_NumS == 0 THEN
+            RETURN 0
+        END IF
+
+        IF PFS_NumS < 0 THEN
+            PFS_AbsNumU = 0 - PFS_NumS
+        ELSE
+            PFS_AbsNumU = PFS_NumS
+        END IF
+
+        PFS_WholeU = PFS_AbsNumU / PFS_DenU
+        PFS_RemU = PFS_AbsNumU MOD PFS_DenU
+
+        IF PFS_NumS < 0 THEN
+            IF PFS_WholeU == 0 THEN
+                PFS_ResultS = 0
+            ELSE
+                PFS_ResultS = 0 - S32(PFS_WholeU - 1)
+                PFS_ResultS = PFS_ResultS - 1
+            END IF
+
+            IF PFS_RemU != 0 THEN
+                PFS_ResultS = PFS_ResultS - 1
+            END IF
+        ELSE
+            PFS_ResultS = S32(PFS_WholeU)
+        END IF
+
+        RETURN PFS_ResultS
+    END FUNCTION
+
+    FUNCTION PureCeilS32(X AS PURE) AS S32
+    BEGIN
+        LET PCS_NumS AS S32 = 0
+        LET PCS_DenU AS U64 = 0
+        LET PCS_AbsNumU AS U64 = 0
+        LET PCS_WholeU AS U64 = 0
+        LET PCS_RemU AS U64 = 0
+        LET PCS_ResultS AS S32 = 0
+
+        PCS_NumS = ALBMathPure.PureNum(X)
+        PCS_DenU = ALBMathPure.PureDen(X)
+
+        IF PCS_DenU == 0 THEN
+            RETURN 0
+        END IF
+
+        IF PCS_NumS == 0 THEN
+            RETURN 0
+        END IF
+
+        IF PCS_NumS < 0 THEN
+            PCS_AbsNumU = 0 - PCS_NumS
+        ELSE
+            PCS_AbsNumU = PCS_NumS
+        END IF
+
+        PCS_WholeU = PCS_AbsNumU / PCS_DenU
+        PCS_RemU = PCS_AbsNumU MOD PCS_DenU
+
+        IF PCS_NumS < 0 THEN
+            IF PCS_WholeU == 0 THEN
+                PCS_ResultS = 0
+            ELSE
+                PCS_ResultS = 0 - S32(PCS_WholeU - 1)
+                PCS_ResultS = PCS_ResultS - 1
+            END IF
+        ELSE
+            PCS_ResultS = S32(PCS_WholeU)
+            IF PCS_RemU != 0 THEN
+                PCS_ResultS = PCS_ResultS + 1
+            END IF
+        END IF
+
+        RETURN PCS_ResultS
+    END FUNCTION
+
+    FUNCTION PureRoundS32(X AS PURE) AS S32
+    BEGIN
+        LET PRS_NumS AS S32 = 0
+        LET PRS_DenU AS U64 = 0
+        LET PRS_AbsNumU AS U64 = 0
+        LET PRS_WholeU AS U64 = 0
+        LET PRS_RemU AS U64 = 0
+        LET PRS_GapU AS U64 = 0
+        LET PRS_RoundMagU AS U64 = 0
+        LET PRS_ResultS AS S32 = 0
+
+        PRS_NumS = ALBMathPure.PureNum(X)
+        PRS_DenU = ALBMathPure.PureDen(X)
+
+        IF PRS_DenU == 0 THEN
+            RETURN 0
+        END IF
+
+        IF PRS_NumS == 0 THEN
+            RETURN 0
+        END IF
+
+        IF PRS_NumS < 0 THEN
+            PRS_AbsNumU = 0 - PRS_NumS
+        ELSE
+            PRS_AbsNumU = PRS_NumS
+        END IF
+
+        PRS_WholeU = PRS_AbsNumU / PRS_DenU
+        PRS_RemU = PRS_AbsNumU MOD PRS_DenU
+        PRS_RoundMagU = PRS_WholeU
+
+        IF PRS_RemU != 0 THEN
+            PRS_GapU = PRS_DenU - PRS_RemU
+            IF PRS_RemU >= PRS_GapU THEN
+                PRS_RoundMagU = PRS_RoundMagU + 1
+            END IF
+        END IF
+
+        IF PRS_NumS < 0 THEN
+            IF PRS_RoundMagU == 0 THEN
+                PRS_ResultS = 0
+            ELSE
+                PRS_ResultS = 0 - S32(PRS_RoundMagU - 1)
+                PRS_ResultS = PRS_ResultS - 1
+            END IF
+        ELSE
+            PRS_ResultS = S32(PRS_RoundMagU)
+        END IF
+
+        RETURN PRS_ResultS
+    END FUNCTION
+
+    FUNCTION PureTruncS32(X AS PURE) AS S32
+    BEGIN
+        LET PTS_NumS AS S32 = 0
+        LET PTS_DenU AS U64 = 0
+        LET PTS_AbsNumU AS U64 = 0
+        LET PTS_WholeU AS U64 = 0
+        LET PTS_ResultS AS S32 = 0
+
+        PTS_NumS = ALBMathPure.PureNum(X)
+        PTS_DenU = ALBMathPure.PureDen(X)
+
+        IF PTS_DenU == 0 THEN
+            RETURN 0
+        END IF
+
+        IF PTS_NumS == 0 THEN
+            RETURN 0
+        END IF
+
+        IF PTS_NumS < 0 THEN
+            PTS_AbsNumU = 0 - PTS_NumS
+        ELSE
+            PTS_AbsNumU = PTS_NumS
+        END IF
+
+        PTS_WholeU = PTS_AbsNumU / PTS_DenU
+
+        IF PTS_NumS < 0 THEN
+            IF PTS_WholeU == 0 THEN
+                PTS_ResultS = 0
+            ELSE
+                PTS_ResultS = 0 - S32(PTS_WholeU - 1)
+                PTS_ResultS = PTS_ResultS - 1
+            END IF
+        ELSE
+            PTS_ResultS = S32(PTS_WholeU)
+        END IF
+
+        RETURN PTS_ResultS
+    END FUNCTION
+
+    FUNCTION PureFloorU64(X AS PURE) AS U64
+    BEGIN
+        LET PFU_NumS AS S32 = 0
+        LET PFU_DenU AS U64 = 0
+        LET PFU_NumU AS U64 = 0
+        LET PFU_ResultU AS U64 = 0
+
+        PFU_NumS = ALBMathPure.PureNum(X)
+        PFU_DenU = ALBMathPure.PureDen(X)
+
+        IF PFU_DenU == 0 THEN
+            RETURN 0
+        END IF
+
+        IF PFU_NumS < 0 THEN
+            RETURN 0
+        END IF
+
+        PFU_NumU = PFU_NumS
+        PFU_ResultU = PFU_NumU / PFU_DenU
+
+        RETURN PFU_ResultU
+    END FUNCTION
+
+    FUNCTION PureCeilU64(X AS PURE) AS U64
+    BEGIN
+        LET PCU_NumS AS S32 = 0
+        LET PCU_DenU AS U64 = 0
+        LET PCU_NumU AS U64 = 0
+        LET PCU_WholeU AS U64 = 0
+        LET PCU_RemU AS U64 = 0
+
+        PCU_NumS = ALBMathPure.PureNum(X)
+        PCU_DenU = ALBMathPure.PureDen(X)
+
+        IF PCU_DenU == 0 THEN
+            RETURN 0
+        END IF
+
+        IF PCU_NumS < 0 THEN
+            RETURN 0
+        END IF
+
+        PCU_NumU = PCU_NumS
+        PCU_WholeU = PCU_NumU / PCU_DenU
+        PCU_RemU = PCU_NumU MOD PCU_DenU
+
+        IF PCU_RemU != 0 THEN
+            PCU_WholeU = PCU_WholeU + 1
+        END IF
+
+        RETURN PCU_WholeU
+    END FUNCTION
+
+    FUNCTION PureRoundU64(X AS PURE) AS U64
+    BEGIN
+        LET PRU_NumS AS S32 = 0
+        LET PRU_DenU AS U64 = 0
+        LET PRU_NumU AS U64 = 0
+        LET PRU_WholeU AS U64 = 0
+        LET PRU_RemU AS U64 = 0
+        LET PRU_GapU AS U64 = 0
+        LET PRU_ResultU AS U64 = 0
+
+        PRU_NumS = ALBMathPure.PureNum(X)
+        PRU_DenU = ALBMathPure.PureDen(X)
+
+        IF PRU_DenU == 0 THEN
+            RETURN 0
+        END IF
+
+        IF PRU_NumS < 0 THEN
+            RETURN 0
+        END IF
+
+        PRU_NumU = PRU_NumS
+        PRU_WholeU = PRU_NumU / PRU_DenU
+        PRU_RemU = PRU_NumU MOD PRU_DenU
+        PRU_ResultU = PRU_WholeU
+
+        IF PRU_RemU != 0 THEN
+            PRU_GapU = PRU_DenU - PRU_RemU
+            IF PRU_RemU >= PRU_GapU THEN
+                PRU_ResultU = PRU_ResultU + 1
+            END IF
+        END IF
+
+        RETURN PRU_ResultU
+    END FUNCTION
+
+    FUNCTION PureTruncU64(X AS PURE) AS U64
+    BEGIN
+        LET PTU_NumS AS S32 = 0
+        LET PTU_DenU AS U64 = 0
+        LET PTU_NumU AS U64 = 0
+        LET PTU_ResultU AS U64 = 0
+
+        PTU_NumS = ALBMathPure.PureNum(X)
+        PTU_DenU = ALBMathPure.PureDen(X)
+
+        IF PTU_DenU == 0 THEN
+            RETURN 0
+        END IF
+
+        IF PTU_NumS < 0 THEN
+            RETURN 0
+        END IF
+
+        PTU_NumU = PTU_NumS
+        PTU_ResultU = PTU_NumU / PTU_DenU
+
+        RETURN PTU_ResultU
+    END FUNCTION
+
+    FUNCTION PureWholePart(X AS PURE) AS PURE
+    BEGIN
+        LET PWP_DenU AS U64 = 0
+        LET PWP_WholeS AS S32 = 0
+        LET PWP_OneU AS U64 = 1
+        LET PWP_Result AS PURE = PURE(0, 1)
+
+        PWP_DenU = ALBMathPure.PureDen(X)
+        IF PWP_DenU == 0 THEN
+            RETURN PWP_Result
+        END IF
+
+        PWP_WholeS = ALBMathPure.PureTruncS32(X)
+        PWP_Result = ALBMathPure.PureMake(PWP_WholeS, PWP_OneU)
+
+        RETURN PWP_Result
+    END FUNCTION
+
+    FUNCTION PureProperFraction(X AS PURE) AS PURE
+    BEGIN
+        LET PPF_DenU AS U64 = 0
+        LET PPF_Whole AS PURE = PURE(0, 1)
+        LET PPF_Result AS PURE = PURE(0, 1)
+
+        PPF_DenU = ALBMathPure.PureDen(X)
+        IF PPF_DenU == 0 THEN
+            RETURN PPF_Result
+        END IF
+
+        PPF_Whole = ALBMathPure.PureWholePart(X)
+        PPF_Result = ALBMathPure.PureSub(X, PPF_Whole)
+        PPF_Result = ALBMathPure.PureReduce(PPF_Result)
+
+        RETURN PPF_Result
+    END FUNCTION
+
+    FUNCTION PureFractionPart(X AS PURE) AS PURE
+    BEGIN
+        LET PFP_DenU AS U64 = 0
+        LET PFP_Proper AS PURE = PURE(0, 1)
+        LET PFP_Result AS PURE = PURE(0, 1)
+
+        PFP_DenU = ALBMathPure.PureDen(X)
+        IF PFP_DenU == 0 THEN
+            RETURN PFP_Result
+        END IF
+
+        PFP_Proper = ALBMathPure.PureProperFraction(X)
+        PFP_Result = ALBMathPure.PureAbs(PFP_Proper)
+        PFP_Result = ALBMathPure.PureReduce(PFP_Result)
+
+        RETURN PFP_Result
+    END FUNCTION
+
+    -- ------------------------------------------------------------
+    -- Basic rational arithmetic
+    -- ------------------------------------------------------------
+    FUNCTION PureAbs(X AS PURE) AS PURE
+    BEGIN
+        IF X < PURE(0, 1) THEN
+            RETURN PURE_SUB(PURE(0, 1), X)
+        END IF
+
+        RETURN X
+    END FUNCTION
+
+    FUNCTION PureNeg(X AS PURE) AS PURE
+    BEGIN
+        RETURN PURE_SUB(PURE(0, 1), X)
+    END FUNCTION
+
+    FUNCTION PureReciprocal(X AS PURE) AS PURE
+    BEGIN
+        LET PRC_Zero AS PURE = PURE(0, 1)
+        LET PRC_Result AS PURE = PURE(0, 1)
+        LET PRC_Positive AS PURE = PURE(0, 1)
+        LET PRC_NumS AS S32 = 0
+        LET PRC_DenU AS U64 = 0
+
+        PRC_NumS = PURE_NUM(X)
+        PRC_DenU = PURE_DEN(X)
+
+        IF PRC_NumS < 0 THEN
+            PRC_Positive = PURE(PRC_DenU, 0 - PRC_NumS)
+            PRC_Result = PURE_SUB(PRC_Zero, PRC_Positive)
+            RETURN PRC_Result
+        END IF
+
+        PRC_Result = PURE(PRC_DenU, PRC_NumS)
+        RETURN PRC_Result
+    END FUNCTION
+
+    FUNCTION PureAdd(A AS PURE, B AS PURE) AS PURE
+    BEGIN
+        RETURN PURE_ADD(A, B)
+    END FUNCTION
+
+    FUNCTION PureSub(A AS PURE, B AS PURE) AS PURE
+    BEGIN
+        RETURN PURE_SUB(A, B)
+    END FUNCTION
+
+    FUNCTION PureMul(A AS PURE, B AS PURE) AS PURE
+    BEGIN
+        RETURN PURE_MUL(A, B)
+    END FUNCTION
+
+    FUNCTION PureDiv(A AS PURE, B AS PURE) AS PURE
+    BEGIN
+        LET PDV_Result AS PURE = PURE(0, 1)
+        LET PDV_Reciprocal AS PURE = PURE(0, 1)
+
+        -- Zero divisors must bubble DIV_BY_ZERO through the backend runtime.
+        PDV_Reciprocal = ALBMathPure.PureReciprocal(B)
+        PDV_Result = PURE_MUL(A, PDV_Reciprocal)
+
+        RETURN PDV_Result
+    END FUNCTION
+
+    FUNCTION PureSqr(X AS PURE) AS PURE
+    BEGIN
+        RETURN PURE_MUL(X, X)
+    END FUNCTION
+
+    FUNCTION PurePowU64(Base AS PURE, Exp AS U64) AS PURE
+    BEGIN
+        LET Result AS PURE = PURE(1, 1)
+        LET I AS U64 = 0
+
+        WHILE I < Exp
+            Result = PURE_MUL(Result, Base)
+            I = I + 1
+        END WHILE
+
+        RETURN Result
+    END FUNCTION
+
+    -- ------------------------------------------------------------
+    --      ^^^^^^^^^^
+    -- Basic rational arithmetic
+    -- ------------------------------------------------------------
+
+    -- ------------------------------------------------------------
+    -- Rational roots
+    -- Exact root helpers report/check exactness.
+    -- Approx helpers return deterministic rational approximations.
+    -- ------------------------------------------------------------
+
+    FUNCTION PureSqrtFloorU64(N AS U64) AS U64
+    BEGIN
+        IF N == 0 THEN
+            RETURN 0
+        END IF
+
+        IF N == 1 THEN
+            RETURN 1
+        END IF
+
+        LET Lo AS U64 = 1
+        LET Hi AS U64 = N
+        LET Mid AS U64 = 0
+        LET Ans AS U64 = 0
+        LET Span AS U64 = 0
+        LET HalfSpan AS U64 = 0
+        LET DivCheck AS U64 = 0
+
+        WHILE Lo <= Hi
+            Span = Hi - Lo
+            HalfSpan = Span / 2
+            Mid = Lo + HalfSpan
+
+            DivCheck = N / Mid
+
+            IF Mid <= DivCheck THEN
+                Ans = Mid
+                Lo = Mid + 1
+            ELSE
+                IF Mid == 0 THEN
+                    RETURN Ans
+                END IF
+
+                Hi = Mid - 1
+            END IF
+        END WHILE
+
+        RETURN Ans
+    END FUNCTION
+
+    FUNCTION PureIsPerfectSquareU64(N AS U64) AS U64
+    BEGIN
+        LET R AS U64 = 0
+        LET Square AS U64 = 0
+
+        R = ALBMathPure.PureSqrtFloorU64(N)
+        Square = R * R
+
+        IF Square == N THEN
+            RETURN 1
+        END IF
+
+        RETURN 0
+    END FUNCTION
+
+    -- ------------------------------------------------------------
+    -- Rational root helpers for PURE values
+    -- ------------------------------------------------------------
+    -- IMPORTANT IMPLEMENTATION RULE:
+    -- ALB module locals currently lower to ModuleName_LocalName in FASM.
+    -- That means locals are module-scoped, not function-scoped.
+    --
+    -- Therefore every local in this block uses a function-specific prefix:
+    --
+    --   PSQ_  = PureIsPerfectSquarePure
+    --   PSE_  = PureSqrtExact
+    --   PSF_  = PureSqrtFloor
+    --   PSC_  = PureSqrtCeil
+    --   PSA_  = PureSqrtApprox
+    --
+    -- Do not rename these back to generic names like Result, NumPart,
+    -- DenPart, Root, or ZeroVal unless the compiler later gains true
+    -- function-local storage in modules.
+    -- ------------------------------------------------------------
+
+    FUNCTION PureIsPerfectSquarePure(X AS PURE) AS U64
+    BEGIN
+        LET PSQ_Input AS PURE = X
+        LET PSQ_Zero AS PURE = PURE(0, 1)
+
+        LET PSQ_NumS AS S32 = 0
+        LET PSQ_NumU AS U64 = 0
+        LET PSQ_DenU AS U64 = 0
+
+        LET PSQ_NumOk AS U64 = 0
+        LET PSQ_DenOk AS U64 = 0
+
+        IF PSQ_Input < PSQ_Zero THEN
+            RETURN 0
+        END IF
+
+        PSQ_NumS = ALBMathPure.PureNum(PSQ_Input)
+        PSQ_DenU = ALBMathPure.PureDen(PSQ_Input)
+
+        IF PSQ_DenU == 0 THEN
+            RETURN 0
+        END IF
+
+        IF PSQ_NumS < 0 THEN
+            RETURN 0
+        END IF
+
+        PSQ_NumU = PSQ_NumS
+
+        PSQ_NumOk = ALBMathPure.PureIsPerfectSquareU64(PSQ_NumU)
+        IF PSQ_NumOk == 0 THEN
+            RETURN 0
+        END IF
+
+        PSQ_DenOk = ALBMathPure.PureIsPerfectSquareU64(PSQ_DenU)
+        IF PSQ_DenOk == 0 THEN
+            RETURN 0
+        END IF
+
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION PureSqrtExact(X AS PURE) AS PURE
+    BEGIN
+        LET PSE_Input AS PURE = X
+        LET PSE_Out AS PURE = PURE(0, 1)
+
+        LET PSE_IsSquare AS U64 = 0
+
+        LET PSE_NumS AS S32 = 0
+        LET PSE_NumU AS U64 = 0
+        LET PSE_DenU AS U64 = 0
+
+        LET PSE_RootNumU AS U64 = 0
+        LET PSE_RootDenU AS U64 = 0
+        LET PSE_RootNumS AS S32 = 0
+
+        PSE_IsSquare = ALBMathPure.PureIsPerfectSquarePure(PSE_Input)
+
+        IF PSE_IsSquare == 0 THEN
+            RETURN PSE_Out
+        END IF
+
+        PSE_NumS = ALBMathPure.PureNum(PSE_Input)
+        PSE_DenU = ALBMathPure.PureDen(PSE_Input)
+
+        IF PSE_NumS < 0 THEN
+            RETURN PSE_Out
+        END IF
+
+        IF PSE_DenU == 0 THEN
+            RETURN PSE_Out
+        END IF
+
+        PSE_NumU = PSE_NumS
+
+        PSE_RootNumU = ALBMathPure.PureSqrtFloorU64(PSE_NumU)
+        PSE_RootDenU = ALBMathPure.PureSqrtFloorU64(PSE_DenU)
+
+        IF PSE_RootDenU == 0 THEN
+            RETURN PSE_Out
+        END IF
+
+        PSE_RootNumS = PSE_RootNumU
+        PSE_Out = ALBMathPure.PureMake(PSE_RootNumS, PSE_RootDenU)
+
+        RETURN PSE_Out
+    END FUNCTION
+
+    FUNCTION PureSqrtFloor(X AS PURE) AS PURE
+    BEGIN
+        LET PSF_Input AS PURE = X
+        LET PSF_Zero AS PURE = PURE(0, 1)
+        LET PSF_Out AS PURE = PURE(0, 1)
+
+        LET PSF_NumS AS S32 = 0
+        LET PSF_NumU AS U64 = 0
+        LET PSF_DenU AS U64 = 0
+
+        LET PSF_WholeU AS U64 = 0
+        LET PSF_RootU AS U64 = 0
+        LET PSF_RootS AS S32 = 0
+        LET PSF_OneU AS U64 = 1
+
+        IF PSF_Input < PSF_Zero THEN
+            RETURN PSF_Out
+        END IF
+
+        PSF_NumS = ALBMathPure.PureNum(PSF_Input)
+        PSF_DenU = ALBMathPure.PureDen(PSF_Input)
+
+        IF PSF_DenU == 0 THEN
+            RETURN PSF_Out
+        END IF
+
+        IF PSF_NumS < 0 THEN
+            RETURN PSF_Out
+        END IF
+
+        PSF_NumU = PSF_NumS
+        PSF_WholeU = PSF_NumU / PSF_DenU
+        PSF_RootU = ALBMathPure.PureSqrtFloorU64(PSF_WholeU)
+
+        PSF_RootS = PSF_RootU
+        PSF_Out = ALBMathPure.PureMake(PSF_RootS, PSF_OneU)
+
+        RETURN PSF_Out
+    END FUNCTION
+
+    FUNCTION PureSqrtCeil(X AS PURE) AS PURE
+    BEGIN
+        LET PSC_Input AS PURE = X
+        LET PSC_Zero AS PURE = PURE(0, 1)
+        LET PSC_Out AS PURE = PURE(0, 1)
+
+        LET PSC_NumS AS S32 = 0
+        LET PSC_NumU AS U64 = 0
+        LET PSC_DenU AS U64 = 0
+
+        LET PSC_WholeU AS U64 = 0
+        LET PSC_RootU AS U64 = 0
+        LET PSC_RootSquareU AS U64 = 0
+        LET PSC_ScaledSquareU AS U64 = 0
+        LET PSC_RootS AS S32 = 0
+        LET PSC_OneU AS U64 = 1
+
+        IF PSC_Input < PSC_Zero THEN
+            RETURN PSC_Out
+        END IF
+
+        PSC_NumS = ALBMathPure.PureNum(PSC_Input)
+        PSC_DenU = ALBMathPure.PureDen(PSC_Input)
+
+        IF PSC_DenU == 0 THEN
+            RETURN PSC_Out
+        END IF
+
+        IF PSC_NumS < 0 THEN
+            RETURN PSC_Out
+        END IF
+
+        PSC_NumU = PSC_NumS
+        PSC_WholeU = PSC_NumU / PSC_DenU
+
+        PSC_RootU = ALBMathPure.PureSqrtFloorU64(PSC_WholeU)
+        PSC_RootSquareU = PSC_RootU * PSC_RootU
+        PSC_ScaledSquareU = PSC_RootSquareU * PSC_DenU
+
+        IF PSC_ScaledSquareU < PSC_NumU THEN
+            PSC_RootU = PSC_RootU + 1
+        END IF
+
+        PSC_RootS = PSC_RootU
+        PSC_Out = ALBMathPure.PureMake(PSC_RootS, PSC_OneU)
+
+        RETURN PSC_Out
+    END FUNCTION
+
+    FUNCTION PureSqrtApprox(X AS PURE, Steps AS U64) AS PURE
+    BEGIN
+        LET PSA_Input AS PURE = X
+        LET PSA_Zero AS PURE = PURE(0, 1)
+
+        LET PSA_DenU AS U64 = 0
+        LET PSA_IsSquare AS U64 = 0
+        LET PSA_Limit AS U64 = Steps
+        LET PSA_I AS U64 = 0
+
+        LET PSA_Exact AS PURE = PURE(0, 1)
+        LET PSA_Guess AS PURE = PURE(0, 1)
+        LET PSA_Two AS PURE = PURE(2, 1)
+        LET PSA_DivPart AS PURE = PURE(0, 1)
+        LET PSA_SumPart AS PURE = PURE(0, 1)
+
+        IF PSA_Input < PSA_Zero THEN
+            RETURN PSA_Zero
+        END IF
+
+        PSA_DenU = ALBMathPure.PureDen(PSA_Input)
+
+        IF PSA_DenU == 0 THEN
+            RETURN PSA_Zero
+        END IF
+
+        IF PSA_Input == PSA_Zero THEN
+            RETURN PSA_Zero
+        END IF
+
+        PSA_IsSquare = ALBMathPure.PureIsPerfectSquarePure(PSA_Input)
+
+        IF PSA_IsSquare == 1 THEN
+            PSA_Exact = ALBMathPure.PureSqrtExact(PSA_Input)
+            RETURN PSA_Exact
+        END IF
+
+        IF PSA_Limit > 8 THEN
+            PSA_Limit = 8
+        END IF
+
+        PSA_Guess = ALBMathPure.PureSqrtCeil(PSA_Input)
+
+        WHILE PSA_I < PSA_Limit
+            PSA_DivPart = ALBMathPure.PureDiv(PSA_Input, PSA_Guess)
+            PSA_SumPart = PURE_ADD(PSA_Guess, PSA_DivPart)
+            PSA_Guess = ALBMathPure.PureDiv(PSA_SumPart, PSA_Two)
+            PSA_I = PSA_I + 1
+        END WHILE
+
+        RETURN PSA_Guess
+    END FUNCTION
+
+
+    -- ------------------------------------------------------------
+    -- Rational trig seeds
+    -- These are rational approximations by contract.
+    -- Angle input is degrees; implementations should normalize.
+    -- ------------------------------------------------------------
+
+    FUNCTION PureSinDegApprox(A AS U64) AS PURE
+    BEGIN
+        LET PSD_X AS U64 = 0
+        LET PSD_Negate AS U64 = 0
+        LET PSD_180 AS U64 = 180
+        LET PSD_XTerm AS U64 = 0
+        LET PSD_NumU AS U64 = 0
+        LET PSD_DenU AS U64 = 0
+        LET PSD_NumS AS S32 = 0
+        LET PSD_Result AS PURE = PURE(0, 1)
+        LET PSD_Reduced AS PURE = PURE(0, 1)
+
+        PSD_X = A MOD 360
+
+        IF PSD_X >= 180 THEN
+            PSD_X = PSD_X - 180
+            PSD_Negate = 1
+        END IF
+
+        -- Bhaskara I's integer approximation
+        PSD_XTerm = PSD_X * (PSD_180 - PSD_X)
+        PSD_NumU = 4 * PSD_XTerm
+        PSD_DenU = 40500 - PSD_XTerm
+
+        IF PSD_Negate == 1 THEN
+            PSD_NumS = 0 - S32(PSD_NumU)
+        ELSE
+            PSD_NumS = S32(PSD_NumU)
+        END IF
+
+        PSD_Result = ALBMathPure.PureMake(PSD_NumS, PSD_DenU)
+        PSD_Reduced = ALBMathPure.PureReduce(PSD_Result)
+
+        RETURN PSD_Reduced
+    END FUNCTION
+
+    FUNCTION PureCosDegApprox(A AS U64) AS PURE
+    BEGIN
+        LET PCD_Shifted AS U64 = 0
+        LET PCD_Result AS PURE = PURE(0, 1)
+
+        PCD_Shifted = A + 90
+        PCD_Result = ALBMathPure.PureSinDegApprox(PCD_Shifted)
+
+        RETURN PCD_Result
+    END FUNCTION
+
+    FUNCTION PureTanDegDefined(A AS U64) AS U64
+    BEGIN
+        LET PTD_X AS U64 = 0
+        
+        PTD_X = A MOD 360
+
+        IF PTD_X == 90 THEN
+            RETURN 0
+        END IF
+
+        IF PTD_X == 270 THEN
+            RETURN 0
+        END IF
+
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION PureTanDegApprox(A AS U64) AS PURE
+    BEGIN
+        LET PTA_Defined AS U64 = 0
+        LET PTA_Sin AS PURE = PURE(0, 1)
+        LET PTA_Cos AS PURE = PURE(0, 1)
+        LET PTA_Result AS PURE = PURE(0, 1)
+
+        PTA_Defined = ALBMathPure.PureTanDegDefined(A)
+
+        IF PTA_Defined == 0 THEN
+            THROW "DIV_BY_ZERO"
+        END IF
+
+        PTA_Sin = ALBMathPure.PureSinDegApprox(A)
+        PTA_Cos = ALBMathPure.PureCosDegApprox(A)
+        PTA_Result = ALBMathPure.PureDiv(PTA_Sin, PTA_Cos)
+
+        RETURN PTA_Result
+    END FUNCTION
+
+
+
+ENDMODULE
+

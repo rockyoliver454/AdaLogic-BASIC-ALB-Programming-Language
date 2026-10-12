@@ -1,0 +1,96 @@
+-- Twin of Ada core_noise_perlin. Lattice fade + 4-dir gradients. Output 0..255.
+VERSION 1.0
+
+DECLARE MODULE GdPerlin
+    FUNCTION PerlAt(x AS S32, y AS S32, seed AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdPerlin
+
+    FUNCTION Fade8(t AS S32) AS S32
+        LET t2 AS S32 = 0
+        ASSERT(t >= 0)
+        ASSERT(t <= 255)
+        t2 = (t * t) / 256
+        RETURN (t2 * (768 - t * 2)) / 256
+    END FUNCTION
+
+    FUNCTION Mix8(a AS S32, b AS S32, t AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN a + ((b - a) * t) / 256
+    END FUNCTION
+
+    FUNCTION GradDot(h AS S32, fx AS S32, fy AS S32) AS S32
+        LET k AS S32 = h AND 3
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF k = 0 THEN
+            RETURN fx
+        END IF
+        IF k = 1 THEN
+            RETURN 0 - fx
+        END IF
+        IF k = 2 THEN
+            RETURN fy
+        END IF
+        RETURN 0 - fy
+    END FUNCTION
+
+    FUNCTION PerlAt(x AS S32, y AS S32, seed AS S32) AS S32
+        LET ix AS S32 = 0
+        LET iy AS S32 = 0
+        LET fx AS S32 = 0
+        LET fy AS S32 = 0
+        LET u AS S32 = 0
+        LET v AS S32 = 0
+        LET aa AS S32 = 0
+        LET ab AS S32 = 0
+        LET ba AS S32 = 0
+        LET bb AS S32 = 0
+        LET n AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        ix = x / 8
+        iy = y / 8
+        fx = (x AND 7) * 32
+        fy = (y AND 7) * 32
+        u = Fade8(fx)
+        v = Fade8(fy)
+        aa = GradDot(GdHash.ByteOf(ix, iy, seed), fx, fy)
+        ba = GradDot(GdHash.ByteOf(ix + 1, iy, seed), fx - 256, fy)
+        ab = GradDot(GdHash.ByteOf(ix, iy + 1, seed), fx, fy - 256)
+        bb = GradDot(GdHash.ByteOf(ix + 1, iy + 1, seed), fx - 256, fy - 256)
+        n = Mix8(Mix8(aa, ba, u), Mix8(ab, bb, u), v)
+        n = n / 2 + 128
+        RETURN GdVec2.ClipI(n, 0, 255)
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        LET n AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        a = PerlAt(0, 0, 3)
+        b = PerlAt(0, 0, 3)
+        IF a = b THEN
+            n = n + 1
+        END IF
+        IF a >= 0 THEN
+            IF a <= 255 THEN
+                n = n + 1
+            END IF
+        END IF
+        b = PerlAt(40, 24, 3)
+        IF a <> b THEN
+            n = n + 1
+        END IF
+        IF n = 3 THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

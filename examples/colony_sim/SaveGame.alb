@@ -1,0 +1,905 @@
+INCLUDE "../INPUT.ALBI"
+INCLUDE "../ALBHASH.ALBI"
+INCLUDE "AppState.albi"
+INCLUDE "controls.albi"
+INCLUDE "world.albi"
+INCLUDE "colony.albi"
+INCLUDE "agents.albi"
+INCLUDE "Freezer.albi"
+INCLUDE "SaveGame.albi"
+
+IMPORT ALBHash
+IMPORT AppState
+IMPORT Controls
+IMPORT World
+IMPORT Colony
+IMPORT Agents
+IMPORT Freezer
+IMPORT SaveGame
+
+MODULE SaveGame
+    LET CATALOG_PATH AS STRING = "colonysim_saves.idx"
+    LET SAVE_COUNT_PATH AS STRING = "colonysim_save_count.dat"
+    LET THUMB_W AS U16 = 32
+    LET THUMB_H AS U16 = 18
+    LET THUMB_COUNT AS U16 = 576
+    LET KEY_BACKSPACE AS U16 = 42
+
+    STRICT thumb_live[576] AS U32
+    STRICT thumb_preview[576] AS U32
+    STRICT name_key_prev[256] AS U8
+    STRICT count_buf[1] AS U32
+    STRICT meta_u32[8] AS U32
+    STRICT meta_u64[2] AS U64
+
+    LET catalog_blob AS STRING = ""
+    LET catalog_count AS U16 = 0
+    LET selected_index AS U16 = 0
+    LET pending_name AS STRING = ""
+    LET status_text AS STRING = ""
+
+    LET selected_name AS STRING = ""
+    LET selected_root AS STRING = ""
+    LET selected_world_time AS U32 = 0
+    LET selected_season AS U8 = 0
+    LET selected_food AS U16 = 0
+    LET selected_wood AS U16 = 0
+    LET selected_stone AS U16 = 0
+    LET selected_level AS U8 = 0
+    LET selected_agents AS U16 = 0
+    LET selected_checksum AS U64 = 0
+    LET selected_thumb_checksum AS U64 = 0
+
+    FUNCTION DigitText(digit_value AS U32) AS STRING
+        IF digit_value = 1 THEN RETURN "1" END IF
+        IF digit_value = 2 THEN RETURN "2" END IF
+        IF digit_value = 3 THEN RETURN "3" END IF
+        IF digit_value = 4 THEN RETURN "4" END IF
+        IF digit_value = 5 THEN RETURN "5" END IF
+        IF digit_value = 6 THEN RETURN "6" END IF
+        IF digit_value = 7 THEN RETURN "7" END IF
+        IF digit_value = 8 THEN RETURN "8" END IF
+        IF digit_value = 9 THEN RETURN "9" END IF
+        RETURN "0"
+    END FUNCTION
+
+    FUNCTION ToStringU32(value AS U32) AS STRING
+        LET result_text AS STRING = ""
+        LET work_value AS U32 = value
+        LET digit_value AS U32 = 0
+        IF work_value = 0 THEN RETURN "0" END IF
+        WHILE work_value > 0
+            digit_value = work_value MOD 10
+            result_text = CONCAT(DigitText(digit_value), result_text)
+            work_value = work_value / 10
+        END WHILE
+        RETURN CONCAT(result_text, "")
+    END FUNCTION
+
+    FUNCTION ToStringU64(value AS U64) AS STRING
+        LET result_text AS STRING = ""
+        LET work_value AS U64 = value
+        LET digit_value AS U32 = 0
+        IF work_value = 0 THEN RETURN "0" END IF
+        WHILE work_value > 0
+            digit_value = CAST(work_value MOD CAST(10 AS U64) AS U32)
+            result_text = CONCAT(DigitText(digit_value), result_text)
+            work_value = work_value / CAST(10 AS U64)
+        END WHILE
+        RETURN CONCAT(result_text, "")
+    END FUNCTION
+
+    FUNCTION DigitValue(ch AS STRING) AS U8
+        IF ch = "0" THEN RETURN 0 END IF
+        IF ch = "1" THEN RETURN 1 END IF
+        IF ch = "2" THEN RETURN 2 END IF
+        IF ch = "3" THEN RETURN 3 END IF
+        IF ch = "4" THEN RETURN 4 END IF
+        IF ch = "5" THEN RETURN 5 END IF
+        IF ch = "6" THEN RETURN 6 END IF
+        IF ch = "7" THEN RETURN 7 END IF
+        IF ch = "8" THEN RETURN 8 END IF
+        IF ch = "9" THEN RETURN 9 END IF
+        RETURN 255
+    END FUNCTION
+
+    FUNCTION ParseU64Text(text_value AS STRING) AS U64
+        LET result_value AS U64 = 0
+        LET text_len AS U16 = CAST(LEN(text_value) AS U16)
+        LET pos AS U16 = 1
+        WHILE pos <= text_len
+            LET ch AS STRING = MID(text_value, pos, 1)
+            LET digit AS U8 = DigitValue(ch)
+            IF digit <= 9 THEN
+                result_value = (result_value * CAST(10 AS U64)) + CAST(digit AS U64)
+            END IF
+            pos = pos + 1
+        END WHILE
+        RETURN result_value
+    END FUNCTION
+
+    FUNCTION ParseU32Text(text_value AS STRING) AS U32
+        RETURN CAST(ParseU64Text(text_value) AS U32)
+    END FUNCTION
+
+    FUNCTION ParseU16Text(text_value AS STRING) AS U16
+        RETURN CAST(ParseU64Text(text_value) AS U16)
+    END FUNCTION
+
+    FUNCTION ParseU8Text(text_value AS STRING) AS U8
+        RETURN CAST(ParseU64Text(text_value) AS U8)
+    END FUNCTION
+
+    PROCEDURE ResetNameKeyState()
+        LET idx AS U16 = 1
+        FOR idx = 1 TO 256 THEN
+            name_key_prev[idx] = 0
+        END FOR
+    END PROCEDURE
+
+    FUNCTION ConsumeNameKey(scancode AS S32) AS U8
+        LET idx AS U16 = 0
+        LET held AS U8 = 0
+        LET edge AS U8 = 0
+        IF scancode < 0 THEN RETURN 0 END IF
+        idx = CAST(scancode + 1 AS U16)
+        IF idx < 1 OR idx > 256 THEN RETURN 0 END IF
+        IF KEY(scancode) THEN held = 1 END IF
+        IF held = 1 THEN
+            IF name_key_prev[idx] = 0 THEN edge = 1 END IF
+        END IF
+        name_key_prev[idx] = held
+        RETURN edge
+    END FUNCTION
+
+    PROCEDURE AppendPendingChar(ch AS STRING)
+        LET next_name AS STRING = pending_name
+        IF LEN(ch) = 0 THEN RETURN END IF
+        next_name = CONCAT(next_name, ch)
+        next_name = NormalizeSaveName(next_name)
+        IF LEN(next_name) = LEN(pending_name) THEN RETURN END IF
+        pending_name = next_name
+        status_text = CONCAT("EDITING NAME: ", pending_name)
+    END PROCEDURE
+
+    PROCEDURE RemovePendingChar()
+        LET text_len AS U16 = CAST(LEN(pending_name) AS U16)
+        IF text_len = 0 THEN RETURN END IF
+        pending_name = MID(pending_name, 1, text_len - 1)
+        IF LEN(pending_name) = 0 THEN
+            status_text = "SAVE NAME CLEARED"
+        ELSE
+            status_text = CONCAT("EDITING NAME: ", pending_name)
+        END IF
+    END PROCEDURE
+
+    PROCEDURE ClearLiveThumbnail()
+        LET idx AS U16 = 1
+        FOR idx = 1 TO THUMB_COUNT THEN
+            thumb_live[idx] = $101A26
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE ClearPreviewThumbnail()
+        LET idx AS U16 = 1
+        FOR idx = 1 TO THUMB_COUNT THEN
+            thumb_preview[idx] = $101A26
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE ClearSelection()
+        selected_name = ""
+        selected_root = ""
+        selected_world_time = 0
+        selected_season = 0
+        selected_food = 0
+        selected_wood = 0
+        selected_stone = 0
+        selected_level = 0
+        selected_agents = 0
+        selected_checksum = 0
+        selected_thumb_checksum = 0
+        ClearPreviewThumbnail()
+    END PROCEDURE
+
+    FUNCTION NormalizeSaveName(raw_name AS STRING) AS STRING
+        LET clean_name AS STRING = ""
+        LET pos AS U16 = 1
+        LET text_len AS U16 = CAST(LEN(raw_name) AS U16)
+        WHILE pos <= text_len
+            LET ch AS STRING = MID(raw_name, pos, 1)
+            clean_name = CONCAT(clean_name, ch)
+            IF LEN(clean_name) >= 28 THEN
+                RETURN CONCAT(clean_name, "")
+            END IF
+            pos = pos + 1
+        END WHILE
+        RETURN CONCAT(clean_name, "")
+    END FUNCTION
+
+    FUNCTION CountCatalogEntries(blob AS STRING) AS U16
+        LET line_count AS U16 = 0
+        LET line_has_data AS U8 = 0
+        LET text_len AS U16 = CAST(LEN(blob) AS U16)
+        LET pos AS U16 = 1
+        WHILE pos <= text_len
+            LET ch AS STRING = MID(blob, pos, 1)
+            IF ch = "\n" THEN
+                IF line_has_data = 1 THEN
+                    line_count = line_count + 1
+                    line_has_data = 0
+                END IF
+            ELSE
+                IF ch != "\r" THEN line_has_data = 1 END IF
+            END IF
+            pos = pos + 1
+        END WHILE
+        IF line_has_data = 1 THEN line_count = line_count + 1 END IF
+        RETURN line_count
+    END FUNCTION
+
+    FUNCTION GetLineByIndex(blob AS STRING, target_index AS U16) AS STRING
+        LET line_index AS U16 = 1
+        LET line_text AS STRING = ""
+        LET text_len AS U16 = CAST(LEN(blob) AS U16)
+        LET pos AS U16 = 1
+        IF target_index = 0 THEN RETURN "" END IF
+        WHILE pos <= text_len
+            LET ch AS STRING = MID(blob, pos, 1)
+            IF ch = "\n" THEN
+                IF line_index = target_index THEN
+                    RETURN CONCAT(line_text, "")
+                END IF
+                line_index = line_index + 1
+                line_text = ""
+            ELSE
+                IF ch != "\r" THEN
+                    IF line_index = target_index THEN
+                        line_text = CONCAT(line_text, ch)
+                    END IF
+                END IF
+            END IF
+            pos = pos + 1
+        END WHILE
+        IF line_index = target_index THEN RETURN CONCAT(line_text, "") END IF
+        RETURN ""
+    END FUNCTION
+
+    FUNCTION GetField(line_text AS STRING, field_index AS U8) AS STRING
+        LET current_field AS U8 = 1
+        LET field_text AS STRING = ""
+        LET text_len AS U16 = CAST(LEN(line_text) AS U16)
+        LET pos AS U16 = 1
+        WHILE pos <= text_len
+            LET ch AS STRING = MID(line_text, pos, 1)
+            IF ch = "|" THEN
+                IF current_field = field_index THEN
+                    RETURN CONCAT(field_text, "")
+                END IF
+                current_field = current_field + 1
+                field_text = ""
+            ELSE
+                IF current_field = field_index THEN
+                    field_text = CONCAT(field_text, ch)
+                END IF
+            END IF
+            pos = pos + 1
+        END WHILE
+        IF current_field = field_index THEN RETURN CONCAT(field_text, "") END IF
+        RETURN ""
+    END FUNCTION
+
+    FUNCTION BuildSaveRoot(serial_value AS U32) AS STRING
+        RETURN CONCAT("colonysim_save_", ToStringU32(serial_value))
+    END FUNCTION
+
+    FUNCTION DefaultSaveName(serial_value AS U32) AS STRING
+        RETURN CONCAT("COLONY SNAPSHOT ", ToStringU32(serial_value))
+    END FUNCTION
+
+    PROCEDURE ClearMetaBuffers()
+        LET i AS U8 = 1
+        FOR i = 1 TO 8 THEN
+            meta_u32[i] = 0
+        END FOR
+        FOR i = 1 TO 2 THEN
+            meta_u64[i] = 0
+        END FOR
+        count_buf[1] = 0
+    END PROCEDURE
+
+    FUNCTION ReadTextFile(path_name AS STRING) AS STRING
+        LET file_id AS U64 = 0
+        LET data_text AS STRING = ""
+        file_id = OPEN(path_name, "r")
+        IF file_id = 0 THEN RETURN "" END IF
+        data_text = READ(file_id, 65535)
+        CLOSE file_id
+        RETURN CONCAT(data_text, "")
+    END FUNCTION
+
+    PROCEDURE WriteTextFile(path_name AS STRING, data_text AS STRING)
+        LET file_id AS U64 = 0
+        file_id = OPEN(path_name, "w")
+        IF file_id = 0 THEN RETURN END IF
+        WRITE file_id, data_text
+        CLOSE file_id
+    END PROCEDURE
+
+    FUNCTION ReadSaveCount() AS U32
+        count_buf[1] = 0
+        LOAD SAVE_COUNT_PATH INTO count_buf
+        RETURN count_buf[1]
+    END FUNCTION
+
+    PROCEDURE WriteSaveCount(value AS U32)
+        count_buf[1] = value
+        FLUSH count_buf INTO SAVE_COUNT_PATH
+    END PROCEDURE
+
+    PROCEDURE WriteSnapshotMetadata(root_name AS STRING, save_name AS STRING, state_checksum AS U64, thumb_checksum AS U64)
+        LET path_name AS STRING = ""
+        WriteTextFile(CONCAT(root_name, "_NAME"), CONCAT(save_name, ""))
+
+        meta_u32[1] = World.GetWorldTime()
+        meta_u32[2] = CAST(World.GetSeason() AS U32)
+        meta_u32[3] = CAST(Colony.GetFoodCount() AS U32)
+        meta_u32[4] = CAST(Colony.GetWoodCount() AS U32)
+        meta_u32[5] = CAST(Colony.GetStoneCount() AS U32)
+        meta_u32[6] = CAST(Colony.GetColonyLevel() AS U32)
+        meta_u32[7] = CAST(Agents.GetAgentCount() AS U32)
+        meta_u32[8] = 0
+        path_name = CONCAT(root_name, "_META32")
+        FLUSH meta_u32 INTO path_name
+
+        meta_u64[1] = state_checksum
+        meta_u64[2] = thumb_checksum
+        path_name = CONCAT(root_name, "_META64")
+        FLUSH meta_u64 INTO path_name
+    END PROCEDURE
+
+    FUNCTION ComputeLiveThumbnailChecksum() AS U64
+        LET hash_value AS U64 = ALBHash.Seed64()
+        LET idx AS U16 = 1
+        FOR idx = 1 TO THUMB_COUNT THEN
+            hash_value = ALBHash.MixU32(hash_value, thumb_live[idx])
+        END FOR
+        RETURN hash_value
+    END FUNCTION
+
+    FUNCTION ComputePreviewThumbnailChecksum() AS U64
+        LET hash_value AS U64 = ALBHash.Seed64()
+        LET idx AS U16 = 1
+        FOR idx = 1 TO THUMB_COUNT THEN
+            hash_value = ALBHash.MixU32(hash_value, thumb_preview[idx])
+        END FOR
+        RETURN hash_value
+    END FUNCTION
+
+    PROCEDURE LoadPreviewForSelection()
+        LET path_name AS STRING = ""
+        ClearPreviewThumbnail()
+        IF LEN(selected_root) = 0 THEN RETURN END IF
+        path_name = CONCAT(selected_root, "_THUMB")
+        LOAD path_name INTO thumb_preview
+    END PROCEDURE
+
+    PROCEDURE ParseSelectedEntry()
+        LET path_name AS STRING = ""
+        IF selected_index = 0 OR selected_index > catalog_count THEN
+            ClearSelection()
+            RETURN
+        END IF
+
+        selected_root = BuildSaveRoot(CAST(selected_index AS U32))
+        selected_name = ReadTextFile(CONCAT(selected_root, "_NAME"))
+        IF LEN(selected_name) = 0 THEN
+            selected_name = DefaultSaveName(CAST(selected_index AS U32))
+        END IF
+
+        ClearMetaBuffers()
+        path_name = CONCAT(selected_root, "_META32")
+        LOAD path_name INTO meta_u32
+        path_name = CONCAT(selected_root, "_META64")
+        LOAD path_name INTO meta_u64
+
+        selected_world_time = meta_u32[1]
+        selected_season = CAST(meta_u32[2] AS U8)
+        selected_food = CAST(meta_u32[3] AS U16)
+        selected_wood = CAST(meta_u32[4] AS U16)
+        selected_stone = CAST(meta_u32[5] AS U16)
+        selected_level = CAST(meta_u32[6] AS U8)
+        selected_agents = CAST(meta_u32[7] AS U16)
+        selected_checksum = meta_u64[1]
+        selected_thumb_checksum = meta_u64[2]
+        LoadPreviewForSelection()
+    END PROCEDURE
+
+    PROCEDURE Setup()
+        catalog_blob = ""
+        catalog_count = 0
+        selected_index = 0
+        pending_name = ""
+        status_text = "SCANNING SAVE CATALOG"
+        ResetNameKeyState()
+        ClearLiveThumbnail()
+        ClearPreviewThumbnail()
+        RefreshCatalog()
+        IF catalog_count = 0 THEN
+            status_text = "NO SAVE SNAPSHOTS YET"
+        END IF
+    END PROCEDURE
+
+    PROCEDURE RefreshCatalog()
+        catalog_blob = ""
+        catalog_count = CAST(ReadSaveCount() AS U16)
+        IF catalog_count = 0 THEN
+            selected_index = 0
+            ClearSelection()
+            RETURN
+        END IF
+
+        IF selected_index = 0 OR selected_index > catalog_count THEN
+            selected_index = catalog_count
+        END IF
+        ParseSelectedEntry()
+    END PROCEDURE
+
+    PROCEDURE SelectNewest()
+        IF catalog_count = 0 THEN
+            selected_index = 0
+            ClearSelection()
+            RETURN
+        END IF
+        selected_index = catalog_count
+        ParseSelectedEntry()
+    END PROCEDURE
+
+    PROCEDURE SelectNext()
+        IF catalog_count = 0 THEN RETURN END IF
+        IF selected_index >= catalog_count THEN
+            selected_index = 1
+        ELSE
+            selected_index = selected_index + 1
+        END IF
+        ParseSelectedEntry()
+    END PROCEDURE
+
+    PROCEDURE SelectPrev()
+        IF catalog_count = 0 THEN RETURN END IF
+        IF selected_index <= 1 THEN
+            selected_index = catalog_count
+        ELSE
+            selected_index = selected_index - 1
+        END IF
+        ParseSelectedEntry()
+    END PROCEDURE
+
+    PROCEDURE PollNameInput()
+        LET edited AS U8 = 0
+        IF ConsumeNameKey(KEY_BACKSPACE) = 1 THEN
+            RemovePendingChar()
+            edited = 1
+        END IF
+
+        IF ConsumeNameKey(#K_A) = 1 THEN
+            AppendPendingChar("A")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_B) = 1 THEN
+            AppendPendingChar("B")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_C) = 1 THEN
+            AppendPendingChar("C")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_D) = 1 THEN
+            AppendPendingChar("D")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_E) = 1 THEN
+            AppendPendingChar("E")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_F) = 1 THEN
+            AppendPendingChar("F")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_G) = 1 THEN
+            AppendPendingChar("G")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_H) = 1 THEN
+            AppendPendingChar("H")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_I) = 1 THEN
+            AppendPendingChar("I")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_J) = 1 THEN
+            AppendPendingChar("J")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_K) = 1 THEN
+            AppendPendingChar("K")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_L) = 1 THEN
+            AppendPendingChar("L")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_M) = 1 THEN
+            AppendPendingChar("M")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_N) = 1 THEN
+            AppendPendingChar("N")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_O) = 1 THEN
+            AppendPendingChar("O")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_P) = 1 THEN
+            AppendPendingChar("P")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_Q) = 1 THEN
+            AppendPendingChar("Q")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_R) = 1 THEN
+            AppendPendingChar("R")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_S) = 1 THEN
+            AppendPendingChar("S")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_T) = 1 THEN
+            AppendPendingChar("T")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_U) = 1 THEN
+            AppendPendingChar("U")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_V) = 1 THEN
+            AppendPendingChar("V")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_W) = 1 THEN
+            AppendPendingChar("W")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_X) = 1 THEN
+            AppendPendingChar("X")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_Y) = 1 THEN
+            AppendPendingChar("Y")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_Z) = 1 THEN
+            AppendPendingChar("Z")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_1) = 1 THEN
+            AppendPendingChar("1")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_2) = 1 THEN
+            AppendPendingChar("2")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_3) = 1 THEN
+            AppendPendingChar("3")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_4) = 1 THEN
+            AppendPendingChar("4")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_5) = 1 THEN
+            AppendPendingChar("5")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_6) = 1 THEN
+            AppendPendingChar("6")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_7) = 1 THEN
+            AppendPendingChar("7")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_8) = 1 THEN
+            AppendPendingChar("8")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_9) = 1 THEN
+            AppendPendingChar("9")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_0) = 1 THEN
+            AppendPendingChar("0")
+            edited = 1
+        END IF
+        IF ConsumeNameKey(#K_SPACE) = 1 THEN
+            AppendPendingChar(" ")
+            edited = 1
+        END IF
+
+        IF ConsumeNameKey(#K_ENTER) = 1 THEN
+            IF LEN(pending_name) > 0 THEN
+                status_text = CONCAT("SAVE NAME READY: ", pending_name)
+            ELSE
+                status_text = "NO NAME TYPED, AUTO NAME WILL BE USED"
+            END IF
+        ELSE
+            IF edited = 1 THEN
+                IF LEN(pending_name) = 0 THEN
+                    status_text = "TYPE A NAME OR CLICK SAVE FOR AN AUTO NAME"
+                END IF
+            END IF
+        END IF
+    END PROCEDURE
+
+    PROCEDURE ClearPendingName()
+        pending_name = ""
+        ResetNameKeyState()
+        status_text = "TYPE A NAME OR CLICK SAVE FOR AN AUTO NAME"
+    END PROCEDURE
+
+    PROCEDURE CaptureLiveThumbnail()
+        LET ty AS U16 = 1
+        LET tx AS U16 = 1
+        LET idx AS U16 = 0
+        FOR ty = 1 TO THUMB_H THEN
+            FOR tx = 1 TO THUMB_W THEN
+                idx = CAST(((ty - 1) * THUMB_W) + tx AS U16)
+                thumb_live[idx] = READ_PIXEL((S32(tx) - 1) * 40 + 20, (S32(ty) - 1) * 40 + 20)
+            END FOR
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE DrawLiveThumbnail(x AS S32, y AS S32, pixel_size AS S32)
+        LET ty AS U16 = 1
+        LET tx AS U16 = 1
+        LET idx AS U16 = 0
+        FOR ty = 1 TO THUMB_H THEN
+            FOR tx = 1 TO THUMB_W THEN
+                idx = CAST(((ty - 1) * THUMB_W) + tx AS U16)
+                COLOR S32(thumb_live[idx])
+                FILL RECT x + (S32(tx) - 1) * pixel_size, y + (S32(ty) - 1) * pixel_size, pixel_size, pixel_size
+            END FOR
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE DrawSelectedThumbnail(x AS S32, y AS S32, pixel_size AS S32)
+        LET ty AS U16 = 1
+        LET tx AS U16 = 1
+        LET idx AS U16 = 0
+        FOR ty = 1 TO THUMB_H THEN
+            FOR tx = 1 TO THUMB_W THEN
+                idx = CAST(((ty - 1) * THUMB_W) + tx AS U16)
+                COLOR S32(thumb_preview[idx])
+                FILL RECT x + (S32(tx) - 1) * pixel_size, y + (S32(ty) - 1) * pixel_size, pixel_size, pixel_size
+            END FOR
+        END FOR
+    END PROCEDURE
+
+    FUNCTION SaveCurrentGame() AS U8
+        LET serial_value AS U32 = CAST(catalog_count AS U32) + 1
+        LET base_root AS STRING = ""
+        LET temp_root AS STRING = ""
+        LET final_root AS STRING = ""
+        LET thumb_path AS STRING = ""
+        LET save_name AS STRING = NormalizeSaveName(pending_name)
+        LET live_checksum AS U64 = 0
+        LET live_thumb_checksum AS U64 = 0
+
+        IF AppState.IsGameInitialized() = 0 THEN
+            status_text = "START A COLONY BEFORE SAVING"
+            RETURN 0
+        END IF
+
+        IF LEN(save_name) = 0 THEN save_name = DefaultSaveName(serial_value) END IF
+        base_root = BuildSaveRoot(serial_value)
+        temp_root = CONCAT(base_root, "_TMP")
+        final_root = base_root
+        live_checksum = Freezer.ComputeStateChecksum()
+        live_thumb_checksum = ComputeLiveThumbnailChecksum()
+
+        SAVE_STATE
+        Freezer.freeze_game(CONCAT(temp_root, ""))
+        Freezer.WriteStoredChecksum(CONCAT(temp_root, ""), live_checksum)
+        thumb_path = CONCAT(temp_root, "_THUMB")
+        FLUSH thumb_live INTO thumb_path
+        SYNC
+        Freezer.thaw_game(CONCAT(temp_root, ""))
+        IF Freezer.ComputeStateChecksum() != live_checksum THEN
+            LOAD_STATE
+            status_text = "TEMP SAVE VERIFY FAILED"
+            RETURN 0
+        END IF
+        IF Freezer.ReadStoredChecksum(CONCAT(temp_root, "")) != live_checksum THEN
+            LOAD_STATE
+            status_text = "TEMP SAVE CHECKSUM FILE FAILED"
+            RETURN 0
+        END IF
+        ClearPreviewThumbnail()
+        LOAD thumb_path INTO thumb_preview
+        IF ComputePreviewThumbnailChecksum() != live_thumb_checksum THEN
+            LOAD_STATE
+            status_text = "TEMP THUMB VERIFY FAILED"
+            RETURN 0
+        END IF
+        LOAD_STATE
+
+        Freezer.freeze_game(CONCAT(final_root, ""))
+        Freezer.WriteStoredChecksum(CONCAT(final_root, ""), live_checksum)
+        thumb_path = CONCAT(final_root, "_THUMB")
+        FLUSH thumb_live INTO thumb_path
+        SYNC
+
+        SAVE_STATE
+        Freezer.thaw_game(CONCAT(final_root, ""))
+        IF Freezer.ComputeStateChecksum() != live_checksum THEN
+            LOAD_STATE
+            status_text = "FINAL SAVE VERIFY FAILED"
+            RETURN 0
+        END IF
+        IF Freezer.ReadStoredChecksum(CONCAT(final_root, "")) != live_checksum THEN
+            LOAD_STATE
+            status_text = "FINAL SAVE CHECKSUM FILE FAILED"
+            RETURN 0
+        END IF
+        ClearPreviewThumbnail()
+        LOAD thumb_path INTO thumb_preview
+        IF ComputePreviewThumbnailChecksum() != live_thumb_checksum THEN
+            LOAD_STATE
+            status_text = "FINAL THUMB VERIFY FAILED"
+            RETURN 0
+        END IF
+        LOAD_STATE
+
+        WriteSnapshotMetadata(CONCAT(final_root, ""), CONCAT(save_name, ""), live_checksum, live_thumb_checksum)
+        WriteSaveCount(serial_value)
+        SYNC
+
+        RefreshCatalog()
+        SelectNewest()
+        IF selected_index != CAST(serial_value AS U16) THEN
+            status_text = "SAVE WRITTEN, BUT INDEX VERIFY FAILED"
+            RETURN 0
+        END IF
+        IF selected_checksum != live_checksum THEN
+            status_text = "SAVE WRITTEN, BUT META VERIFY FAILED"
+            RETURN 0
+        END IF
+
+        pending_name = ""
+        status_text = CONCAT("SAVED SNAPSHOT: ", save_name)
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION LoadSelectedGame() AS U8
+        LET thumb_path AS STRING = ""
+        LET load_root AS STRING = ""
+        LET load_name AS STRING = ""
+        LET load_checksum AS U64 = 0
+        LET load_thumb_checksum AS U64 = 0
+        IF LEN(selected_root) = 0 THEN
+            status_text = "NO SAVE SNAPSHOT SELECTED"
+            RETURN 0
+        END IF
+
+        load_root = selected_root
+        load_name = selected_name
+        load_checksum = selected_checksum
+        load_thumb_checksum = selected_thumb_checksum
+
+        SAVE_STATE
+        Freezer.thaw_game(CONCAT(load_root, ""))
+        IF Freezer.ComputeStateChecksum() != load_checksum THEN
+            LOAD_STATE
+            status_text = "SAVE STATE VERIFY FAILED"
+            RETURN 0
+        END IF
+        IF Freezer.ReadStoredChecksum(CONCAT(load_root, "")) != load_checksum THEN
+            LOAD_STATE
+            status_text = "SAVE CHECKSUM FILE DOES NOT MATCH CATALOG"
+            RETURN 0
+        END IF
+        ClearPreviewThumbnail()
+        thumb_path = CONCAT(load_root, "_THUMB")
+        LOAD thumb_path INTO thumb_preview
+        IF ComputePreviewThumbnailChecksum() != load_thumb_checksum THEN
+            LOAD_STATE
+            status_text = "SAVE THUMB VERIFY FAILED"
+            RETURN 0
+        END IF
+
+        selected_root = load_root
+        selected_name = load_name
+        selected_checksum = load_checksum
+        selected_thumb_checksum = load_thumb_checksum
+        AppState.SetGameInitialized(1)
+        Controls.ClearTransientInput()
+        status_text = CONCAT("LOADED SNAPSHOT: ", load_name)
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION GetCatalogCount() AS U16
+        RETURN catalog_count
+    END FUNCTION
+
+    FUNCTION GetSelectedIndex() AS U16
+        RETURN selected_index
+    END FUNCTION
+
+    FUNCTION GetPendingName() AS STRING
+        RETURN CONCAT(pending_name, "")
+    END FUNCTION
+
+    FUNCTION GetStatusText() AS STRING
+        RETURN CONCAT(status_text, "")
+    END FUNCTION
+
+    FUNCTION GetEntryLabel(idx AS U16) AS STRING
+        IF idx = 0 OR idx > catalog_count THEN RETURN "" END IF
+        IF idx != selected_index THEN
+            RETURN CONCAT("COLONY SNAPSHOT ", ToStringU32(CAST(idx AS U32)))
+        END IF
+        RETURN CONCAT(
+            CONCAT(
+                CONCAT(selected_name, "  LV "),
+                ToStringU32(CAST(selected_level AS U32))
+            ),
+            CONCAT("  COL ", ToStringU32(CAST(selected_agents AS U32)))
+        )
+    END FUNCTION
+
+    FUNCTION GetSelectedName() AS STRING
+        RETURN CONCAT(selected_name, "")
+    END FUNCTION
+
+    FUNCTION GetSelectedRoot() AS STRING
+        RETURN CONCAT(selected_root, "")
+    END FUNCTION
+
+    FUNCTION GetSelectedWorldTime() AS U32
+        RETURN selected_world_time
+    END FUNCTION
+
+    FUNCTION GetSelectedSeason() AS U8
+        RETURN selected_season
+    END FUNCTION
+
+    FUNCTION GetSelectedFood() AS U16
+        RETURN selected_food
+    END FUNCTION
+
+    FUNCTION GetSelectedWood() AS U16
+        RETURN selected_wood
+    END FUNCTION
+
+    FUNCTION GetSelectedStone() AS U16
+        RETURN selected_stone
+    END FUNCTION
+
+    FUNCTION GetSelectedLevel() AS U8
+        RETURN selected_level
+    END FUNCTION
+
+    FUNCTION GetSelectedAgents() AS U16
+        RETURN selected_agents
+    END FUNCTION
+
+    FUNCTION HasEntries() AS U8
+        IF catalog_count > 0 THEN RETURN 1 END IF
+        RETURN 0
+    END FUNCTION
+END MODULE

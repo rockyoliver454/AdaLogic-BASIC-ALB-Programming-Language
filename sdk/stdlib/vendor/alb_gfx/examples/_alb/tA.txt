@@ -1,0 +1,6 @@
+A fails var
+blas=0
+nk=0
+ctx=1963427192848
+fails=0
+ALL OK

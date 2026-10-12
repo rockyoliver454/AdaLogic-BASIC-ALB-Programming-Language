@@ -1,0 +1,12 @@
+-- ============================================================================
+-- alb_vulkan_app.albi — APPLICATION companion for Vulkan demos
+-- ============================================================================
+-- NOT the graphics API. Thin alb_vulkan.dll stays lifecycle + alb_vk* only.
+-- This DLL holds demos: shapes / OpenBLAS tint / Nuklear control panel.
+-- Place alb_vulkan_app.dll beside the program (plus alb_vulkan.dll,
+-- alb_openblas.dll, libopenblas.dll, alb_nuklear.dll, alb_glfw.dll, glfw3.dll).
+-- ============================================================================
+
+VERSION 0.1
+
+IMPORT_DLL FUNCTION demo_vulkan_run_all_features() AS S32 FROM ("alb_vulkan_app.dll")

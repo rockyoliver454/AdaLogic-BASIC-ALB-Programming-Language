@@ -1,0 +1,69 @@
+INCLUDE "../SCREEN.ALBI"
+INCLUDE "../INPUT.ALBI"
+INCLUDE "../ZLevels.ALBI"
+INCLUDE "../ZDepth.ALBI"
+INCLUDE "../YSort.ALBI"
+
+IMPORT ZLevels
+IMPORT ZDepth
+IMPORT YSort
+
+INCLUDE "world.albi"
+INCLUDE "agents.albi"
+INCLUDE "terrain.albi"
+INCLUDE "colony.albi"
+INCLUDE "renderer.albi"
+INCLUDE "sprites.albi"
+INCLUDE "controls.albi"
+INCLUDE "simulation.albi"
+INCLUDE "ai.albi"
+INCLUDE "gathering.albi"
+INCLUDE "buildings.albi"
+INCLUDE "weather.albi"
+INCLUDE "research.albi"
+INCLUDE "lighting.albi"
+INCLUDE "Freezer.albi"
+INCLUDE "AppState.albi"
+INCLUDE "Settings.albi"
+INCLUDE "SaveGame.albi"
+
+IMPORT World
+IMPORT Agents
+IMPORT Terrain
+IMPORT Colony
+IMPORT Renderer
+IMPORT Sprites
+IMPORT Controls
+IMPORT Simulation
+IMPORT AI
+IMPORT Gathering
+IMPORT Buildings
+IMPORT Weather
+IMPORT Research
+IMPORT Lighting
+IMPORT Freezer
+IMPORT AppState
+IMPORT Settings
+IMPORT SaveGame
+
+INCLUDE "world.alb"
+INCLUDE "agents.alb"
+INCLUDE "terrain.alb"
+INCLUDE "colony.alb"
+INCLUDE "renderer.alb"
+INCLUDE "sprites.alb"
+INCLUDE "controls.alb"
+INCLUDE "ai.alb"
+INCLUDE "gathering.alb"
+INCLUDE "buildings.alb"
+INCLUDE "weather.alb"
+INCLUDE "research.alb"
+INCLUDE "lighting.alb"
+INCLUDE "AppState.alb"
+INCLUDE "Settings.alb"
+INCLUDE "Freezer.alb"
+INCLUDE "simulation.alb"
+INCLUDE "SaveGame.alb"
+
+BEGIN
+END

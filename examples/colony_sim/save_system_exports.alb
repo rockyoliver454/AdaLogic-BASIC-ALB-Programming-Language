@@ -1,0 +1,230 @@
+VERSION 1
+
+#SCREEN_W = 1280
+#SCREEN_H = 720
+
+INCLUDE "../SCREEN.ALBI"
+INCLUDE "../INPUT.ALBI"
+INCLUDE "../ZLevels.ALBI"
+INCLUDE "../ZDepth.ALBI"
+INCLUDE "../YSort.ALBI"
+
+IMPORT ZLevels
+IMPORT ZDepth
+IMPORT YSort
+
+INCLUDE "world.albi"
+INCLUDE "agents.albi"
+INCLUDE "terrain.albi"
+INCLUDE "colony.albi"
+INCLUDE "renderer.albi"
+INCLUDE "sprites.albi"
+INCLUDE "controls.albi"
+INCLUDE "simulation.albi"
+INCLUDE "ai.albi"
+INCLUDE "gathering.albi"
+INCLUDE "buildings.albi"
+INCLUDE "weather.albi"
+INCLUDE "research.albi"
+INCLUDE "lighting.albi"
+INCLUDE "menu.albi"
+INCLUDE "Freezer.albi"
+INCLUDE "AppState.albi"
+INCLUDE "Settings.albi"
+INCLUDE "SaveGame.albi"
+
+IMPORT World
+IMPORT Agents
+IMPORT Terrain
+IMPORT Colony
+IMPORT Renderer
+IMPORT Sprites
+IMPORT Controls
+IMPORT Simulation
+IMPORT AI
+IMPORT Gathering
+IMPORT Buildings
+IMPORT Weather
+IMPORT Research
+IMPORT Lighting
+IMPORT Menu
+IMPORT Freezer
+IMPORT AppState
+IMPORT Settings
+IMPORT SaveGame
+
+INCLUDE "world.alb"
+INCLUDE "agents.alb"
+INCLUDE "terrain.alb"
+INCLUDE "colony.alb"
+INCLUDE "renderer.alb"
+INCLUDE "sprites.alb"
+INCLUDE "controls.alb"
+INCLUDE "ai.alb"
+INCLUDE "gathering.alb"
+INCLUDE "buildings.alb"
+INCLUDE "weather.alb"
+INCLUDE "research.alb"
+INCLUDE "lighting.alb"
+INCLUDE "AppState.alb"
+INCLUDE "Settings.alb"
+INCLUDE "Freezer.alb"
+INCLUDE "SaveGame.alb"
+INCLUDE "simulation.alb"
+INCLUDE "menu.alb"
+
+EXPORT_DLL PROCEDURE ColonySave_Boot()
+EXPORT_DLL PROCEDURE ColonySave_SetupNewGame()
+EXPORT_DLL PROCEDURE ColonySave_RefreshCatalog()
+EXPORT_DLL PROCEDURE ColonySave_SelectNewest()
+EXPORT_DLL PROCEDURE ColonySave_SelectNext()
+EXPORT_DLL PROCEDURE ColonySave_SelectPrev()
+EXPORT_DLL PROCEDURE ColonySave_ClearPendingName()
+EXPORT_DLL PROCEDURE ColonySave_CaptureLiveThumbnail()
+EXPORT_DLL FUNCTION ColonySave_SaveCurrentGame() AS U8
+EXPORT_DLL FUNCTION ColonySave_LoadSelectedGame() AS U8
+EXPORT_DLL FUNCTION ColonySave_GetCatalogCount() AS U16
+EXPORT_DLL FUNCTION ColonySave_GetSelectedIndex() AS U16
+EXPORT_DLL FUNCTION ColonySave_HasEntries() AS U8
+EXPORT_DLL FUNCTION ColonySave_GetStatusText() AS STRING
+EXPORT_DLL FUNCTION ColonySave_GetSelectedName() AS STRING
+EXPORT_DLL FUNCTION ColonySave_GetSelectedRoot() AS STRING
+EXPORT_DLL FUNCTION ColonySave_GetSelectedWorldTime() AS U32
+EXPORT_DLL FUNCTION ColonySave_GetSelectedSeason() AS U8
+EXPORT_DLL FUNCTION ColonySave_GetSelectedFood() AS U16
+EXPORT_DLL FUNCTION ColonySave_GetSelectedWood() AS U16
+EXPORT_DLL FUNCTION ColonySave_GetSelectedStone() AS U16
+EXPORT_DLL FUNCTION ColonySave_GetSelectedLevel() AS U8
+EXPORT_DLL FUNCTION ColonySave_GetSelectedAgents() AS U16
+EXPORT_DLL PROCEDURE ColonySave_Freeze(filename AS STRING)
+EXPORT_DLL PROCEDURE ColonySave_Thaw(filename AS STRING)
+EXPORT_DLL FUNCTION ColonySave_ComputeChecksum() AS U64
+EXPORT_DLL FUNCTION ColonySave_ReadStoredChecksum(filename AS STRING) AS U64
+EXPORT_DLL PROCEDURE ColonySave_WriteStoredChecksum(filename AS STRING, checksum_value AS U64)
+
+PROCEDURE ColonySave_Boot()
+    Settings.Setup()
+    AppState.ResetForBoot()
+    SaveGame.Setup()
+END PROCEDURE
+
+PROCEDURE ColonySave_SetupNewGame()
+    Settings.Setup()
+    AppState.ResetForBoot()
+    SaveGame.Setup()
+    Simulation.Setup()
+    AppState.SetGameInitialized(1)
+    Controls.ClearTransientInput()
+END PROCEDURE
+
+PROCEDURE ColonySave_RefreshCatalog()
+    SaveGame.RefreshCatalog()
+END PROCEDURE
+
+PROCEDURE ColonySave_SelectNewest()
+    SaveGame.SelectNewest()
+END PROCEDURE
+
+PROCEDURE ColonySave_SelectNext()
+    SaveGame.SelectNext()
+END PROCEDURE
+
+PROCEDURE ColonySave_SelectPrev()
+    SaveGame.SelectPrev()
+END PROCEDURE
+
+PROCEDURE ColonySave_ClearPendingName()
+    SaveGame.ClearPendingName()
+END PROCEDURE
+
+PROCEDURE ColonySave_CaptureLiveThumbnail()
+    SaveGame.CaptureLiveThumbnail()
+END PROCEDURE
+
+FUNCTION ColonySave_SaveCurrentGame() AS U8
+    SaveGame.CaptureLiveThumbnail()
+    RETURN SaveGame.SaveCurrentGame()
+END FUNCTION
+
+FUNCTION ColonySave_LoadSelectedGame() AS U8
+    RETURN SaveGame.LoadSelectedGame()
+END FUNCTION
+
+FUNCTION ColonySave_GetCatalogCount() AS U16
+    RETURN SaveGame.GetCatalogCount()
+END FUNCTION
+
+FUNCTION ColonySave_GetSelectedIndex() AS U16
+    RETURN SaveGame.GetSelectedIndex()
+END FUNCTION
+
+FUNCTION ColonySave_HasEntries() AS U8
+    RETURN SaveGame.HasEntries()
+END FUNCTION
+
+FUNCTION ColonySave_GetStatusText() AS STRING
+    RETURN SaveGame.GetStatusText()
+END FUNCTION
+
+FUNCTION ColonySave_GetSelectedName() AS STRING
+    RETURN SaveGame.GetSelectedName()
+END FUNCTION
+
+FUNCTION ColonySave_GetSelectedRoot() AS STRING
+    RETURN SaveGame.GetSelectedRoot()
+END FUNCTION
+
+FUNCTION ColonySave_GetSelectedWorldTime() AS U32
+    RETURN SaveGame.GetSelectedWorldTime()
+END FUNCTION
+
+FUNCTION ColonySave_GetSelectedSeason() AS U8
+    RETURN SaveGame.GetSelectedSeason()
+END FUNCTION
+
+FUNCTION ColonySave_GetSelectedFood() AS U16
+    RETURN SaveGame.GetSelectedFood()
+END FUNCTION
+
+FUNCTION ColonySave_GetSelectedWood() AS U16
+    RETURN SaveGame.GetSelectedWood()
+END FUNCTION
+
+FUNCTION ColonySave_GetSelectedStone() AS U16
+    RETURN SaveGame.GetSelectedStone()
+END FUNCTION
+
+FUNCTION ColonySave_GetSelectedLevel() AS U8
+    RETURN SaveGame.GetSelectedLevel()
+END FUNCTION
+
+FUNCTION ColonySave_GetSelectedAgents() AS U16
+    RETURN SaveGame.GetSelectedAgents()
+END FUNCTION
+
+PROCEDURE ColonySave_Freeze(filename AS STRING)
+    Freezer.freeze_game(filename)
+END PROCEDURE
+
+PROCEDURE ColonySave_Thaw(filename AS STRING)
+    Freezer.thaw_game(filename)
+    AppState.SetGameInitialized(1)
+    Controls.ClearTransientInput()
+END PROCEDURE
+
+FUNCTION ColonySave_ComputeChecksum() AS U64
+    RETURN Freezer.ComputeStateChecksum()
+END FUNCTION
+
+FUNCTION ColonySave_ReadStoredChecksum(filename AS STRING) AS U64
+    RETURN Freezer.ReadStoredChecksum(filename)
+END FUNCTION
+
+PROCEDURE ColonySave_WriteStoredChecksum(filename AS STRING, checksum_value AS U64)
+    Freezer.WriteStoredChecksum(filename, checksum_value)
+END PROCEDURE
+
+BEGIN
+    CREATE_WINDOW "COLONY SAVE EXPORTS", #SCREEN_W, #SCREEN_H
+    INIT_SCREEN()
+END

@@ -1,0 +1,23 @@
+-- Twin of Ada geo_mass. Integer momentum / reduced mass.
+VERSION 1.0
+
+DECLARE MODULE GdMass
+    FUNCTION Mom(m AS S32, v AS S32) AS S32
+    FUNCTION Reduced(a AS S32, b AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdMass
+
+    FUNCTION Mom(m AS S32, v AS S32) AS S32
+        ASSERT(m >= 0)
+        ASSERT(1 = 1)
+        RETURN m * v
+    END FUNCTION
+
+    FUNCTION Reduced(a AS S32, b AS S32) AS S32 REQUIRE a + b <> 0
+        ASSERT(a >= 0)
+        ASSERT(b >= 0)
+        RETURN (a * b) / (a + b)
+    END FUNCTION
+
+END MODULE

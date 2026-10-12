@@ -1,0 +1,100 @@
+-- ============================================================================
+-- ALBFlac — native FLAC STREAMINFO
+-- ============================================================================
+-- "fLaC" + metadata block type 0 (STREAMINFO, 34 bytes). Rate() Hz from
+-- the 20-bit sample-rate field. Chn() = packed channels + 1.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_flac.albi"
+--
+-- ProbeBuf()  0 ok. Ogg-wrapped FLAC is ALBOgg Kind()=3, not this module.
+-- Residual / subframe decode is not implemented.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBFlac
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION Rate() AS S32
+    FUNCTION Chn() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBFlac
+
+    -- 1-based window. Native fLaC + STREAMINFO (block type 0), not Ogg-wrapped.
+    STRICT src[4096] AS U8
+    LET srclen AS S32 = 0
+    LET rate AS S32 = 0
+    LET chnn AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        rate = 0
+        chnn = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 4096 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION ProbeBuf() AS S32
+        LET b10 AS S32 = 0
+        LET b11 AS S32 = 0
+        LET b12 AS S32 = 0
+        rate = 0
+        chnn = 0
+        IF srclen < 42 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        IF src[1] <> 102 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[2] <> 76 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[3] <> 97 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[4] <> 67 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF (CAST(src[5] AS S32) AND 127) <> 0 THEN
+            lastst = 5
+            RETURN lastst
+        END IF
+        b10 = CAST(src[19] AS S32)
+        b11 = CAST(src[20] AS S32)
+        b12 = CAST(src[21] AS S32)
+        rate = (b10 * 4096) + (b11 * 16) + (b12 / 16)
+        chnn = ((b12 / 2) AND 7) + 1
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION Rate() AS S32
+        RETURN rate
+    END FUNCTION
+
+    FUNCTION Chn() AS S32
+        RETURN chnn
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

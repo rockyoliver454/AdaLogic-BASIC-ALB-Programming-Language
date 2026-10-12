@@ -1,0 +1,27 @@
+-- Host bridge exports (web) — EXPORT_ES / EXPORT_WASM twin of gd_api_host.albi.
+
+EXPORT_ES FUNCTION GdApi_Host_ScreenToVgpuX(sx AS S32) AS S32
+EXPORT_ES FUNCTION GdApi_Host_ScreenToVgpuY(sy AS S32) AS S32
+EXPORT_ES FUNCTION GdApi_Host_VgpuW() AS S32
+EXPORT_ES FUNCTION GdApi_Host_VgpuH() AS S32
+
+EXPORT_WASM FUNCTION GdApi_Host_ScreenToVgpuX(sx AS S32) AS S32
+EXPORT_WASM FUNCTION GdApi_Host_ScreenToVgpuY(sy AS S32) AS S32
+EXPORT_WASM FUNCTION GdApi_Host_VgpuW() AS S32
+EXPORT_WASM FUNCTION GdApi_Host_VgpuH() AS S32
+
+FUNCTION GdApi_Host_ScreenToVgpuX(sx AS S32) AS S32
+    RETURN GdVgpuBr.ScreenToVgpuX(sx)
+END FUNCTION
+
+FUNCTION GdApi_Host_ScreenToVgpuY(sy AS S32) AS S32
+    RETURN GdVgpuBr.ScreenToVgpuY(sy)
+END FUNCTION
+
+FUNCTION GdApi_Host_VgpuW() AS S32
+    RETURN #GD_VGPU_W
+END FUNCTION
+
+FUNCTION GdApi_Host_VgpuH() AS S32
+    RETURN #GD_VGPU_H
+END FUNCTION

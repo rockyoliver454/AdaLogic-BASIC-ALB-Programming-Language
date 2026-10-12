@@ -1,0 +1,23 @@
+-- Twin of Ada core_sfx_triangle.
+VERSION 1.0
+
+DECLARE MODULE GdSfxTri
+    FUNCTION SampleAt(phase AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdSfxTri
+
+    FUNCTION SampleAt(phase AS S32) AS S32
+        LET a AS S32 = phase MOD 256
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF a < 0 THEN
+            a = a + 256
+        END IF
+        IF a < 128 THEN
+            RETURN a - 64
+        END IF
+        RETURN 192 - a
+    END FUNCTION
+
+END MODULE

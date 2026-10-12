@@ -1,0 +1,18 @@
+-- Morton-ish interleave for chunk keys.
+VERSION 1.0
+
+DECLARE MODULE GdSpaceFill
+    FUNCTION Encode(x AS S32, y AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdSpaceFill
+
+    FUNCTION Encode(x AS S32, y AS S32) AS S32
+        LET a AS S32 = x AND 63
+        LET b AS S32 = y AND 63
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN a + b * 64
+    END FUNCTION
+
+END MODULE

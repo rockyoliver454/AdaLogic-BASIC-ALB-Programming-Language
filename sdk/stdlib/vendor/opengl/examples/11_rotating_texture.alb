@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_opengl.albi"
+
+LET rc = alb_opengl_test_rotating_texture(90)
+IF rc = 0 THEN
+  PRINT "opengl rotating_texture PASS"
+ELSE
+  PRINT "opengl rotating_texture FAIL " | rc
+END IF
+END

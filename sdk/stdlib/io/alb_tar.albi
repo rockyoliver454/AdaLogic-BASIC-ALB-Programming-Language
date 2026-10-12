@@ -1,0 +1,121 @@
+-- ============================================================================
+-- ALBTar — POSIX ustar directory list
+-- ============================================================================
+-- 512-byte headers. Size0() / Type0() describe the first member.
+-- Type0 is the typeflag byte (ASCII `0` or NUL is a regular file).
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_tar.albi"
+--
+-- WalkBuf()    0 ok. FileCount() members before the two zero blocks.
+-- Pax/GNU long-name extensions are not expanded; the header name is
+-- whatever fits 100 bytes. Window 8192 — a 10 KiB ustar still lists
+-- if the first headers fit. LoadPath for binary.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBTar
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION WalkBuf() AS S32
+    FUNCTION FileCount() AS S32
+    FUNCTION Size0() AS S32
+    FUNCTION Type0() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBTar
+
+    -- 1-based window. 512-byte POSIX ustar records. sz0/typ0 are member 0.
+    STRICT src[8192] AS U8
+    LET srclen AS S32 = 0
+    LET nfile AS S32 = 0
+    LET sz0 AS S32 = 0
+    LET typ0 AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        nfile = 0
+        sz0 = 0
+        typ0 = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 8192 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION Octal(off AS S32, n AS S32) AS S32
+        LET i AS S32 = 0
+        LET v AS S32 = 0
+        LET c AS S32 = 0
+        WHILE i < n
+            c = CAST(src[off + i] AS S32)
+            IF c >= 48 THEN
+                IF c <= 55 THEN
+                    v = v * 8 + (c - 48)
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+        RETURN v
+    END FUNCTION
+
+    FUNCTION WalkBuf() AS S32
+        LET i AS S32 = 1
+        LET sz AS S32 = 0
+        LET blocks AS S32 = 0
+        nfile = 0
+        IF srclen < 512 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        WHILE i + 511 <= srclen
+            IF src[i] = 0 THEN
+                i = srclen + 1
+            ELSE
+                sz = Octal(i + 124, 11)
+                IF nfile = 0 THEN
+                    sz0 = sz
+                    typ0 = CAST(src[i + 156] AS S32)
+                END IF
+                nfile = nfile + 1
+                IF nfile > 64 THEN
+                    lastst = 2
+                    RETURN lastst
+                END IF
+                blocks = (sz + 511) / 512
+                i = i + 512 + blocks * 512
+            END IF
+        END WHILE
+        IF nfile < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION FileCount() AS S32
+        RETURN nfile
+    END FUNCTION
+
+    FUNCTION Size0() AS S32
+        RETURN sz0
+    END FUNCTION
+
+    FUNCTION Type0() AS S32
+        RETURN typ0
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

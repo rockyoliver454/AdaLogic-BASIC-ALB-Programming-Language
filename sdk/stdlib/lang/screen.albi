@@ -1,0 +1,72 @@
+-- ====================================================================
+-- SCREEN.ALBI
+-- Resolution Independence and Coordinate Scaling
+-- Provides semantic screen anchors and safe coordinate mapping.
+-- ====================================================================
+
+-- --------------------------------------------------------------------
+-- SEMANTIC ANCHORS
+-- Use these instead of hardcoded numbers to find screen positions.
+-- --------------------------------------------------------------------
+LET SCR_CENTER_X AS S32 = 0
+LET SCR_CENTER_Y AS S32 = 0
+LET SCR_MAX_X AS S32 = 0
+LET SCR_MAX_Y AS S32 = 0
+
+-- --------------------------------------------------------------------
+-- VIRTUAL SCALING MODES
+-- --------------------------------------------------------------------
+LET SCR_SCALE_X AS S32 = 100
+LET SCR_SCALE_Y AS S32 = 100
+
+-- ====================================================================
+-- PROCEDURE: INIT_SCREEN
+-- Must be called immediately after CREATE_WINDOW.
+-- Populates the semantic anchors based on the actual hardware context.
+-- ====================================================================
+PROCEDURE INIT_SCREEN()
+    -- Cast the U32 globals to S32 to satisfy the strict type bounds
+    LET SCR_MAX_X = S32(VIRTUAL_WIDTH)
+    LET SCR_MAX_Y = S32(VIRTUAL_HEIGHT)
+    
+    LET SCR_CENTER_X = S32(VIRTUAL_WIDTH) / 2
+    LET SCR_CENTER_Y = S32(VIRTUAL_HEIGHT) / 2
+END PROCEDURE
+
+-- ====================================================================
+-- FUNCTION: PCT_X(percent)
+-- Returns the X pixel coordinate that represents the given percentage 
+-- (0-100) of the total screen width.
+-- Example: PCT_X(50) returns the center X. PCT_X(100) returns the right edge.
+-- ====================================================================
+FUNCTION PCT_X(percent AS S32) AS S32
+    RETURN CAST((S32(VIRTUAL_WIDTH) * percent) / 100 AS S32)
+END FUNCTION
+
+-- ====================================================================
+-- FUNCTION: PCT_Y(percent)
+-- Returns the Y pixel coordinate that represents the given percentage 
+-- (0-100) of the total screen height.
+-- ====================================================================
+FUNCTION PCT_Y(percent AS S32) AS S32
+    RETURN CAST((S32(VIRTUAL_HEIGHT) * percent) / 100 AS S32)
+END FUNCTION
+
+-- ====================================================================
+-- FUNCTION: SCALE_TO_DOS_X(val)
+-- If you authored game logic specifically for 320x200, this safely 
+-- scales that X coordinate up to whatever the actual resolution is.
+-- ====================================================================
+FUNCTION SCALE_TO_DOS_X(val AS S32) AS S32
+    RETURN CAST((val * S32(VIRTUAL_WIDTH)) / 320 AS S32)
+END FUNCTION
+
+-- ====================================================================
+-- FUNCTION: SCALE_TO_DOS_Y(val)
+-- If you authored game logic specifically for 320x200, this safely 
+-- scales that Y coordinate up to whatever the actual resolution is.
+-- ====================================================================
+FUNCTION SCALE_TO_DOS_Y(val AS S32) AS S32
+    RETURN CAST((val * S32(VIRTUAL_HEIGHT)) / 200 AS S32)
+END FUNCTION
+

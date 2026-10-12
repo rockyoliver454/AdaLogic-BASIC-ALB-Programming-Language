@@ -1,0 +1,35 @@
+-- Twin of C perspective_dispatcher. Kind 0..6.
+VERSION 1.0
+
+DECLARE MODULE GdPerspGo
+    FUNCTION ProjX(kind AS S32, x AS S32, y AS S32) AS S32
+    FUNCTION ProjY(kind AS S32, x AS S32, y AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdPerspGo
+
+    FUNCTION ProjX(kind AS S32, x AS S32, y AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 6)
+        IF kind = 0 THEN RETURN GdIso.ProjX(x, y) END IF
+        IF kind = 1 THEN RETURN GdMilitary.ProjX(x, y) END IF
+        IF kind = 2 THEN RETURN GdCabinet.ProjX(x, y) END IF
+        IF kind = 3 THEN RETURN GdCavalier.ProjX(x, y) END IF
+        IF kind = 4 THEN RETURN GdDimetric.ProjX(x, y) END IF
+        IF kind = 5 THEN RETURN GdRpgView.ProjX(x, y) END IF
+        RETURN GdUltima.ProjX(x, y)
+    END FUNCTION
+
+    FUNCTION ProjY(kind AS S32, x AS S32, y AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 6)
+        IF kind = 0 THEN RETURN GdIso.ProjY(x, y) END IF
+        IF kind = 1 THEN RETURN GdMilitary.ProjY(x, y) END IF
+        IF kind = 2 THEN RETURN GdCabinet.ProjY(x, y) END IF
+        IF kind = 3 THEN RETURN GdCavalier.ProjY(x, y) END IF
+        IF kind = 4 THEN RETURN GdDimetric.ProjY(x, y) END IF
+        IF kind = 5 THEN RETURN GdRpgView.ProjY(x, y) END IF
+        RETURN GdUltima.ProjY(x, y)
+    END FUNCTION
+
+END MODULE

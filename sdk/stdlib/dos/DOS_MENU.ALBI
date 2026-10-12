@@ -1,0 +1,136 @@
+-- ====================================================================
+-- DOS_MENU.ALBI
+-- Interactive INPUT-driven menu helpers for DOS text utilities.
+-- Works on fasm16, native fasm console, and native c console builds.
+-- ====================================================================
+
+FUNCTION DOSMENU_Parse_Digit(ch AS STRING) AS U16
+    IF ch = "0" THEN RETURN 0 END IF
+    IF ch = "1" THEN RETURN 1 END IF
+    IF ch = "2" THEN RETURN 2 END IF
+    IF ch = "3" THEN RETURN 3 END IF
+    IF ch = "4" THEN RETURN 4 END IF
+    IF ch = "5" THEN RETURN 5 END IF
+    IF ch = "6" THEN RETURN 6 END IF
+    IF ch = "7" THEN RETURN 7 END IF
+    IF ch = "8" THEN RETURN 8 END IF
+    IF ch = "9" THEN RETURN 9 END IF
+    RETURN 0
+END FUNCTION
+
+FUNCTION DOSMENU_Parse_U16(source_text AS STRING) AS U16
+    LET out_value AS U16 = 0
+    LET idx AS U16 = 1
+    LET text_len AS U16 = CAST(LEN(source_text) AS U16)
+    LET digit_value AS U16 = 0
+    LET ch AS STRING = ""
+
+    FOR idx = 1 TO text_len THEN
+        ch = MID$(source_text, idx, 1)
+        digit_value = DOSMENU_Parse_Digit(ch)
+        IF digit_value = 0 AND ch <> "0" THEN
+            RETURN out_value
+        END IF
+        out_value = out_value * 10 + digit_value
+    END FOR
+
+    RETURN out_value
+END FUNCTION
+
+FUNCTION DOSMENU_Read_Menu_Choice(prompt_text AS STRING, min_value AS U16, max_value AS U16) AS U16
+    LET choice_text AS STRING = ""
+    LET choice_value AS U16 = 0
+
+    INPUT prompt_text, choice_text
+    choice_value = DOSMENU_Parse_U16(CONCAT(choice_text, ""))
+    IF choice_value < min_value THEN RETURN 0 END IF
+    IF choice_value > max_value THEN RETURN 0 END IF
+    RETURN choice_value
+END FUNCTION
+
+FUNCTION DOSMENU_Read_Slot(prompt_text AS STRING, min_value AS U16, max_value AS U16) AS U16
+    RETURN DOSMENU_Read_Menu_Choice(prompt_text, min_value, max_value)
+END FUNCTION
+
+FUNCTION DOSMENU_Read_Command() AS STRING
+    LET cmd_text AS STRING = ""
+
+    INPUT "Command: ", cmd_text
+    RETURN CONCAT(cmd_text, "")
+END FUNCTION
+
+FUNCTION DOSMENU_Command_Is_Back(cmd_text AS STRING) AS BOOL
+  LET first_ch AS STRING = ""
+
+    IF LEN(cmd_text) = 0 THEN RETURN TRUE END IF
+    first_ch = MID$(cmd_text, 1, 1)
+    IF first_ch = "B" THEN RETURN TRUE END IF
+    IF first_ch = "b" THEN RETURN TRUE END IF
+    IF first_ch = "0" THEN RETURN TRUE END IF
+    RETURN FALSE
+END FUNCTION
+
+PROCEDURE DOSMENU_Clear_Screen()
+    LET idx AS U16 = 1
+
+    FOR idx = 1 TO 24 THEN
+        PRINT ""
+    END FOR
+END PROCEDURE
+
+PROCEDURE DOSMENU_Print_Row(selected AS BOOL, row_text AS STRING)
+    IF selected THEN
+        PRINT CONCAT("> ", row_text)
+    ELSE
+        PRINT CONCAT("  ", row_text)
+    END IF
+END PROCEDURE
+
+PROCEDURE DOSMENU_Print_List_Row(active_slot AS U16, cursor_slot AS U16, row_text AS STRING)
+    IF active_slot = cursor_slot THEN
+        CALL DOSMENU_Print_Row(TRUE, row_text)
+    ELSE
+        CALL DOSMENU_Print_Row(FALSE, row_text)
+    END IF
+END PROCEDURE
+
+PROCEDURE DOSMENU_Print_Menu_Row(item_no AS U16, cursor_slot AS U16, label_text AS STRING)
+    IF item_no = cursor_slot THEN
+        CALL DOSMENU_Print_Row(TRUE, label_text)
+    ELSE
+        CALL DOSMENU_Print_Row(FALSE, label_text)
+    END IF
+END PROCEDURE
+
+PROCEDURE DOSMENU_Print_Help()
+    PRINT ""
+    PRINT "Enter menu number, or 0 / B to go back."
+END PROCEDURE
+
+PROCEDURE DOSMENU_Pause(message_text AS STRING)
+    LET sink_text AS STRING = ""
+
+    PRINT message_text
+    INPUT "Continue: ", sink_text
+END PROCEDURE
+
+PROCEDURE DOSMENU_Show_Main_Menu(title_text AS STRING, item1 AS STRING, item2 AS STRING, item3 AS STRING, item4 AS STRING, item5 AS STRING)
+    CALL DOSMENU_Clear_Screen()
+    CALL DOSTUI_Print_Banner(title_text)
+    CALL DOSTUI_Print_Section("MAIN MENU")
+    CALL DOSTUI_Print_Menu_Item(1, item1, "")
+    CALL DOSTUI_Print_Menu_Item(2, item2, "")
+    CALL DOSTUI_Print_Menu_Item(3, item3, "")
+    CALL DOSTUI_Print_Menu_Item(4, item4, "")
+    CALL DOSTUI_Print_Menu_Item(5, item5, "")
+    CALL DOSMENU_Print_Help()
+END PROCEDURE
+
+FUNCTION DOSMENU_Cycle_U16(value AS U16, delta AS S16, min_value AS U16, max_value AS U16) AS U16
+    LET out_value AS S16 = CAST(value AS S16)
+
+    out_value = out_value + delta
+    IF out_value < CAST(min_value AS S16) THEN RETURN min_value END IF
+    IF out_value > CAST(max_value AS S16) THEN RETURN max_value END IF
+    RETURN CAST(out_value AS U16)
+END FUNCTION

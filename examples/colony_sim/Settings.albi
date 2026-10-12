@@ -1,0 +1,37 @@
+DECLARE MODULE Settings
+    PROCEDURE Setup()
+    PROCEDURE ResetStartupSettings()
+    PROCEDURE ToggleSound()
+    PROCEDURE ToggleMusic()
+    PROCEDURE ToggleFullscreen()
+    PROCEDURE ToggleStretchy()
+    PROCEDURE ToggleResizable()
+    PROCEDURE ToggleShowFPS()
+    PROCEDURE ToggleDevMode()
+    PROCEDURE CycleStartSeason(delta AS S32)
+    PROCEDURE CycleStartHour(delta AS S32)
+    PROCEDURE CycleDayLength(delta AS S32)
+    PROCEDURE CycleStartBerries(delta AS S32)
+    PROCEDURE CycleStartFood(delta AS S32)
+    PROCEDURE CycleStartAgents(delta AS S32)
+    PROCEDURE CycleStartWood(delta AS S32)
+    PROCEDURE CycleStartStone(delta AS S32)
+    PROCEDURE CycleMoodBonus(delta AS S32)
+    FUNCTION IsSoundOn() AS U8
+    FUNCTION IsMusicOn() AS U8
+    FUNCTION IsFullscreen() AS U8
+    FUNCTION IsStretchy() AS U8
+    FUNCTION IsResizable() AS U8
+    FUNCTION IsShowFPS() AS U8
+    FUNCTION IsDevMode() AS U8
+    FUNCTION GetStartSeason() AS U8
+    FUNCTION GetStartHour() AS U8
+    FUNCTION GetStartDayLength() AS U32
+    FUNCTION GetStartBerries() AS U16
+    FUNCTION GetStartFood() AS U16
+    FUNCTION GetStartAgents() AS U16
+    FUNCTION GetStartWood() AS U16
+    FUNCTION GetStartStone() AS U16
+    FUNCTION GetMoodBonus() AS U8
+    FUNCTION GetSeasonName() AS STRING
+END DECLARE MODULE

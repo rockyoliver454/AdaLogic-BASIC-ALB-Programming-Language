@@ -1,0 +1,46 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+PRINT "inframe-update probe"
+LET gfx AS S64 = gfx_init(640, 480)
+LET verts AS S64 = gfx_alloc_memory(84)
+LET i AS S32 = 0
+LET st AS S32 = 0
+LET vb AS S64 = 0
+LET pipe AS S64 = 0
+CALL gfx_write_f32(verts, 0, 0.0)
+CALL gfx_write_f32(verts, 1, 0.7)
+CALL gfx_write_f32(verts, 2, 0.0)
+CALL gfx_write_f32(verts, 3, 1.0)
+CALL gfx_write_f32(verts, 4, 1.0)
+CALL gfx_write_f32(verts, 5, 0.2)
+CALL gfx_write_f32(verts, 6, 1.0)
+CALL gfx_write_f32(verts, 7, -0.7)
+CALL gfx_write_f32(verts, 8, -0.6)
+CALL gfx_write_f32(verts, 9, 0.0)
+CALL gfx_write_f32(verts, 10, 0.2)
+CALL gfx_write_f32(verts, 11, 1.0)
+CALL gfx_write_f32(verts, 12, 1.0)
+CALL gfx_write_f32(verts, 13, 1.0)
+CALL gfx_write_f32(verts, 14, 0.7)
+CALL gfx_write_f32(verts, 15, -0.6)
+CALL gfx_write_f32(verts, 16, 0.0)
+CALL gfx_write_f32(verts, 17, 0.3)
+CALL gfx_write_f32(verts, 18, 1.0)
+CALL gfx_write_f32(verts, 19, 0.3)
+CALL gfx_write_f32(verts, 20, 1.0)
+LET vb = gfx_buffer_create(gfx, 84, #GFX_BUFFER_USAGE_DYNAMIC)
+LET pipe = gfx_pipeline_create(gfx, 0, 0, #GFX_TOPOLOGY_TRIANGLELIST)
+CALL gfx_pipeline_bind(gfx, pipe)
+CALL gfx_bind_vertex_buffer(gfx, vb)
+FOR i = 1 TO 60 THEN
+  CALL gfx_poll_events()
+  LET st = gfx_begin_frame(gfx)
+  LET st = gfx_clear(gfx, 0.1, 0.25, 0.45, 1.0)
+  CALL gfx_buffer_update(gfx, vb, 0, 84, verts)
+  CALL gfx_draw_arrays(gfx, 3, 0)
+  LET st = gfx_end_frame(gfx, 1)
+END FOR
+CALL gfx_shutdown(gfx)
+PRINT "inframe-update OK"
+END

@@ -1,0 +1,134 @@
+-- Q16.16 S32. Ada Float stand-in. Mul splits 8.8 to stay in S32.
+VERSION 1.0
+
+DECLARE MODULE GdQ16
+    FUNCTION One() AS S32
+    FUNCTION FromInt(n AS S32) AS S32
+    FUNCTION ToInt(q AS S32) AS S32
+    FUNCTION Mul(a AS S32, b AS S32) AS S32
+    FUNCTION Div(a AS S32, b AS S32) AS S32
+    FUNCTION MixQ(a AS S32, b AS S32, t AS S32) AS S32
+    FUNCTION ClipQ(v AS S32, lo AS S32, hi AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdQ16
+
+    FUNCTION One() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 65536
+    END FUNCTION
+
+    FUNCTION FromInt(n AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN n * 65536
+    END FUNCTION
+
+    FUNCTION ToInt(q AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN q / 65536
+    END FUNCTION
+
+    FUNCTION AbsU(v AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF v < 0 THEN
+            RETURN 0 - v
+        END IF
+        RETURN v
+    END FUNCTION
+
+    FUNCTION Mul(a AS S32, b AS S32) AS S32
+        LET sign AS S32 = 1
+        LET ua AS S32 = a
+        LET ub AS S32 = b
+        LET ah AS S32 = 0
+        LET al AS S32 = 0
+        LET bh AS S32 = 0
+        LET bl AS S32 = 0
+        LET r AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF ua < 0 THEN
+            ua = 0 - ua
+            sign = 0 - sign
+        END IF
+        IF ub < 0 THEN
+            ub = 0 - ub
+            sign = 0 - sign
+        END IF
+        ah = ua / 256
+        al = ua MOD 256
+        bh = ub / 256
+        bl = ub MOD 256
+        r = ah * bh + (ah * bl) / 256 + (al * bh) / 256 + (al * bl) / 65536
+        IF sign < 0 THEN
+            RETURN 0 - r
+        END IF
+        RETURN r
+    END FUNCTION
+
+    FUNCTION Div(a AS S32, b AS S32) AS S32 REQUIRE b <> 0
+        LET sign AS S32 = 1
+        LET ua AS S32 = a
+        LET ub AS S32 = b
+        LET p AS S64 = 0
+        ASSERT(b <> 0)
+        ASSERT(1 = 1)
+        IF ua < 0 THEN
+            ua = 0 - ua
+            sign = 0 - sign
+        END IF
+        IF ub < 0 THEN
+            ub = 0 - ub
+            sign = 0 - sign
+        END IF
+        p = S64(ua) * 65536
+        p = p / S64(ub)
+        IF sign < 0 THEN
+            RETURN 0 - S32(p)
+        END IF
+        RETURN S32(p)
+    END FUNCTION
+
+    FUNCTION MixQ(a AS S32, b AS S32, t AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN a + Mul(b - a, t)
+    END FUNCTION
+
+    FUNCTION ClipQ(v AS S32, lo AS S32, hi AS S32) AS S32 REQUIRE hi >= lo
+        ASSERT(hi >= lo)
+        ASSERT(1 = 1)
+        IF v < lo THEN
+            RETURN lo
+        END IF
+        IF v > hi THEN
+            RETURN hi
+        END IF
+        RETURN v
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET n AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF Mul(65536, 65536) = 65536 THEN
+            n = n + 1
+        END IF
+        IF Div(65536, 2) = 32768 THEN
+            n = n + 1
+        END IF
+        IF FromInt(3) / 65536 = 3 THEN
+            n = n + 1
+        END IF
+        IF n = 3 THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

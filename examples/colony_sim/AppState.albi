@@ -1,0 +1,5 @@
+DECLARE MODULE AppState
+    PROCEDURE ResetForBoot()
+    PROCEDURE SetGameInitialized(flag AS U8)
+    FUNCTION IsGameInitialized() AS U8
+END DECLARE MODULE

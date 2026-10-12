@@ -1,0 +1,48 @@
+-- Twin of Ada Perspective_Core. Integer 2x3 matrix, WorldX/WorldY.
+VERSION 1.0
+
+DECLARE MODULE GdPersp
+    PROCEDURE Setup()
+    PROCEDURE SetM(xx AS S32, yx AS S32, xy AS S32, yy AS S32)
+    FUNCTION WorldX(x AS S32, y AS S32) AS S32
+    FUNCTION WorldY(x AS S32, y AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdPersp
+
+    LET xx AS S32 = 256
+    LET yx AS S32 = 0
+    LET xy AS S32 = 0
+    LET yy AS S32 = 256
+
+    PROCEDURE Setup()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        xx = 256
+        yx = 0
+        xy = 0
+        yy = 256
+    END PROCEDURE
+
+    PROCEDURE SetM(xxn AS S32, yxn AS S32, xyn AS S32, yyn AS S32)
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        xx = xxn
+        yx = yxn
+        xy = xyn
+        yy = yyn
+    END PROCEDURE
+
+    FUNCTION WorldX(x AS S32, y AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN (x * xx + y * yx) / 256
+    END FUNCTION
+
+    FUNCTION WorldY(x AS S32, y AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN (x * xy + y * yy) / 256
+    END FUNCTION
+
+END MODULE

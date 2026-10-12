@@ -1,0 +1,17 @@
+============================================================
+  alb_gfx ALL FEATURES  (pure ALB / albt FASM)
+============================================================
+alb_openblas=200
+alb_nuklear=200
+
+=== OpenBLAS suite ===
+test_all=0
+threads=1
+procs=56
+
+------------------------------------------------------------
+LIVE: Nuklear control + alb_gfx rotating triangle
+------------------------------------------------------------
+live tick ok
+
+ALL FEATURES ALB harness OK

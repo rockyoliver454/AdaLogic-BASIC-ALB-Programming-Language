@@ -1,0 +1,52 @@
+-- Twin of C perspective_database. Named kind ids.
+VERSION 1.0
+
+DECLARE MODULE GdPerspDb
+    FUNCTION KindIso() AS S32
+    FUNCTION KindMil() AS S32
+    FUNCTION KindCab() AS S32
+    FUNCTION KindCav() AS S32
+    FUNCTION KindDim() AS S32
+    FUNCTION KindRpg() AS S32
+    FUNCTION KindUlt() AS S32
+END DECLARE MODULE
+
+MODULE GdPerspDb
+
+    FUNCTION KindIso() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 0
+    END FUNCTION
+    FUNCTION KindMil() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 1
+    END FUNCTION
+    FUNCTION KindCab() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 2
+    END FUNCTION
+    FUNCTION KindCav() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 3
+    END FUNCTION
+    FUNCTION KindDim() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 4
+    END FUNCTION
+    FUNCTION KindRpg() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 5
+    END FUNCTION
+    FUNCTION KindUlt() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 6
+    END FUNCTION
+
+END MODULE

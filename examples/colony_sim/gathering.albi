@@ -1,0 +1,15 @@
+DECLARE MODULE Gathering
+    PROCEDURE Setup()
+    PROCEDURE SpawnBerries(count AS U16)
+    PROCEDURE TickBerries()
+    FUNCTION GetBerryX(idx AS U16) AS S32
+    FUNCTION GetBerryY(idx AS U16) AS S32
+    FUNCTION GetBerryZ(idx AS U16) AS S32
+    FUNCTION GetBerryCount() AS U16
+    FUNCTION GetBerryAmount(idx AS U16) AS U8
+    PROCEDURE GatherBerry(idx AS U16)
+    FUNCTION IsBerryGrown(idx AS U16) AS U8
+    FUNCTION MixChecksum(hash_value AS U64) AS U64
+    PROCEDURE freeze_module(filename AS STRING)
+    PROCEDURE thaw_module(filename AS STRING)
+END DECLARE MODULE

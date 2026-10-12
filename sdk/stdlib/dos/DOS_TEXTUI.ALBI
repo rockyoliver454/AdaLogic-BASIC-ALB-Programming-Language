@@ -1,0 +1,163 @@
+-- ====================================================================
+-- DOS_TEXTUI.ALBI
+-- Text-mode report and menu helpers tuned for DOS-style programs.
+-- ====================================================================
+
+#DOSTUI_DEFAULT_WIDTH = 38
+#DOSTUI_LABEL_WIDTH = 14
+#DOSTUI_MENU_LABEL_WIDTH = 24
+
+FUNCTION DOSTUI_Digit_Text(value AS U16) AS STRING
+    SELECT value
+        CASE 0 => RETURN "0"
+        CASE 1 => RETURN "1"
+        CASE 2 => RETURN "2"
+        CASE 3 => RETURN "3"
+        CASE 4 => RETURN "4"
+        CASE 5 => RETURN "5"
+        CASE 6 => RETURN "6"
+        CASE 7 => RETURN "7"
+        CASE 8 => RETURN "8"
+        CASE ELSE => RETURN "9"
+    END SELECT
+END FUNCTION
+
+FUNCTION DOSTUI_U16_Text(value AS U16) AS STRING
+    LET out_text AS STRING = ""
+    LET digit_value AS U16 = 0
+    LET started AS BOOL = FALSE
+
+    digit_value = value / 10000
+    IF digit_value > 0 THEN
+        out_text = out_text | DOSTUI_Digit_Text(digit_value)
+        started = TRUE
+    END IF
+
+    digit_value = (value / 1000) MOD 10
+    IF started OR digit_value > 0 THEN
+        out_text = out_text | DOSTUI_Digit_Text(digit_value)
+        started = TRUE
+    END IF
+
+    digit_value = (value / 100) MOD 10
+    IF started OR digit_value > 0 THEN
+        out_text = out_text | DOSTUI_Digit_Text(digit_value)
+        started = TRUE
+    END IF
+
+    digit_value = (value / 10) MOD 10
+    IF started OR digit_value > 0 THEN
+        out_text = out_text | DOSTUI_Digit_Text(digit_value)
+        started = TRUE
+    END IF
+
+    out_text = out_text | DOSTUI_Digit_Text(value MOD 10)
+    RETURN out_text
+END FUNCTION
+
+FUNCTION DOSTUI_Repeat(fill_text AS STRING, count AS U16) AS STRING
+    LET out_text AS STRING = ""
+    LET idx AS U16 = 1
+
+    IF count = 0 THEN RETURN "" END IF
+    IF LEN(fill_text) = 0 THEN RETURN "" END IF
+
+    FOR idx = 1 TO count THEN
+        out_text = CONCAT(out_text, fill_text)
+    END FOR
+
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSTUI_Pad_Right(source_text AS STRING, width AS U16) AS STRING
+    LET out_text AS STRING = ""
+    LET idx AS U16 = 1
+    LET text_len AS U16 = CAST(LEN(source_text) AS U16)
+
+    IF width = 0 THEN RETURN "" END IF
+
+    FOR idx = 1 TO width THEN
+        IF idx <= text_len THEN
+            out_text = CONCAT(out_text, MID$(source_text, idx, 1))
+        ELSE
+            out_text = CONCAT(out_text, " ")
+        END IF
+    END FOR
+
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSTUI_Center(source_text AS STRING, width AS U16) AS STRING
+    LET text_len AS U16 = CAST(LEN(source_text) AS U16)
+    LET pad_total AS U16 = 0
+    LET left_pad AS U16 = 0
+    LET right_pad AS U16 = 0
+    LET out_text AS STRING = ""
+
+    IF width = 0 THEN RETURN "" END IF
+    IF text_len >= width THEN RETURN DOSTUI_Pad_Right(source_text, width) END IF
+
+    pad_total = width - text_len
+    left_pad = pad_total / 2
+    right_pad = width - text_len - left_pad
+
+    out_text = DOSTUI_Repeat(" ", left_pad)
+    out_text = CONCAT(out_text, source_text)
+    out_text = CONCAT(out_text, DOSTUI_Repeat(" ", right_pad))
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSTUI_HR(width AS U16) AS STRING
+    RETURN DOSTUI_Repeat("-", width)
+END FUNCTION
+
+FUNCTION DOSTUI_Box_Top(width AS U16) AS STRING
+    LET out_text AS STRING = "+"
+
+    out_text = CONCAT(out_text, DOSTUI_Repeat("-", width + 2))
+    out_text = CONCAT(out_text, "+")
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSTUI_Box_Bottom(width AS U16) AS STRING
+    RETURN DOSTUI_Box_Top(width)
+END FUNCTION
+
+FUNCTION DOSTUI_Box_Line(source_text AS STRING, width AS U16) AS STRING
+    LET out_text AS STRING = "| "
+
+    out_text = CONCAT(out_text, DOSTUI_Pad_Right(source_text, width))
+    out_text = CONCAT(out_text, " |")
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+PROCEDURE DOSTUI_Print_Banner(title_text AS STRING)
+    PRINT DOSTUI_Box_Top(#DOSTUI_DEFAULT_WIDTH)
+    PRINT DOSTUI_Box_Line(DOSTUI_Center(title_text, #DOSTUI_DEFAULT_WIDTH), #DOSTUI_DEFAULT_WIDTH)
+    PRINT DOSTUI_Box_Bottom(#DOSTUI_DEFAULT_WIDTH)
+END PROCEDURE
+
+PROCEDURE DOSTUI_Print_Section(title_text AS STRING)
+    PRINT ""
+    PRINT title_text
+    PRINT DOSTUI_HR(CAST(LEN(title_text) AS U16))
+END PROCEDURE
+
+PROCEDURE DOSTUI_Print_Key_Value(label_text AS STRING, value_text AS STRING)
+    LET out_text AS STRING = DOSTUI_Pad_Right(label_text, #DOSTUI_LABEL_WIDTH)
+
+    out_text = CONCAT(out_text, " : ")
+    out_text = CONCAT(out_text, value_text)
+    PRINT out_text
+END PROCEDURE
+
+PROCEDURE DOSTUI_Print_Menu_Item(item_no AS U16, label_text AS STRING, hotkey_text AS STRING)
+    LET out_text AS STRING = "["
+
+    out_text = CONCAT(out_text, DOSTUI_U16_Text(item_no))
+    out_text = CONCAT(out_text, "] ")
+    out_text = CONCAT(out_text, DOSTUI_Pad_Right(label_text, #DOSTUI_MENU_LABEL_WIDTH))
+    out_text = CONCAT(out_text, " ")
+    out_text = CONCAT(out_text, hotkey_text)
+    PRINT out_text
+END PROCEDURE

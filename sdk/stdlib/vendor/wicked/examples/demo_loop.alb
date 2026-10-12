@@ -1,0 +1,61 @@
+-- =====================================================================
+-- demo_loop.alb — Wicked Engine ALB smoke (create / spawn / tick)
+-- Compile (from repo src/, DLL beside cwd or PATH):
+--   ..\..\obj\albt.exe stdlib\vendor\wicked\examples\demo_loop.alb -t fasm --build --quiet
+-- Runtime needs alb_wicked.dll + dxcompiler.dll + shaders/ next to the exe.
+-- ALB | is STRING CONCAT.
+-- =====================================================================
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_wicked.albi"
+
+LET app AS S64 = 0
+LET scene AS S64 = 0
+LET cube AS U64 = 0
+LET plane AS U64 = 0
+LET light AS U64 = 0
+LET frames AS S32 = 0
+LET max_frames AS S32 = 120
+
+PRINT "alb_wicked version=" | alb_wicked_version()
+
+app = alb_wicked_app_create_simple(960, 540, "ALB Wicked Engine Demo", 1)
+IF app = 0 THEN
+  PRINT "app_create_simple FAIL"
+  END
+END IF
+
+scene = alb_wicked_scene_get(app)
+alb_wicked_camera_look_at(app, 0.0, 2.5, -6.0, 0.0, 0.5, 0.0)
+alb_wicked_scene_set_weather(app, 0.15, 0.18, 0.22, 0.40, 0.45, 0.55, 0.10, 0.15, 0.35)
+
+plane = alb_wicked_scene_create_plane(app, "ground")
+cube = alb_wicked_scene_create_cube(app, "MyCube")
+light = alb_wicked_scene_create_light(app, "sun", 3.0, 6.0, -4.0, 1.0, 0.95, 0.85, 12.0, 60.0)
+
+IF cube = 0 THEN
+  PRINT "spawn FAIL"
+  alb_wicked_app_destroy(app)
+  END
+END IF
+
+alb_wicked_entity_set_translation(app, cube, 0.0, 2.0, 0.0)
+alb_wicked_entity_set_scale(app, plane, 8.0, 1.0, 8.0)
+alb_wicked_entity_set_base_color(app, cube, 0.90, 0.35, 0.15, 1.0)
+alb_wicked_transform_set_position(scene, cube, 0.0, 2.0, 5.0)
+
+LET alive AS S32 = 1
+WHILE alive = 1
+  alive = alb_wicked_app_tick(app)
+  IF alive = 1 THEN
+    frames = frames + 1
+    IF frames >= max_frames THEN
+      alive = 0
+    END IF
+  END IF
+WEND
+
+PRINT "frames=" | frames
+alb_wicked_app_destroy(app)
+PRINT "demo_loop PASS"
+END

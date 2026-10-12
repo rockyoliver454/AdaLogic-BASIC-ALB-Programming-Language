@@ -1,0 +1,30 @@
+-- ====================================================================
+-- C64_CORE.ALBI
+-- Canonical screen, palette, and timing constants for ALB-65 programs.
+-- ====================================================================
+
+#C64_W = 320
+#C64_H = 200
+#C64_TEXT_COLS = 40
+#C64_TEXT_ROWS = 25
+
+#C64_TICK_FAST = 2
+#C64_TICK_NORMAL = 4
+#C64_TICK_SLOW = 8
+
+#C64_COL_BLACK = 0
+#C64_COL_WHITE = 1
+#C64_COL_RED = 2
+#C64_COL_CYAN = 3
+#C64_COL_PURPLE = 4
+#C64_COL_GREEN = 5
+#C64_COL_BLUE = 6
+#C64_COL_YELLOW = 7
+#C64_COL_ORANGE = 8
+#C64_COL_BROWN = 9
+#C64_COL_LTRED = 10
+#C64_COL_DKGRAY = 11
+#C64_COL_MIDGRAY = 12
+#C64_COL_LTGREEN = 13
+#C64_COL_LTBLUE = 14
+#C64_COL_LTGRAY = 15

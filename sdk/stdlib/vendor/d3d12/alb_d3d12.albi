@@ -1,0 +1,141 @@
+-- ============================================================================
+-- alb_d3d12.albi — REAL thin ALB binding for vendor/d3d12 (ABI 0.3)
+-- ============================================================================
+-- Place alb_d3d12.dll beside the program (uses system d3d12.dll / dxgi.dll).
+--   INCLUDE "../stdlib/vendor/d3d12/alb_d3d12.albi"
+--
+-- DLL = D3D12/DXGI lifecycle + raw alb_d3d12_* only. Application builds demos itself.
+-- Handles are opaque S64. Status 0 = OK.
+-- ALB | is STRING CONCAT (not bitwise OR).
+-- ============================================================================
+
+VERSION 0.3
+
+-- Status
+#ALB_D3D12_OK = 0
+#ALB_D3D12_ERR_INVALID_ARG = 1
+#ALB_D3D12_ERR_NO_ADAPTER = 2
+#ALB_D3D12_ERR_DEVICE = 3
+#ALB_D3D12_ERR_QUEUE = 4
+#ALB_D3D12_ERR_SWAPCHAIN = 5
+#ALB_D3D12_ERR_COMMAND = 6
+#ALB_D3D12_ERR_FENCE = 7
+#ALB_D3D12_ERR_RESOURCE = 8
+#ALB_D3D12_ERR_HWND = 9
+#ALB_D3D12_ERR_NOT_READY = 10
+#ALB_D3D12_ERR_INTERNAL = 100
+
+-- Queue / cmd types
+#ALB_D3D12_QUEUE_DIRECT = 0
+#ALB_D3D12_QUEUE_COMPUTE = 1
+#ALB_D3D12_QUEUE_COPY = 2
+#ALB_D3D12_CMD_DIRECT = 0
+#ALB_D3D12_CMD_BUNDLE = 1
+#ALB_D3D12_CMD_COMPUTE = 2
+#ALB_D3D12_CMD_COPY = 3
+
+-- Heap / descriptor / state
+#ALB_D3D12_HEAP_DEFAULT = 0
+#ALB_D3D12_HEAP_UPLOAD = 1
+#ALB_D3D12_HEAP_READBACK = 2
+#ALB_D3D12_DESC_HEAP_CBV_SRV_UAV = 0
+#ALB_D3D12_DESC_HEAP_SAMPLER = 1
+#ALB_D3D12_DESC_HEAP_RTV = 2
+#ALB_D3D12_DESC_HEAP_DSV = 3
+#ALB_D3D12_STATE_COMMON = 0
+#ALB_D3D12_STATE_PRESENT = 0
+#ALB_D3D12_STATE_VERTEX_BUFFER = 1
+#ALB_D3D12_STATE_INDEX_BUFFER = 2
+#ALB_D3D12_STATE_RENDER_TARGET = 4
+#ALB_D3D12_STATE_UNORDERED_ACCESS = 8
+#ALB_D3D12_STATE_DEPTH_WRITE = 16
+#ALB_D3D12_STATE_COPY_DEST = 1024
+#ALB_D3D12_STATE_COPY_SOURCE = 2048
+#ALB_D3D12_STATE_GENERIC_READ = 419
+
+-- Formats / topology / query
+#ALB_D3D12_FORMAT_R8G8B8A8_UNORM = 28
+#ALB_D3D12_FORMAT_R32G32B32_FLOAT = 6
+#ALB_D3D12_FORMAT_R32G32B32A32_FLOAT = 2
+#ALB_D3D12_FORMAT_D32_FLOAT = 40
+#ALB_D3D12_FORMAT_R16_UINT = 57
+#ALB_D3D12_FORMAT_R32_UINT = 42
+#ALB_D3D12_TOPOLOGY_POINTLIST = 1
+#ALB_D3D12_TOPOLOGY_LINELIST = 2
+#ALB_D3D12_TOPOLOGY_TRIANGLELIST = 4
+#ALB_D3D12_QUERY_TIMESTAMP = 2
+#ALB_D3D12_FEATURE_11_0 = 45056
+
+-- Lifecycle
+IMPORT_DLL FUNCTION alb_d3d12_version() AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_enable_debug_layer() AS S32 FROM ("alb_d3d12.dll")
+
+IMPORT_DLL FUNCTION alb_d3d12_factory_create(enable_debug AS S32, out_factory AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_factory_destroy(factory AS S64) FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_factory_adapter_count(factory AS S64) AS S32 FROM ("alb_d3d12.dll")
+
+IMPORT_DLL FUNCTION alb_d3d12_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_device_destroy(device AS S64) FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_device_native(device AS S64) AS S64 FROM ("alb_d3d12.dll")
+
+IMPORT_DLL FUNCTION alb_d3d12_queue_create(device AS S64, queue_type AS S32, out_queue AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_queue_destroy(queue AS S64) FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_queue_native(queue AS S64) AS S64 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_queue_signal_and_wait(queue AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_queue_execute(queue AS S64, list AS S64) AS S32 FROM ("alb_d3d12.dll")
+
+IMPORT_DLL FUNCTION alb_d3d12_context_create(desc AS S64, out_ctx AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_context_create_simple(width AS S32, height AS S32) AS S64 FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_context_destroy(ctx AS S64) FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_context_resize(ctx AS S64, width AS S32, height AS S32) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_context_begin_frame(ctx AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_context_clear(ctx AS S64, r AS F64, g AS F64, b AS F64, a AS F64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_context_end_frame(ctx AS S64, vsync AS S32) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_context_device(ctx AS S64) AS S64 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_context_queue(ctx AS S64) AS S64 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_context_width(ctx AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_context_height(ctx AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_context_should_close(ctx AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_context_set_should_close(ctx AS S64, v AS S32) FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_poll_events() FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_sleep_ms(ms AS S32) FROM ("alb_d3d12.dll")
+
+-- Memory helpers
+IMPORT_DLL FUNCTION alb_d3d12_alloc(size AS S64) AS S64 FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_free(data_ptr AS S64) FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_write_f32(data_ptr AS S64, index AS S32, value AS F64) FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_write_i32(data_ptr AS S64, index AS S32, value AS S32) FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_write_u32(data_ptr AS S64, index AS S32, value AS S32) FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_read_u32(data_ptr AS S64, index AS S32) AS S32 FROM ("alb_d3d12.dll")
+
+-- Resources
+IMPORT_DLL FUNCTION alb_d3d12_buffer_create(device AS S64, heap_type AS S32, size_bytes AS S64, initial_state AS S32, out_resource AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_buffer_create_uav(device AS S64, size_bytes AS S64, out_resource AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_resource_destroy(resource AS S64) FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_resource_map(resource AS S64, out_ptr AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_resource_unmap(resource AS S64) FROM ("alb_d3d12.dll")
+
+-- Command list / draw / dispatch / barrier
+IMPORT_DLL FUNCTION alb_d3d12_command_allocator_create(device AS S64, cmd_type AS S32, out_alloc AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_command_allocator_destroy(alloc AS S64) FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_command_allocator_reset(alloc AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_command_list_create(device AS S64, cmd_type AS S32, alloc AS S64, initial_pso AS S64, out_list AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_command_list_destroy(list AS S64) FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_command_list_reset(list AS S64, alloc AS S64, pso AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_command_list_close(list AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_command_list_resource_barrier(list AS S64, resource AS S64, state_before AS S32, state_after AS S32) FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_command_list_set_pipeline_state(list AS S64, pso AS S64) FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_command_list_draw_instanced(list AS S64, vertex_count AS S32, instance_count AS S32, start_vertex AS S32, start_instance AS S32) FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_command_list_draw_indexed_instanced(list AS S64, index_count AS S32, instance_count AS S32, start_index AS S32, base_vertex AS S32, start_instance AS S32) FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_command_list_dispatch(list AS S64, x AS S32, y AS S32, z AS S32) FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_command_list_execute_indirect(list AS S64, signature AS S64, max_count AS S32, arg_buf AS S64, arg_off AS S64, count_buf AS S64, count_off AS S64) FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_command_list_clear_rtv(list AS S64, cpu_handle AS S64, r AS F64, g AS F64, b AS F64, a AS F64) FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_command_list_clear_dsv(list AS S64, cpu_handle AS S64, clear_flags AS S32, depth AS F64, stencil AS S32) FROM ("alb_d3d12.dll")
+
+-- PSO / root / fence (subset)
+IMPORT_DLL FUNCTION alb_d3d12_root_signature_create_empty(device AS S64, out_rs AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_pipeline_create_pos_color(device AS S64, rs AS S64, rtv_format AS S32, out_pso AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_pipeline_destroy(pso AS S64) FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_fence_create(device AS S64, initial AS S64, out_fence AS S64) AS S32 FROM ("alb_d3d12.dll")
+IMPORT_DLL PROCEDURE alb_d3d12_fence_destroy(fence AS S64) FROM ("alb_d3d12.dll")
+IMPORT_DLL FUNCTION alb_d3d12_fence_wait(fence AS S64, value AS S64, timeout_ms AS S32) AS S32 FROM ("alb_d3d12.dll")

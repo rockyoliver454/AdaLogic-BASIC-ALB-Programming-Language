@@ -1,0 +1,104 @@
+-- ============================================================================
+-- ALBSkip — what alb_* will not decode in-process
+-- ============================================================================
+-- Policy() as implemented:
+--   kinds 1, 2, 3  →  1 (keep in ALBCairn)
+--   kinds 4, 5, 6  →  2 (host decoder)
+--   any other kind, including 7 and 8  →  0 (treat as native)
+-- Kinds 7 (PDF stream) and 8 (GIF over 1024 pixels) are still useful
+-- as Note() labels; stash the bytes with ALBCairn yourself when Policy
+-- returns 0.
+--
+-- Kind numbers:
+--   1 TIFF non-none compression    2 HDF5 filter pipeline
+--   3 NetCDF-4 (HDF5)              4 H.264 sample reconstruct
+--   5 HEVC sample reconstruct      6 MP3 PCM
+--   7 PDF content streams          8 GIF LZW over the 1024-pixel cap
+--
+-- Note(kind, cairn_id) records that you stored the payload under that
+-- Cairn ID. LastKind / LastCairn / Count read the log (max 32 notes).
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_skip.albi"
+--   INCLUDE "../stdlib/io/alb_cairn.albi"
+-- ============================================================================
+
+VERSION 1.0
+
+#SKIP_NATIVE = 0
+#SKIP_CAIRN = 1
+#SKIP_HOST = 2
+
+DECLARE MODULE ALBSkip
+    PROCEDURE Reset()
+    FUNCTION Policy(kind AS S32) AS S32
+    PROCEDURE Note(kind AS S32, cairn_id AS S32)
+    FUNCTION LastKind() AS S32
+    FUNCTION LastCairn() AS S32
+    FUNCTION Count() AS S32
+END DECLARE MODULE
+
+MODULE ALBSkip
+
+    -- 1-based log. nnote caps at 32. Policy does not consult this table.
+    STRICT kinds[32] AS S32
+    STRICT ids[32] AS S32
+    LET nnote AS S32 = 0
+    LET lastk AS S32 = 0
+    LET lastc AS S32 = 0
+
+    PROCEDURE Reset()
+        nnote = 0
+        lastk = 0
+        lastc = 0
+    END PROCEDURE
+
+    FUNCTION Policy(kind AS S32) AS S32
+        -- TIFF compressed / HDF5 filter / NetCDF-4 → Cairn blob.
+        IF kind = 1 THEN
+            RETURN #SKIP_CAIRN
+        END IF
+        IF kind = 2 THEN
+            RETURN #SKIP_CAIRN
+        END IF
+        IF kind = 3 THEN
+            RETURN #SKIP_CAIRN
+        END IF
+        -- H.264 reconstruct / HEVC reconstruct / MP3 PCM → host.
+        IF kind = 4 THEN
+            RETURN #SKIP_HOST
+        END IF
+        IF kind = 5 THEN
+            RETURN #SKIP_HOST
+        END IF
+        IF kind = 6 THEN
+            RETURN #SKIP_HOST
+        END IF
+        -- 7, 8, and unknown kinds: native (caller decides).
+        RETURN #SKIP_NATIVE
+    END FUNCTION
+
+    PROCEDURE Note(kind AS S32, cairn_id AS S32)
+        lastk = kind
+        lastc = cairn_id
+        IF nnote >= 32 THEN
+            RETURN
+        END IF
+        nnote = nnote + 1
+        kinds[nnote] = kind
+        ids[nnote] = cairn_id
+    END PROCEDURE
+
+    FUNCTION LastKind() AS S32
+        RETURN lastk
+    END FUNCTION
+
+    FUNCTION LastCairn() AS S32
+        RETURN lastc
+    END FUNCTION
+
+    FUNCTION Count() AS S32
+        RETURN nnote
+    END FUNCTION
+
+END MODULE

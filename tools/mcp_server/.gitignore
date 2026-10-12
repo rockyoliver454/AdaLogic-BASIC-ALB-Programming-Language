@@ -1,4 +1,0 @@
-tools/mcp_server/__pycache__/
-tools/mcp_server/*_build/
-tools/mcp_server/tests/*_build/
-tools/mcp_server/tmp*/

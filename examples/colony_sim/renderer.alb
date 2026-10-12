@@ -1,0 +1,91 @@
+INCLUDE "renderer.albi"
+IMPORT Renderer
+
+MODULE Renderer
+    PROCEDURE Setup()
+    END PROCEDURE
+
+    FUNCTION GetTileColor(kind AS U8) AS S32
+        IF kind = 1 THEN RETURN $448844
+        ELSE
+            IF kind = 2 THEN RETURN $886644
+            ELSE
+                IF kind = 3 THEN RETURN $666688
+                ELSE
+                    IF kind = 4 THEN RETURN $4466AA
+                    ELSE RETURN $335533
+                    END IF
+                END IF
+            END IF
+        END IF
+    END FUNCTION
+
+    FUNCTION GetMoodColor(mood AS U8) AS S32
+        IF mood > 70 THEN RETURN $44DD44
+        ELSE
+            IF mood > 40 THEN RETURN $DDDD44
+            ELSE RETURN $DD4444
+            END IF
+        END IF
+    END FUNCTION
+
+    FUNCTION GetWeatherColor(weather AS U8, intensity AS U8) AS S32
+        IF weather = 1 THEN RETURN $222244
+        ELSE
+            IF weather = 2 THEN RETURN $444466
+            ELSE
+                IF weather = 3 THEN RETURN $333322
+                ELSE RETURN $000000
+                END IF
+            END IF
+        END IF
+    END FUNCTION
+
+    FUNCTION GetBuildColor(kind AS U8) AS S32
+        IF kind = 1 THEN RETURN $8888AA
+        ELSE
+            IF kind = 2 THEN RETURN $AA8866
+            ELSE
+                IF kind = 3 THEN RETURN $886644
+                ELSE RETURN $AA6666
+                END IF
+            END IF
+        END IF
+    END FUNCTION
+
+    FUNCTION GetSkinColor(kind AS U8) AS S32
+        IF kind = 1 THEN RETURN $DDBB88
+        ELSE
+            IF kind = 2 THEN RETURN $CCBB99
+            ELSE
+                IF kind = 3 THEN RETURN $EECCAA
+                ELSE RETURN $DDBB88
+                END IF
+            END IF
+        END IF
+    END FUNCTION
+
+    FUNCTION GetClothesColor(kind AS U8) AS S32
+        IF kind = 1 THEN RETURN $445566
+        ELSE
+            IF kind = 2 THEN RETURN $664433
+            ELSE
+                IF kind = 3 THEN RETURN $335555
+                ELSE RETURN $555555
+                END IF
+            END IF
+        END IF
+    END FUNCTION
+
+    FUNCTION GetHairColor(kind AS U8) AS S32
+        IF kind = 1 THEN RETURN $664422
+        ELSE
+            IF kind = 2 THEN RETURN $AA8844
+            ELSE
+                IF kind = 3 THEN RETURN $222222
+                ELSE RETURN $553311
+                END IF
+            END IF
+        END IF
+    END FUNCTION
+END MODULE

@@ -1,0 +1,42 @@
+-- Tick counter. No wall-clock FFI.
+VERSION 1.0
+
+DECLARE MODULE GdTimer
+    PROCEDURE ClearTicks()
+    PROCEDURE Pulse()
+    FUNCTION Ticks() AS U32
+    FUNCTION Since(start_tick AS U32) AS U32
+END DECLARE MODULE
+
+MODULE GdTimer
+
+    LET clock_n AS U32 = 0
+
+    PROCEDURE ClearTicks()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        clock_n = 0
+    END PROCEDURE
+
+    PROCEDURE Pulse()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        clock_n = clock_n + 1
+    END PROCEDURE
+
+    FUNCTION Ticks() AS U32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN clock_n
+    END FUNCTION
+
+    FUNCTION Since(start_tick AS U32) AS U32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF clock_n < start_tick THEN
+            RETURN 0
+        END IF
+        RETURN clock_n - start_tick
+    END FUNCTION
+
+END MODULE

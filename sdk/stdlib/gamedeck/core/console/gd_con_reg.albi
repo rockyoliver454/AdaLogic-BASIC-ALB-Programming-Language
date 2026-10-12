@@ -1,0 +1,64 @@
+-- Twin of Ada core_console_registry. Cmd id binds + last dispatch.
+VERSION 1.0
+
+DECLARE MODULE GdConReg
+    PROCEDURE Setup()
+    FUNCTION KeyOf(slot AS S32) AS S32
+    PROCEDURE RunId(id AS S32)
+    FUNCTION LastId() AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdConReg
+
+    STRICT keys[8] AS S32
+    LET last AS S32 = 0
+
+    PROCEDURE Setup()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 8
+            keys[i] = i
+            i = i + 1
+        END WHILE
+        last = 0
+    END PROCEDURE
+
+    FUNCTION KeyOf(slot AS S32) AS S32
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 8)
+        RETURN keys[slot]
+    END FUNCTION
+
+    PROCEDURE RunId(id AS S32)
+        ASSERT(id >= 0)
+        ASSERT(id <= 4)
+        last = id
+        IF id > 0 THEN
+            IF id <= 8 THEN
+                keys[id] = id
+            END IF
+        END IF
+    END PROCEDURE
+
+    FUNCTION LastId() AS S32
+        ASSERT(last >= 0)
+        ASSERT(last <= 4)
+        RETURN last
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        Setup()
+        RunId(1)
+        IF LastId() = 1 THEN
+            IF KeyOf(1) = 1 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,97 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+INCLUDE <alb_nuklear.albi>
+
+LET cs AS F64 = 0.0
+LET sn AS F64 = 0.0
+LET st AS S32 = 0
+LET gfx AS S64 = 0
+LET nk AS S64 = 0
+LET vb AS S64 = 0
+LET pipe AS S64 = 0
+LET verts AS S64 = 0
+LET i AS S32 = 0
+LET rc AS S32 = 0
+LET win_open AS S32 = 0
+LET flags AS S32 = 87
+LET running AS S32 = 1
+LET rot AS F64 = 0.0
+
+PRINT "dual probe start"
+LET nk = alb_nuklear_context_create_window(420, 320, 1, "NK dual")
+LET gfx = gfx_init(640, 480)
+IF nk = 0 THEN
+  PRINT "nk FAIL"
+  LET running = 0
+END IF
+IF gfx = 0 THEN
+  PRINT "gfx FAIL"
+  LET running = 0
+END IF
+
+IF running != 0 THEN
+  CALL alb_nuklear_set_clear_color(nk, 0.12, 0.18, 0.28, 1.0)
+  CALL alb_nuklear_style_set_theme(nk, #ALB_NK_THEME_DARK)
+  LET verts = gfx_alloc_memory(84)
+  CALL gfx_write_f32(verts, 0, 0.0)
+  CALL gfx_write_f32(verts, 1, 0.7)
+  CALL gfx_write_f32(verts, 2, 0.0)
+  CALL gfx_write_f32(verts, 3, 0.2)
+  CALL gfx_write_f32(verts, 4, 0.9)
+  CALL gfx_write_f32(verts, 5, 1.0)
+  CALL gfx_write_f32(verts, 6, 1.0)
+  CALL gfx_write_f32(verts, 7, -0.7)
+  CALL gfx_write_f32(verts, 8, -0.6)
+  CALL gfx_write_f32(verts, 9, 0.0)
+  CALL gfx_write_f32(verts, 10, 1.0)
+  CALL gfx_write_f32(verts, 11, 0.4)
+  CALL gfx_write_f32(verts, 12, 0.2)
+  CALL gfx_write_f32(verts, 13, 1.0)
+  CALL gfx_write_f32(verts, 14, 0.7)
+  CALL gfx_write_f32(verts, 15, -0.6)
+  CALL gfx_write_f32(verts, 16, 0.0)
+  CALL gfx_write_f32(verts, 17, 0.3)
+  CALL gfx_write_f32(verts, 18, 1.0)
+  CALL gfx_write_f32(verts, 19, 0.3)
+  CALL gfx_write_f32(verts, 20, 1.0)
+  LET vb = gfx_buffer_create(gfx, 84, #GFX_BUFFER_USAGE_DYNAMIC)
+  CALL gfx_buffer_update(gfx, vb, 0, 84, verts)
+  LET pipe = gfx_pipeline_create(gfx, 0, 0, #GFX_TOPOLOGY_TRIANGLELIST)
+  CALL gfx_pipeline_bind(gfx, pipe)
+  CALL gfx_bind_vertex_buffer(gfx, vb)
+
+  FOR i = 1 TO 150 THEN
+    CALL gfx_poll_events()
+    LET rc = alb_nuklear_should_close(nk)
+    IF rc != 0 THEN
+      LET i = 150
+    ELSE
+      LET rc = gfx_should_close(gfx)
+      IF rc != 0 THEN
+        LET i = 150
+      ELSE
+        LET rc = alb_nuklear_new_frame(nk)
+        LET win_open = alb_nuklear_begin(nk, "Control", 10.0, 10.0, 380.0, 260.0, flags)
+        IF win_open != 0 THEN
+          CALL alb_nuklear_layout_row_dynamic(nk, 28.0, 1)
+          CALL alb_nuklear_label(nk, "dual window test", #ALB_NK_TEXT_LEFT)
+        END IF
+        CALL alb_nuklear_end(nk)
+        LET rc = alb_nuklear_render(nk)
+
+        LET st = gfx_begin_frame(gfx)
+        LET st = gfx_clear(gfx, 0.05, 0.15, 0.35, 1.0)
+        CALL gfx_draw_arrays(gfx, 3, 0)
+        LET st = gfx_end_frame(gfx, 1)
+      END IF
+    END IF
+  END FOR
+
+  CALL gfx_buffer_destroy(gfx, vb)
+  CALL gfx_free_memory(verts)
+  CALL gfx_shutdown(gfx)
+  CALL alb_nuklear_context_destroy(nk)
+  PRINT "dual probe done"
+END IF
+END

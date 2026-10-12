@@ -1,0 +1,4 @@
+VERSION 0.1
+IMPORT_DLL FUNCTION alb_xaudio2_version() AS S32 FROM ("alb_xaudio2.dll")
+IMPORT_DLL FUNCTION alb_xaudio2_test_probe() AS S32 FROM ("alb_xaudio2.dll")
+

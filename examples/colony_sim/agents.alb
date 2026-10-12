@@ -1,0 +1,466 @@
+INCLUDE "agents.albi"
+INCLUDE "../ALBHASH.ALBI"
+IMPORT Agents
+IMPORT ALBHash
+
+MODULE Agents
+    LET MAX_AGENTS AS U16 = 256
+
+    PARALLEL agents[256]
+        kind AS U8
+        state AS U8
+        wx AS S32
+        wy AS S32
+        wz AS S32
+        target_x AS S32
+        target_y AS S32
+        target_z AS S32
+        carry_kind AS U8
+        carry_count AS U8
+        wander_timer AS U16
+        home_x AS S32
+        home_y AS S32
+        home_z AS S32
+        mood AS U8
+        hp AS U8
+        traits AS U8
+        selected AS U8
+        drafted AS U8
+    END PARALLEL
+
+    LET active_count AS U16 = 0
+
+    PROCEDURE Setup()
+        LET i AS U16 = 1
+        active_count = 0
+        FOR i = 1 TO MAX_AGENTS THEN
+            agents[i].kind = 0
+            agents[i].state = 0
+            agents[i].wx = 0
+            agents[i].wy = 0
+            agents[i].wz = 0
+            agents[i].target_x = 0
+            agents[i].target_y = 0
+            agents[i].target_z = 0
+            agents[i].carry_kind = 0
+            agents[i].carry_count = 0
+            agents[i].wander_timer = 0
+            agents[i].home_x = 0
+            agents[i].home_y = 0
+            agents[i].home_z = 0
+            agents[i].mood = 50
+            agents[i].hp = 100
+            agents[i].traits = 0
+            agents[i].selected = 0
+            agents[i].drafted = 0
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE SpawnAgent(kind AS U8, wx AS S32, wy AS S32, wz AS S32)
+        IF active_count >= MAX_AGENTS THEN RETURN END IF
+        active_count = active_count + 1
+        agents[active_count].kind = kind
+        agents[active_count].state = 1
+        agents[active_count].wx = wx
+        agents[active_count].wy = wy
+        agents[active_count].wz = wz
+        agents[active_count].target_x = wx
+        agents[active_count].target_y = wy
+        agents[active_count].target_z = wz
+        agents[active_count].carry_kind = 0
+        agents[active_count].carry_count = 0
+        agents[active_count].wander_timer = 0
+        agents[active_count].home_x = wx
+        agents[active_count].home_y = wy
+        agents[active_count].home_z = wz
+        agents[active_count].mood = U8(S32(kind) * 20 + 30)
+        agents[active_count].hp = 100
+        agents[active_count].traits = kind
+        agents[active_count].selected = 0
+        agents[active_count].drafted = 0
+    END PROCEDURE
+
+    PROCEDURE TickAll()
+        LET i AS U16 = 1
+        LET MOVE_STEP AS S32 = 2
+        WHILE i <= active_count
+            IF agents[i].state != 0 THEN
+                IF agents[i].mood < 100 THEN
+                    agents[i].mood = agents[i].mood + 1
+                END IF
+                LET dx AS S32 = agents[i].target_x - agents[i].wx
+                LET dy AS S32 = agents[i].target_y - agents[i].wy
+                IF dx > MOVE_STEP THEN
+                    agents[i].wx = agents[i].wx + MOVE_STEP
+                ELSE
+                    IF dx < 0 - MOVE_STEP THEN
+                        agents[i].wx = agents[i].wx - MOVE_STEP
+                    ELSE
+                        agents[i].wx = agents[i].target_x
+                    END IF
+                END IF
+                IF dy > MOVE_STEP THEN
+                    agents[i].wy = agents[i].wy + MOVE_STEP
+                ELSE
+                    IF dy < 0 - MOVE_STEP THEN
+                        agents[i].wy = agents[i].wy - MOVE_STEP
+                    ELSE
+                        agents[i].wy = agents[i].target_y
+                    END IF
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION GetAgentCount() AS U16
+        RETURN active_count
+    END FUNCTION
+
+    FUNCTION GetAgentX(idx AS U16) AS S32
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].wx
+    END FUNCTION
+
+    FUNCTION GetAgentY(idx AS U16) AS S32
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].wy
+    END FUNCTION
+
+    FUNCTION GetAgentZ(idx AS U16) AS S32
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].wz
+    END FUNCTION
+
+    FUNCTION GetAgentKind(idx AS U16) AS U8
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].kind
+    END FUNCTION
+
+    FUNCTION GetAgentState(idx AS U16) AS U8
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].state
+    END FUNCTION
+
+    FUNCTION GetAgentMood(idx AS U16) AS U8
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].mood
+    END FUNCTION
+
+    FUNCTION GetAgentHP(idx AS U16) AS U8
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].hp
+    END FUNCTION
+
+    FUNCTION GetAgentTraits(idx AS U16) AS U8
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].traits
+    END FUNCTION
+
+    FUNCTION GetAgentTargetX(idx AS U16) AS S32
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].target_x
+    END FUNCTION
+
+    FUNCTION GetAgentTargetY(idx AS U16) AS S32
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].target_y
+    END FUNCTION
+
+    FUNCTION GetAgentTargetZ(idx AS U16) AS S32
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].target_z
+    END FUNCTION
+
+    FUNCTION GetAgentWanderTimer(idx AS U16) AS U16
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].wander_timer
+    END FUNCTION
+
+    FUNCTION GetAgentHomeX(idx AS U16) AS S32
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].home_x
+    END FUNCTION
+
+    FUNCTION GetAgentHomeY(idx AS U16) AS S32
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].home_y
+    END FUNCTION
+
+    FUNCTION GetAgentHomeZ(idx AS U16) AS S32
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].home_z
+    END FUNCTION
+
+    FUNCTION IsAgentSelected(idx AS U16) AS U8
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].selected
+    END FUNCTION
+
+    FUNCTION IsAgentDrafted(idx AS U16) AS U8
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN agents[idx].drafted
+    END FUNCTION
+
+    PROCEDURE SetAgentMood(idx AS U16, mood AS U8)
+        IF idx > active_count THEN RETURN END IF
+        agents[idx].mood = mood
+    END PROCEDURE
+
+    PROCEDURE SetAgentTarget(idx AS U16, tx AS S32, ty AS S32, tz AS S32)
+        IF idx > active_count THEN RETURN END IF
+        agents[idx].target_x = tx
+        agents[idx].target_y = ty
+        agents[idx].target_z = tz
+    END PROCEDURE
+
+    PROCEDURE SetAgentWanderTimer(idx AS U16, timer AS U16)
+        IF idx > active_count THEN RETURN END IF
+        agents[idx].wander_timer = timer
+    END PROCEDURE
+
+    PROCEDURE SetAgentHome(idx AS U16, hx AS S32, hy AS S32, hz AS S32)
+        IF idx > active_count THEN RETURN END IF
+        agents[idx].home_x = hx
+        agents[idx].home_y = hy
+        agents[idx].home_z = hz
+    END PROCEDURE
+
+    PROCEDURE SetAgentSelected(idx AS U16, value AS U8)
+        IF idx > active_count THEN RETURN END IF
+        IF value = 0 THEN agents[idx].selected = 0 ELSE agents[idx].selected = 1 END IF
+    END PROCEDURE
+
+    PROCEDURE SetAgentDrafted(idx AS U16, value AS U8)
+        IF idx > active_count THEN RETURN END IF
+        IF value = 0 THEN
+            agents[idx].drafted = 0
+        ELSE
+            agents[idx].drafted = 1
+        END IF
+    END PROCEDURE
+
+    PROCEDURE DamageAgent(idx AS U16, amount AS U8)
+        IF idx > active_count THEN RETURN END IF
+        IF agents[idx].hp > amount THEN
+            agents[idx].hp = agents[idx].hp - amount
+        ELSE
+            agents[idx].hp = 0
+            agents[idx].state = 0
+        END IF
+    END PROCEDURE
+
+    PROCEDURE RemoveAgent(idx AS U16)
+        IF idx > active_count THEN RETURN END IF
+        IF idx < active_count THEN
+            SWAPPOP agents[idx], active_count
+        ELSE
+            active_count = active_count - 1
+        END IF
+    END PROCEDURE
+
+    -- Buffer arrays for PARALLEL group save/load
+    STRICT fb_kind[256] AS U8
+    STRICT fb_state[256] AS U8
+    STRICT fb_wx[256] AS S32
+    STRICT fb_wy[256] AS S32
+    STRICT fb_wz[256] AS S32
+    STRICT fb_tx[256] AS S32
+    STRICT fb_ty[256] AS S32
+    STRICT fb_tz[256] AS S32
+    STRICT fb_ck[256] AS U8
+    STRICT fb_cc[256] AS U8
+    STRICT fb_wt[256] AS U16
+    STRICT fb_hx[256] AS S32
+    STRICT fb_hy[256] AS S32
+    STRICT fb_hz[256] AS S32
+    STRICT fb_mood[256] AS U8
+    STRICT fb_hp[256] AS U8
+    STRICT fb_tr[256] AS U8
+    STRICT fb_sel[256] AS U8
+    STRICT fb_dft[256] AS U8
+    STRICT fb_ac[1] AS U16
+
+    PROCEDURE freeze_module(filename AS STRING)
+        LET path_name AS STRING = ""
+        fb_ac[1] = active_count
+        path_name = CONCAT(filename, "_A_AC")
+        FLUSH fb_ac INTO path_name
+        LET i AS U16 = 1
+        FOR i = 1 TO active_count THEN
+            fb_kind[i] = agents[i].kind
+            fb_state[i] = agents[i].state
+            fb_wx[i] = agents[i].wx
+            fb_wy[i] = agents[i].wy
+            fb_wz[i] = agents[i].wz
+            fb_tx[i] = agents[i].target_x
+            fb_ty[i] = agents[i].target_y
+            fb_tz[i] = agents[i].target_z
+            fb_ck[i] = agents[i].carry_kind
+            fb_cc[i] = agents[i].carry_count
+            fb_wt[i] = agents[i].wander_timer
+            fb_hx[i] = agents[i].home_x
+            fb_hy[i] = agents[i].home_y
+            fb_hz[i] = agents[i].home_z
+            fb_mood[i] = agents[i].mood
+            fb_hp[i] = agents[i].hp
+            fb_tr[i] = agents[i].traits
+            fb_sel[i] = agents[i].selected
+            fb_dft[i] = agents[i].drafted
+        END FOR
+        path_name = CONCAT(filename, "_A_KI")
+        FLUSH fb_kind INTO path_name
+        path_name = CONCAT(filename, "_A_ST")
+        FLUSH fb_state INTO path_name
+        path_name = CONCAT(filename, "_A_WX")
+        FLUSH fb_wx INTO path_name
+        path_name = CONCAT(filename, "_A_WY")
+        FLUSH fb_wy INTO path_name
+        path_name = CONCAT(filename, "_A_WZ")
+        FLUSH fb_wz INTO path_name
+        path_name = CONCAT(filename, "_A_TX")
+        FLUSH fb_tx INTO path_name
+        path_name = CONCAT(filename, "_A_TY")
+        FLUSH fb_ty INTO path_name
+        path_name = CONCAT(filename, "_A_TZ")
+        FLUSH fb_tz INTO path_name
+        path_name = CONCAT(filename, "_A_CK")
+        FLUSH fb_ck INTO path_name
+        path_name = CONCAT(filename, "_A_CC")
+        FLUSH fb_cc INTO path_name
+        path_name = CONCAT(filename, "_A_WT")
+        FLUSH fb_wt INTO path_name
+        path_name = CONCAT(filename, "_A_HX")
+        FLUSH fb_hx INTO path_name
+        path_name = CONCAT(filename, "_A_HY")
+        FLUSH fb_hy INTO path_name
+        path_name = CONCAT(filename, "_A_HZ")
+        FLUSH fb_hz INTO path_name
+        path_name = CONCAT(filename, "_A_MO")
+        FLUSH fb_mood INTO path_name
+        path_name = CONCAT(filename, "_A_HP")
+        FLUSH fb_hp INTO path_name
+        path_name = CONCAT(filename, "_A_TR")
+        FLUSH fb_tr INTO path_name
+        path_name = CONCAT(filename, "_A_SEL")
+        FLUSH fb_sel INTO path_name
+        path_name = CONCAT(filename, "_A_DFT")
+        FLUSH fb_dft INTO path_name
+    END PROCEDURE
+
+    PROCEDURE thaw_module(filename AS STRING)
+        LET i AS U16 = 1
+        LET path_name AS STRING = ""
+        fb_ac[1] = 0
+        FOR i = 1 TO MAX_AGENTS THEN
+            fb_kind[i] = 0
+            fb_state[i] = 0
+            fb_wx[i] = 0
+            fb_wy[i] = 0
+            fb_wz[i] = 0
+            fb_tx[i] = 0
+            fb_ty[i] = 0
+            fb_tz[i] = 0
+            fb_ck[i] = 0
+            fb_cc[i] = 0
+            fb_wt[i] = 0
+            fb_hx[i] = 0
+            fb_hy[i] = 0
+            fb_hz[i] = 0
+            fb_mood[i] = 0
+            fb_hp[i] = 0
+            fb_tr[i] = 0
+            fb_sel[i] = 0
+            fb_dft[i] = 0
+        END FOR
+        path_name = CONCAT(filename, "_A_AC")
+        LOAD path_name INTO fb_ac
+        active_count = fb_ac[1]
+        path_name = CONCAT(filename, "_A_KI")
+        LOAD path_name INTO fb_kind
+        path_name = CONCAT(filename, "_A_ST")
+        LOAD path_name INTO fb_state
+        path_name = CONCAT(filename, "_A_WX")
+        LOAD path_name INTO fb_wx
+        path_name = CONCAT(filename, "_A_WY")
+        LOAD path_name INTO fb_wy
+        path_name = CONCAT(filename, "_A_WZ")
+        LOAD path_name INTO fb_wz
+        path_name = CONCAT(filename, "_A_TX")
+        LOAD path_name INTO fb_tx
+        path_name = CONCAT(filename, "_A_TY")
+        LOAD path_name INTO fb_ty
+        path_name = CONCAT(filename, "_A_TZ")
+        LOAD path_name INTO fb_tz
+        path_name = CONCAT(filename, "_A_CK")
+        LOAD path_name INTO fb_ck
+        path_name = CONCAT(filename, "_A_CC")
+        LOAD path_name INTO fb_cc
+        path_name = CONCAT(filename, "_A_WT")
+        LOAD path_name INTO fb_wt
+        path_name = CONCAT(filename, "_A_HX")
+        LOAD path_name INTO fb_hx
+        path_name = CONCAT(filename, "_A_HY")
+        LOAD path_name INTO fb_hy
+        path_name = CONCAT(filename, "_A_HZ")
+        LOAD path_name INTO fb_hz
+        path_name = CONCAT(filename, "_A_MO")
+        LOAD path_name INTO fb_mood
+        path_name = CONCAT(filename, "_A_HP")
+        LOAD path_name INTO fb_hp
+        path_name = CONCAT(filename, "_A_TR")
+        LOAD path_name INTO fb_tr
+        path_name = CONCAT(filename, "_A_SEL")
+        LOAD path_name INTO fb_sel
+        path_name = CONCAT(filename, "_A_DFT")
+        LOAD path_name INTO fb_dft
+        FOR i = 1 TO active_count THEN
+            agents[i].kind = fb_kind[i]
+            agents[i].state = fb_state[i]
+            agents[i].wx = fb_wx[i]
+            agents[i].wy = fb_wy[i]
+            agents[i].wz = fb_wz[i]
+            agents[i].target_x = fb_tx[i]
+            agents[i].target_y = fb_ty[i]
+            agents[i].target_z = fb_tz[i]
+            agents[i].carry_kind = fb_ck[i]
+            agents[i].carry_count = fb_cc[i]
+            agents[i].wander_timer = fb_wt[i]
+            agents[i].home_x = fb_hx[i]
+            agents[i].home_y = fb_hy[i]
+            agents[i].home_z = fb_hz[i]
+            agents[i].mood = fb_mood[i]
+            agents[i].hp = fb_hp[i]
+            agents[i].traits = fb_tr[i]
+            agents[i].selected = fb_sel[i]
+            agents[i].drafted = fb_dft[i]
+        END FOR
+    END PROCEDURE
+
+    FUNCTION MixChecksum(hash_value AS U64) AS U64
+        LET idx AS U16 = 0
+        hash_value = ALBHash.MixU16(hash_value, active_count)
+        FOR idx = 1 TO active_count THEN
+            hash_value = ALBHash.MixU8(hash_value, agents[idx].kind)
+            hash_value = ALBHash.MixU8(hash_value, agents[idx].state)
+            hash_value = ALBHash.MixS32(hash_value, agents[idx].wx)
+            hash_value = ALBHash.MixS32(hash_value, agents[idx].wy)
+            hash_value = ALBHash.MixS32(hash_value, agents[idx].wz)
+            hash_value = ALBHash.MixS32(hash_value, agents[idx].target_x)
+            hash_value = ALBHash.MixS32(hash_value, agents[idx].target_y)
+            hash_value = ALBHash.MixS32(hash_value, agents[idx].target_z)
+            hash_value = ALBHash.MixU8(hash_value, agents[idx].carry_kind)
+            hash_value = ALBHash.MixU8(hash_value, agents[idx].carry_count)
+            hash_value = ALBHash.MixU16(hash_value, agents[idx].wander_timer)
+            hash_value = ALBHash.MixS32(hash_value, agents[idx].home_x)
+            hash_value = ALBHash.MixS32(hash_value, agents[idx].home_y)
+            hash_value = ALBHash.MixS32(hash_value, agents[idx].home_z)
+            hash_value = ALBHash.MixU8(hash_value, agents[idx].mood)
+            hash_value = ALBHash.MixU8(hash_value, agents[idx].hp)
+            hash_value = ALBHash.MixU8(hash_value, agents[idx].traits)
+            hash_value = ALBHash.MixU8(hash_value, agents[idx].selected)
+            hash_value = ALBHash.MixU8(hash_value, agents[idx].drafted)
+        END FOR
+        RETURN hash_value
+    END FUNCTION
+END MODULE

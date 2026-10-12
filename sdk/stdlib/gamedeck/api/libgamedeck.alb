@@ -1,0 +1,15 @@
+-- libgamedeck.dll — full engine EXPORT_DLL weave.
+-- Pure library: no CREATE_WINDOW, no LISTEN, no IMPORT_DLL.
+-- Regenerate facades: powershell -File gen_libgamedeck.ps1
+-- Build: albt libgamedeck.alb -t fasm --dll --build -o libgamedeck.asm
+--    or: albt libgamedeck.alb -t c    --dll --build -o libgamedeck.c
+
+INCLUDE "libgamedeck_includes.alb"
+INCLUDE "libgamedeck_imports.alb"
+INCLUDE "gd_api_boot.albi"
+INCLUDE "gd_api_host.albi"
+INCLUDE "generated/gd_api_exports.albi"
+
+BEGIN
+VERSION 1.0
+END

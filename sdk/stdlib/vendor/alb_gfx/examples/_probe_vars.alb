@@ -1,0 +1,71 @@
+#SHAPE_STAR = 2
+#NK_FLAGS = 87
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+INCLUDE <alb_openblas.albi>
+INCLUDE <alb_nuklear.albi>
+LET pi AS F64 = 3.141592653589793
+LET fails AS S32 = 0
+LET rc AS S32 = 0
+LET ver_blas AS S32 = 0
+LET ver_nk AS S32 = 0
+LET nthreads AS S32 = 0
+LET nprocs AS S32 = 0
+LET i AS S32 = 0
+LET shape AS S32 = #SHAPE_STAR
+LET enable_blas AS S32 = 1
+LET running AS S32 = 1
+LET win_open AS S32 = 0
+LET clicked AS S32 = 0
+LET frame AS S32 = 0
+LET st AS S32 = 0
+LET nverts AS S32 = 0
+LET idx AS S32 = 0
+LET tip AS S32 = 0
+LET bytes AS S32 = 0
+LET gfx AS S64 = 0
+LET nk AS S64 = 0
+LET vb AS S64 = 0
+LET pipe_tri AS S64 = 0
+LET pipe_line AS S64 = 0
+LET pipe_point AS S64 = 0
+LET pipe AS S64 = 0
+LET verts AS S64 = 0
+LET vec_x AS S64 = 0
+LET vec_y AS S64 = 0
+LET tint_r AS F64 = 0.25
+LET tint_g AS F64 = 0.85
+LET tint_b AS F64 = 1.0
+LET clear_r AS F64 = 0.05
+LET clear_g AS F64 = 0.10
+LET clear_b AS F64 = 0.22
+LET rot AS F64 = 0.0
+LET t AS F64 = 0.0
+LET ddot AS F64 = 0.0
+LET a0 AS F64 = 0.0
+LET a1 AS F64 = 0.0
+LET am AS F64 = 0.0
+LET ox AS F64 = 0.0
+LET oy AS F64 = 0.0
+LET mx AS F64 = 0.0
+LET my AS F64 = 0.0
+LET nx AS F64 = 0.0
+LET ny AS F64 = 0.0
+LET x0 AS F64 = 0.0
+LET y0 AS F64 = 0.0
+LET x1 AS F64 = 0.0
+LET y1 AS F64 = 0.0
+LET x2 AS F64 = 0.0
+LET y2 AS F64 = 0.0
+LET cs AS F64 = 0.0
+LET sn AS F64 = 0.0
+LET px AS F64 = 0.0
+LET py AS F64 = 0.0
+LET flash_r AS F64 = 0.0
+LET flash_g AS F64 = 0.0
+LET flash_b AS F64 = 0.0
+LET vx AS F64 = 0.0
+LET vy AS F64 = 0.0
+PRINT "vars-only OK"
+END

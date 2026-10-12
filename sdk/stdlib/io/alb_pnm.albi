@@ -1,0 +1,279 @@
+-- ============================================================================
+-- ALBPnm — Netpbm PBM / PGM / PPM (P1–P3, P5–P6)
+-- ============================================================================
+-- P1/P2/P3 are ASCII (skip `#` comments). P5/P6 are binary samples.
+-- Kind() is the format number: 1 bitmap, 2 gray ASCII, 3 RGB ASCII,
+-- 5 gray binary, 6 RGB binary.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_pnm.albi"
+--
+-- DecodeBuf()  0 ok. W()/H(), MaxVal() (255 for the kit samples).
+-- PixAt(i)     1-based samples; RGB is R,G,B triples.
+-- P4 (packed bitmap) is status 5 — use P1 if you need a 1-bit image.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBPnm
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION DecodeBuf() AS S32
+    FUNCTION Kind() AS S32
+    FUNCTION W() AS S32
+    FUNCTION H() AS S32
+    FUNCTION MaxVal() AS S32
+    FUNCTION PixAt(i AS S32) AS U8
+    FUNCTION PixN() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBPnm
+
+    -- 1-based window. pos walks the header. kindn 1=PBM 2=PGM 3=PPM (ASCII) or 4/5/6 binary.
+    STRICT src[8192] AS U8
+    STRICT pix[16384] AS U8
+    LET srclen AS S32 = 0
+    LET pos AS S32 = 1
+    LET kindn AS S32 = 0
+    LET pw AS S32 = 0
+    LET ph AS S32 = 0
+    LET maxv AS S32 = 0
+    LET pixn AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        pos = 1
+        kindn = 0
+        pw = 0
+        ph = 0
+        maxv = 0
+        pixn = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 8192 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION LookB() AS S32
+        IF pos > srclen THEN
+            RETURN 0 - 1
+        END IF
+        RETURN CAST(src[pos] AS S32)
+    END FUNCTION
+
+    PROCEDURE SkipWs
+        LET c AS S32 = 0
+        WHILE pos <= srclen
+            c = LookB()
+            IF c = 35 THEN
+                WHILE pos <= srclen
+                    IF LookB() = 10 THEN
+                        pos = pos + 1
+                        c = 0
+                    ELSE
+                        pos = pos + 1
+                    END IF
+                END WHILE
+            ELSE
+                IF c = 32 THEN
+                    pos = pos + 1
+                ELSE
+                    IF c = 9 THEN
+                        pos = pos + 1
+                    ELSE
+                        IF c = 10 THEN
+                            pos = pos + 1
+                        ELSE
+                            IF c = 13 THEN
+                                pos = pos + 1
+                            ELSE
+                                RETURN
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION ReadInt() AS S32
+        LET v AS S32 = 0
+        LET c AS S32 = 0
+        LET saw AS S32 = 0
+        SkipWs()
+        WHILE pos <= srclen
+            c = LookB()
+            IF c >= 48 THEN
+                IF c <= 57 THEN
+                    v = v * 10 + (c - 48)
+                    saw = 1
+                    pos = pos + 1
+                ELSE
+                    IF saw = 0 THEN
+                        RETURN 0 - 1
+                    END IF
+                    RETURN v
+                END IF
+            ELSE
+                IF saw = 0 THEN
+                    RETURN 0 - 1
+                END IF
+                RETURN v
+            END IF
+        END WHILE
+        IF saw = 0 THEN
+            RETURN 0 - 1
+        END IF
+        RETURN v
+    END FUNCTION
+
+    FUNCTION DecodeBuf() AS S32
+        LET i AS S32 = 0
+        LET nneed AS S32 = 0
+        pixn = 0
+        pos = 1
+        IF srclen < 3 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        IF src[1] <> 80 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        kindn = CAST(src[2] AS S32) - 48
+        IF kindn < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF kindn > 6 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        pos = 3
+        pw = ReadInt()
+        ph = ReadInt()
+        IF pw < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF ph < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF pw > 256 THEN
+            lastst = 2
+            RETURN lastst
+        END IF
+        IF ph > 256 THEN
+            lastst = 2
+            RETURN lastst
+        END IF
+        IF kindn = 1 THEN
+            maxv = 1
+            nneed = pw * ph
+            i = 1
+            WHILE i <= nneed
+                pix[i] = CAST(ReadInt() AS U8)
+                i = i + 1
+            END WHILE
+        ELSE
+            IF kindn = 2 THEN
+                maxv = ReadInt()
+                nneed = pw * ph
+                i = 1
+                WHILE i <= nneed
+                    pix[i] = CAST(ReadInt() AS U8)
+                    i = i + 1
+                END WHILE
+            ELSE
+                IF kindn = 3 THEN
+                    maxv = ReadInt()
+                    nneed = pw * ph * 3
+                    i = 1
+                    WHILE i <= nneed
+                        pix[i] = CAST(ReadInt() AS U8)
+                        i = i + 1
+                    END WHILE
+                ELSE
+                    IF kindn = 4 THEN
+                        maxv = 1
+                        lastst = 5
+                        RETURN lastst
+                    ELSE
+                        maxv = ReadInt()
+                        IF LookB() = 10 THEN
+                            pos = pos + 1
+                        ELSE
+                            IF LookB() = 13 THEN
+                                pos = pos + 1
+                                IF LookB() = 10 THEN
+                                    pos = pos + 1
+                                END IF
+                            END IF
+                        END IF
+                        IF kindn = 5 THEN
+                            nneed = pw * ph
+                        ELSE
+                            nneed = pw * ph * 3
+                        END IF
+                        i = 1
+                        WHILE i <= nneed
+                            IF pos > srclen THEN
+                                lastst = 4
+                                RETURN lastst
+                            END IF
+                            pix[i] = src[pos]
+                            pos = pos + 1
+                            i = i + 1
+                        END WHILE
+                    END IF
+                END IF
+            END IF
+        END IF
+        pixn = nneed
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION Kind() AS S32
+        RETURN kindn
+    END FUNCTION
+
+    FUNCTION W() AS S32
+        RETURN pw
+    END FUNCTION
+
+    FUNCTION H() AS S32
+        RETURN ph
+    END FUNCTION
+
+    FUNCTION MaxVal() AS S32
+        RETURN maxv
+    END FUNCTION
+
+    FUNCTION PixAt(i AS S32) AS U8
+        IF i < 1 THEN
+            RETURN 0
+        END IF
+        IF i > pixn THEN
+            RETURN 0
+        END IF
+        RETURN pix[i]
+    END FUNCTION
+
+    FUNCTION PixN() AS S32
+        RETURN pixn
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

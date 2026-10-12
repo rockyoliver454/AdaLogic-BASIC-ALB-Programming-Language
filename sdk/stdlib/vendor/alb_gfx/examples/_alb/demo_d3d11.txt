@@ -1,0 +1,54 @@
+============================================================
+  alb_gfx ALL FEATURES  (system INCLUDE + --gfx=)
+============================================================
+alb_openblas=200
+alb_nuklear=200
+RHI = INCLUDE <alb_gfx.albi>  (backend via --gfx=)
+
+=== Shapes (catalog) ===
+  shape_id=0
+  shape_id=1
+  shape_id=2
+  shape_id=3
+  shape_id=4
+  shape_id=5
+  shape_id=6
+default_shape=2
+=== OpenBLAS modes (catalog) ===
+  blas_mode_id=0
+  blas_mode_id=1
+  blas_mode_id=2
+  blas_mode_id=3
+  blas_mode_id=4
+default_blas_mode=0
+=== GPU feature gates ===
+  async_compute=1
+  execute_indirect=1
+  depth_clear=1
+  timestamps=1
+  msaa_resolve=1
+  point_overlay=1
+
+=== OpenBLAS suite ===
+test_ddot=0
+test_level1=0
+test_level2=0
+test_level3=0
+test_dgemm=0
+test_lapack=0
+test_all=0
+threads=1
+procs=56
+
+=== Nuklear suite ===
+nk_demo=0
+nk_widgets=0
+nk_overview=0
+nk_kitchen=0
+
+=== LIVE alb_gfx triangle (OpenBLAS tint) ===
+ctx=2309700900544
+gfx live loop done
+
+Startup fails=0
+ALL FEATURES ALB harness OK

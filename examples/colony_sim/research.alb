@@ -1,0 +1,88 @@
+INCLUDE "research.albi"
+INCLUDE "../ALBHASH.ALBI"
+IMPORT Research
+IMPORT ALBHash
+
+MODULE Research
+    LET MAX_TECHS AS U8 = 8
+    LET TECH_CONSTRUCTION AS U8 = 1
+    LET TECH_COMBAT AS U8 = 2
+    LET TECH_MEDICINE AS U8 = 3
+    LET TECH_AUTOMATION AS U8 = 4
+    LET TECH_SCI_FI AS U8 = 5
+
+    LET research_progress AS U16 = 0
+    LET research_target AS U16 = 100
+    LET current_tech AS U8 = 0
+    STRICT tech_levels[8] AS U8
+
+    PROCEDURE Setup()
+        LET i AS U8 = 1
+        current_tech = 0
+        research_progress = 0
+        FOR i = 1 TO MAX_TECHS THEN
+            tech_levels[i] = 0
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE Process()
+        IF current_tech > 0 THEN
+            research_progress = research_progress + 1
+            IF research_progress >= research_target THEN
+                research_progress = 0
+                IF tech_levels[current_tech] < 10 THEN
+                    tech_levels[current_tech] = tech_levels[current_tech] + 1
+                END IF
+            END IF
+        END IF
+    END PROCEDURE
+
+    FUNCTION GetTechLevel(tech AS U8) AS U8
+        IF tech < 1 OR tech > MAX_TECHS THEN RETURN 0 END IF
+        RETURN tech_levels[tech]
+    END FUNCTION
+
+    FUNCTION GetResearchProgress() AS U16
+        RETURN research_progress
+    END FUNCTION
+
+    PROCEDURE SetState(progress AS U16, target AS U16, tech AS U8)
+        research_progress = progress
+        research_target = target
+        IF research_target = 0 THEN research_target = 100 END IF
+        current_tech = tech
+        IF current_tech > MAX_TECHS THEN current_tech = 0 END IF
+    END PROCEDURE
+
+    PROCEDURE SetTechLevel(tech AS U8, level AS U8)
+        IF tech < 1 OR tech > MAX_TECHS THEN RETURN END IF
+        tech_levels[tech] = level
+    END PROCEDURE
+
+    PROCEDURE AddResearch(points AS U16)
+        research_progress = research_progress + points
+        IF research_progress >= research_target THEN
+            research_progress = 0
+            IF tech_levels[current_tech] < 10 THEN
+                tech_levels[current_tech] = tech_levels[current_tech] + 1
+            END IF
+        END IF
+    END PROCEDURE
+
+    FUNCTION IsTechUnlocked(tech AS U8) AS U8
+        IF tech < 1 OR tech > MAX_TECHS THEN RETURN 0 END IF
+        IF tech_levels[tech] > 0 THEN RETURN 1 END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION MixChecksum(hash_value AS U64) AS U64
+        LET idx AS U8 = 0
+        hash_value = ALBHash.MixU16(hash_value, research_progress)
+        hash_value = ALBHash.MixU16(hash_value, research_target)
+        hash_value = ALBHash.MixU8(hash_value, current_tech)
+        FOR idx = 1 TO MAX_TECHS THEN
+            hash_value = ALBHash.MixU8(hash_value, tech_levels[idx])
+        END FOR
+        RETURN hash_value
+    END FUNCTION
+END MODULE

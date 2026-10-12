@@ -30,8 +30,12 @@ SERVER_DIR = Path(__file__).resolve().parent
 DOCS_DIR = SERVER_DIR / "docs"
 DEFAULT_WORKSPACE = SERVER_DIR.parent.parent  # repo root (tools/mcp_server -> repo)
 
+REPO_ROOT = SERVER_DIR.parent.parent
+_SDK_ALBT = REPO_ROOT / "sdk" / "bin" / "albt.exe"
 ALBT_PATH = os.environ.get(
-    "ALBT_PATH", r"H:\GNATSTUDIO\bin\AdaLogic_BASIC\ALB\bin\albt.exe"
+    "ALBT_PATH",
+    str(_SDK_ALBT) if _SDK_ALBT.exists()
+    else r"H:\GNATSTUDIO\bin\AdaLogic_BASIC\ALB\bin\albt.exe",
 )
 ALB_CC = os.environ.get("ALB_CC", "gcc")
 ALB_WORKSPACE = Path(
@@ -171,16 +175,48 @@ _TARGET_EXT = {
 }
 
 
-def _transpile(src: Path, target: str, out_dir: Path) -> dict:
-    """Run albt and return a structured result including diagnostics."""
+_FASM_TARGETS = {"fasm", "fasm16"}
+
+
+def _stage_job_dir(src: Path, job_dir: Path) -> Path:
+    """Copy the source and its sibling .alb/.albi includes into a scratch
+    dir. albt bootstraps SDK folders (bin/config/stdlib/...) and fasm_<name>/
+    in its working directory, so we keep that noise out of the source tree."""
+    import shutil
+
+    job_dir.mkdir(parents=True, exist_ok=True)
+    dst = job_dir / src.name
+    shutil.copy2(src, dst)
+    for sib in src.parent.iterdir():
+        if sib.suffix.lower() in (".alb", ".albi") and sib != src:
+            shutil.copy2(sib, job_dir / sib.name)
+    return dst
+
+
+def _transpile(src: Path, target: str, job_dir: Path, assemble: bool = True) -> dict:
+    """Run albt inside a staged job dir; return a structured result."""
     ext = _TARGET_EXT.get(target.lower(), f".{target.lower()}")
-    artifact = out_dir / (src.stem + ext)
-    res = _run(
-        [ALBT_PATH, str(src), "-t", target, "-o", str(artifact), "--quiet"],
-        timeout=COMPILE_TIMEOUT,
-        cwd=out_dir,
-    )
-    failed = _albt_failed(res, artifact)
+    staged = _stage_job_dir(src, job_dir)
+    artifact = job_dir / (staged.stem + ext)
+    cmd = [ALBT_PATH, staged.name, "-t", target, "-o", artifact.name]
+    is_fasm = target.lower() in _FASM_TARGETS
+    if is_fasm and assemble:
+        cmd.append("--build")
+    cmd.append("--quiet")
+    res = _run(cmd, timeout=COMPILE_TIMEOUT, cwd=job_dir)
+
+    exe = None
+    if is_fasm and assemble:
+        # albt stages fasm_<stem>/<out-stem>.{asm,exe} next to the source
+        staged_out = job_dir / f"fasm_{staged.stem}"
+        if not artifact.exists() and (staged_out / artifact.name).exists():
+            artifact = staged_out / artifact.name
+        cand = staged_out / (artifact.stem + ".exe")
+        if cand.exists():
+            exe = str(cand)
+
+    failed = _albt_failed(res, artifact if not (is_fasm and assemble) else
+                          (job_dir / f"fasm_{staged.stem}" / (artifact.stem + ".exe")))
     out = {
         "success": not failed,
         "artifact": str(artifact) if artifact.exists() else None,
@@ -189,6 +225,8 @@ def _transpile(src: Path, target: str, out_dir: Path) -> dict:
         "stderr": res["stderr"],
         "timed_out": res["timed_out"],
     }
+    if exe:
+        out["executable"] = exe
     if failed:
         out["diagnostics"] = _parse_albt_output(res["stdout"] + res["stderr"])
     return out
@@ -335,10 +373,12 @@ def execute_and_capture(executable_path: str, arguments: list[str] | None = None
 
 
 @mcp.tool()
-def run_test_suite(test_directory: str) -> str:
+def run_test_suite(test_directory: str, backend_target: str = "fasm") -> str:
     """Compile and run every .alb file in a directory. A test passes when
     it compiles and exits 0; if a sibling '<name>.expected.txt' exists,
-    stdout must match it exactly. Returns a pass/fail summary with diffs."""
+    stdout must match it exactly. Returns a pass/fail summary with diffs.
+    backend_target defaults to 'fasm' (the primary native backend); 'c' is
+    also executable — other backends are validated but not run."""
     try:
         tdir = _safe_path(test_directory)
     except ValueError as e:
@@ -356,7 +396,7 @@ def run_test_suite(test_directory: str) -> str:
         build_dir = tdir / (src.stem + "_build")
         build_dir.mkdir(exist_ok=True)
 
-        comp = _transpile(src, "c", build_dir)
+        comp = _transpile(src, backend_target, build_dir)
         if not comp["success"]:
             entry.update(status="FAIL", stage="transpile",
                          diagnostics=comp.get("diagnostics"),
@@ -364,13 +404,29 @@ def run_test_suite(test_directory: str) -> str:
             results.append(entry)
             continue
 
-        exe = build_dir / (src.stem + ".exe")
-        cc = _run(
-            [ALB_CC, "-O1", "-o", str(exe), comp["artifact"], "-lwinmm", "-lm"],
-            timeout=COMPILE_TIMEOUT, cwd=build_dir,
-        )
-        if not (cc["ok"] and exe.exists()):
-            entry.update(status="FAIL", stage="cc", stderr=cc["stderr"][-3000:])
+        exe = None
+        bt = backend_target.lower()
+        if bt in _FASM_TARGETS:
+            exe = Path(comp["executable"]) if comp.get("executable") else None
+            if not exe:
+                entry.update(status="FAIL", stage="assemble",
+                             compiler_output=(comp["stdout"] + comp["stderr"])[-3000:])
+                results.append(entry)
+                continue
+        elif bt == "c":
+            exe = build_dir / (src.stem + ".exe")
+            cc = _run(
+                [ALB_CC, "-O1", "-o", str(exe), comp["artifact"], "-lwinmm", "-lm"],
+                timeout=COMPILE_TIMEOUT, cwd=build_dir,
+            )
+            if not (cc["ok"] and exe.exists()):
+                entry.update(status="FAIL", stage="cc", stderr=cc["stderr"][-3000:])
+                results.append(entry)
+                continue
+        else:
+            entry.update(status="SKIP", stage="transpile_only",
+                         artifact=comp["artifact"],
+                         note=f"backend '{bt}' is not executable on this host")
             results.append(entry)
             continue
 
@@ -397,12 +453,14 @@ def run_test_suite(test_directory: str) -> str:
         results.append(entry)
 
     passed = sum(1 for r in results if r["status"] == "PASS")
+    failed = sum(1 for r in results if r["status"] == "FAIL")
     return json.dumps(
         {
             "total": len(results),
             "passed": passed,
-            "failed": len(results) - passed,
-            "success": passed == len(results),
+            "failed": failed,
+            "skipped": len(results) - passed - failed,
+            "success": failed == 0,
             "results": results,
         },
         indent=2,

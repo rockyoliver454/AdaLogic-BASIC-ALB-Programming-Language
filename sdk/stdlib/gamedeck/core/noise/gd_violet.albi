@@ -1,0 +1,58 @@
+-- Twin of Ada core_noise_violet. Differentiate white (no Blue module call).
+VERSION 1.0
+
+DECLARE MODULE GdViolet
+    FUNCTION VioletAt(x AS S32, y AS S32, seed AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdViolet
+
+    FUNCTION VioletAt(x AS S32, y AS S32, seed AS S32) AS S32
+        LET w0 AS S32 = 0
+        LET w1 AS S32 = 0
+        LET d AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        w0 = GdHash.ByteOf(x, y, seed)
+        w1 = GdHash.ByteOf(x - 1, y, seed)
+        d = w0 - w1
+        IF d < 0 THEN
+            d = 0 - d
+        END IF
+        -- Second difference accent (violet ~ differentiate blue)
+        w0 = GdHash.ByteOf(x + 1, y, seed)
+        w1 = w0 - GdHash.ByteOf(x, y, seed)
+        IF w1 < 0 THEN
+            w1 = 0 - w1
+        END IF
+        d = (d + w1) / 2
+        RETURN GdVec2.ClipI(d, 0, 255)
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        a = VioletAt(0, 0, 3)
+        b = VioletAt(40, 24, 3)
+        IF a = b THEN
+            RETURN 0
+        END IF
+        IF a < 0 THEN
+            RETURN 0
+        END IF
+        IF a > 255 THEN
+            RETURN 0
+        END IF
+        IF b < 0 THEN
+            RETURN 0
+        END IF
+        IF b > 255 THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,51 @@
+-- Twin of Ada Materials: brick, glass, wood, moss, stone, stucco, CMU, corrugated.
+VERSION 1.0
+
+DECLARE MODULE GdMats
+    FUNCTION RgbOf(kind AS S32) AS S32
+    FUNCTION ShadeAt(x AS S32, y AS S32, kind AS S32) AS S32
+    PROCEDURE PresentTile(kind AS S32, x AS S32, y AS S32)
+    FUNCTION KindN() AS S32
+    FUNCTION AdaId(kind AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdMats
+
+    FUNCTION AdaId(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 7)
+        IF kind = 0 THEN RETURN 13 END IF
+        IF kind = 1 THEN RETURN 14 END IF
+        IF kind = 2 THEN RETURN 19 END IF
+        IF kind = 3 THEN RETURN 12 END IF
+        IF kind = 4 THEN RETURN 16 END IF
+        IF kind = 5 THEN RETURN 82 END IF
+        IF kind = 6 THEN RETURN 90 END IF
+        RETURN 91
+    END FUNCTION
+
+    FUNCTION RgbOf(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 7)
+        RETURN GdAdaTex.Rgb0(AdaId(kind))
+    END FUNCTION
+
+    FUNCTION ShadeAt(x AS S32, y AS S32, kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 7)
+        RETURN GdAdaTex.PixelRgb(AdaId(kind), x AND 15, y AND 15)
+    END FUNCTION
+
+    PROCEDURE PresentTile(kind AS S32, x AS S32, y AS S32)
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 7)
+        GdAdaTex.Present(AdaId(kind), x, y)
+    END PROCEDURE
+
+    FUNCTION KindN() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 8
+    END FUNCTION
+
+END MODULE

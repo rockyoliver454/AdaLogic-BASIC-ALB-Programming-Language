@@ -1,0 +1,4 @@
+VERSION 0.1
+IMPORT_DLL FUNCTION alb_wasapi_version() AS S32 FROM ("alb_wasapi.dll")
+IMPORT_DLL FUNCTION alb_wasapi_test_probe() AS S32 FROM ("alb_wasapi.dll")
+

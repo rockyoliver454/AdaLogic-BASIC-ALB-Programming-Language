@@ -1,0 +1,193 @@
+-- ============================================================================
+-- ALBBmp — Windows BMP, uncompressed 24-bpp
+-- ============================================================================
+-- BITMAPFILEHEADER + BITMAPINFOHEADER (40-byte DIB). Bottom-up or top-down
+-- (negative height). Rows are BGR, 4-byte padded; PixAt is stored as RGB.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_bmp.albi"
+--
+-- DecodeBuf()  0 ok. W()/H() in pixels. Bits() should be 24.
+-- PixAt(i)     1-based RGB bytes, top-left first after decode.
+--
+-- BI_BITFIELDS, RLE, 1/4/8/16/32-bpp, OS/2 headers → status 5.
+-- Load with ALBWin.LoadPath. Window 8192 bytes.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBBmp
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION DecodeBuf() AS S32
+    FUNCTION W() AS S32
+    FUNCTION H() AS S32
+    FUNCTION Bits() AS S32
+    FUNCTION PixAt(i AS S32) AS U8
+    FUNCTION PixN() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBBmp
+
+    -- 1-based window. pix[] is top-left RGB after DecodeBuf (source rows are BGR).
+    STRICT src[8192] AS U8
+    STRICT pix[16384] AS U8
+    LET srclen AS S32 = 0
+    LET pw AS S32 = 0
+    LET ph AS S32 = 0
+    LET bitsn AS S32 = 0
+    LET pixn AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        pw = 0
+        ph = 0
+        bitsn = 0
+        pixn = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 8192 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION GetU16(i AS S32) AS S32
+        RETURN CAST(src[i] AS S32) + CAST(src[i + 1] AS S32) * 256
+    END FUNCTION
+
+    FUNCTION S32LE(i AS S32) AS S32
+        LET v AS S32 = CAST(src[i] AS S32) + CAST(src[i + 1] AS S32) * 256 + CAST(src[i + 2] AS S32) * 65536 + CAST(src[i + 3] AS S32) * 16777216
+        IF CAST(src[i + 3] AS S32) >= 128 THEN
+            RETURN v
+        END IF
+        RETURN v
+    END FUNCTION
+
+    FUNCTION DecodeBuf() AS S32
+        LET off AS S32 = 0
+        LET dib AS S32 = 0
+        LET comp AS S32 = 0
+        LET rowb AS S32 = 0
+        LET y AS S32 = 0
+        LET x AS S32 = 0
+        LET srcy AS S32 = 0
+        LET row AS S32 = 0
+        LET outi AS S32 = 1
+        LET hh AS S32 = 0
+        pixn = 0
+        IF srclen < 54 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        IF src[1] <> 66 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[2] <> 77 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        off = S32LE(11)
+        dib = S32LE(15)
+        pw = S32LE(19)
+        hh = S32LE(23)
+        bitsn = GetU16(29)
+        comp = S32LE(31)
+        IF pw < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF pw > 256 THEN
+            lastst = 2
+            RETURN lastst
+        END IF
+        IF bitsn <> 24 THEN
+            lastst = 5
+            RETURN lastst
+        END IF
+        IF comp <> 0 THEN
+            lastst = 5
+            RETURN lastst
+        END IF
+        IF hh < 0 THEN
+            ph = 0 - hh
+        ELSE
+            ph = hh
+        END IF
+        IF ph < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF ph > 256 THEN
+            lastst = 2
+            RETURN lastst
+        END IF
+        rowb = ((pw * 3 + 3) / 4) * 4
+        IF off < 54 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        y = 0
+        WHILE y < ph
+            IF hh < 0 THEN
+                srcy = y
+            ELSE
+                srcy = ph - 1 - y
+            END IF
+            row = off + 1 + srcy * rowb
+            x = 0
+            WHILE x < pw
+                IF row + x * 3 + 2 > srclen THEN
+                    lastst = 4
+                    RETURN lastst
+                END IF
+                pix[outi] = src[row + x * 3 + 2]
+                pix[outi + 1] = src[row + x * 3 + 1]
+                pix[outi + 2] = src[row + x * 3]
+                outi = outi + 3
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+        pixn = pw * ph * 3
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION W() AS S32
+        RETURN pw
+    END FUNCTION
+
+    FUNCTION H() AS S32
+        RETURN ph
+    END FUNCTION
+
+    FUNCTION Bits() AS S32
+        RETURN bitsn
+    END FUNCTION
+
+    FUNCTION PixAt(i AS S32) AS U8
+        IF i < 1 THEN
+            RETURN 0
+        END IF
+        IF i > pixn THEN
+            RETURN 0
+        END IF
+        RETURN pix[i]
+    END FUNCTION
+
+    FUNCTION PixN() AS S32
+        RETURN pixn
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

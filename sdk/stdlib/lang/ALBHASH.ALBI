@@ -1,0 +1,112 @@
+-- ============================================================================
+-- ALBHASH.ALBI — mixers and named hash seeds
+-- ============================================================================
+-- From release\examples\:
+--   INCLUDE "../stdlib/lang/ALBHASH.ALBI"
+--
+-- XOR / SHR / AND in this file are bitwise. | is string concatenation
+-- (not used here). MixU64 is FNV-1a over the eight little-endian bytes
+-- of a U64, using offset-basis Seed64() and prime 1099511628211.
+--
+-- MixString currently folds LEN(Data) only — it does not walk character
+-- bytes. FNV1a_32 / FNV1a_64 / DJB2 / CRC32 therefore mix the string
+-- length with those algorithms' usual IVs. Use MixU8 in a loop if you
+-- need to hash the payload itself.
+--
+-- Return type is U64 even for the 32-bit-named helpers (high bits stay 0
+-- after a 32-bit mix only if you start from a 32-bit seed).
+-- ============================================================================
+DECLAREMODULE ALBHash
+    FUNCTION Seed64() AS U64
+    FUNCTION MixString(Seed AS U64, Data AS STRING) AS U64
+    FUNCTION MixU64(Seed AS U64, Value AS U64) AS U64
+    FUNCTION MixU32(Seed AS U64, Value AS U32) AS U64
+    FUNCTION MixU16(Seed AS U64, Value AS U16) AS U64
+    FUNCTION MixU8(Seed AS U64, Value AS U8) AS U64
+    FUNCTION MixS32(Seed AS U64, Value AS S32) AS U64
+    FUNCTION FNV1a_32(Data AS STRING) AS U64
+    FUNCTION FNV1a_64(Data AS STRING) AS U64
+    FUNCTION DJB2(Data AS STRING) AS U64
+    FUNCTION CRC32(Data AS STRING) AS U64
+ENDMODULE
+
+MODULE ALBHash
+BEGIN
+    FUNCTION Seed64() AS U64
+    BEGIN
+        -- FNV-1a 64-bit offset basis.
+        RETURN 14695981039346656037
+    END FUNCTION
+
+    FUNCTION MixString(Seed AS U64, Data AS STRING) AS U64
+    BEGIN
+        -- Length only. Loop MixU8(Hash, ASC(MID$(Data, i, 1))) for bytes.
+        RETURN MixU64(Seed, CAST(LEN(Data) AS U64))
+    END FUNCTION
+
+    FUNCTION MixU64(Seed AS U64, Value AS U64) AS U64
+    BEGIN
+        -- Eight FNV-1a steps, low byte first. XOR is bitwise, not concat.
+        LET Hash AS U64 = Seed
+        LET Prime AS U64 = 1099511628211
+        LET Shift AS U8 = 0
+        LET ByteVal AS U64 = 0
+        LET Remaining AS U64 = Value
+
+        WHILE Shift < 8
+            ByteVal = Remaining MOD 256
+            Hash = Hash XOR ByteVal
+            Hash = Hash * Prime
+            Remaining = Remaining SHR 8
+            Shift = Shift + 1
+        END WHILE
+
+        RETURN Hash
+    END FUNCTION
+
+    FUNCTION MixU32(Seed AS U64, Value AS U32) AS U64
+    BEGIN
+        RETURN MixU64(Seed, CAST(Value AS U64))
+    END FUNCTION
+
+    FUNCTION MixU16(Seed AS U64, Value AS U16) AS U64
+    BEGIN
+        RETURN MixU64(Seed, CAST(Value AS U64))
+    END FUNCTION
+
+    FUNCTION MixU8(Seed AS U64, Value AS U8) AS U64
+    BEGIN
+        RETURN MixU64(Seed, CAST(Value AS U64))
+    END FUNCTION
+
+    FUNCTION MixS32(Seed AS U64, Value AS S32) AS U64
+    BEGIN
+        RETURN MixU64(Seed, CAST(Value AS U64))
+    END FUNCTION
+
+    -- FNV-1a 32-bit offset basis 2166136261, then MixString (length only).
+    FUNCTION FNV1a_32(Data AS STRING) AS U64
+    BEGIN
+        RETURN MixString(CAST(2166136261 AS U64), Data)
+    END FUNCTION
+
+    -- FNV-1a 64-bit offset basis (Seed64), then MixString (length only).
+    FUNCTION FNV1a_64(Data AS STRING) AS U64
+    BEGIN
+        RETURN MixString(Seed64(), Data)
+    END FUNCTION
+
+    -- djb2 IV 5381, then MixString (length only).
+    FUNCTION DJB2(Data AS STRING) AS U64
+    BEGIN
+        RETURN MixString(CAST(5381 AS U64), Data)
+    END FUNCTION
+
+    -- Polynomial 0xEDB88320 as a seed, then MixString (length only).
+    -- Not a bit-reflected CRC of the payload bytes.
+    FUNCTION CRC32(Data AS STRING) AS U64
+    BEGIN
+        RETURN MixString(CAST(3988292384 AS U64), Data)
+    END FUNCTION
+
+ENDMODULE

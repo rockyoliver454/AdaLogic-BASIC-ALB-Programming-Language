@@ -1,0 +1,12 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_xaudio2.albi"
+
+LET rc = alb_xaudio2_test_probe()
+IF rc = 0 THEN
+  PRINT "xaudio2 probe PASS"
+ELSE
+  PRINT "xaudio2 probe FAIL " | rc
+END IF
+END
+

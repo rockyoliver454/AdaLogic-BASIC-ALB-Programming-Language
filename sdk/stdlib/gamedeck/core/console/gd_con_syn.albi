@@ -1,0 +1,52 @@
+-- Twin of Ada core_console_syntax. Ident / digit / other, plus first-token class.
+VERSION 1.0
+
+DECLARE MODULE GdConSyn
+    FUNCTION StyleOf(ch AS S32) AS S32
+    FUNCTION KindOf(ch AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdConSyn
+
+    FUNCTION StyleOf(ch AS S32) AS S32
+        ASSERT(ch >= 0)
+        ASSERT(ch <= 255)
+        IF ch >= 48 THEN
+            IF ch <= 57 THEN
+                RETURN 2
+            END IF
+        END IF
+        IF ch >= 65 THEN
+            IF ch <= 90 THEN
+                RETURN 1
+            END IF
+        END IF
+        IF ch >= 97 THEN
+            IF ch <= 122 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION KindOf(ch AS S32) AS S32
+        ASSERT(ch >= 0)
+        ASSERT(ch <= 255)
+        RETURN StyleOf(ch)
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF StyleOf(104) = 1 THEN
+            IF StyleOf(57) = 2 THEN
+                IF StyleOf(32) = 0 THEN
+                    RETURN 1
+                END IF
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

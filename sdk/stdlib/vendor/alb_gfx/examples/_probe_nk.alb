@@ -1,0 +1,9 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_nuklear.albi>
+PRINT "nk ver="
+PRINT alb_nuklear_version()
+LET rc AS S32 = alb_nuklear_test_kitchen_frames(8)
+PRINT "kitchen="
+PRINT rc
+END

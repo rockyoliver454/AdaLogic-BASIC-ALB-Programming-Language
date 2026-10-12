@@ -1,0 +1,76 @@
+-- Twin of Ada core_occlusion. Chunk blockers + VGPU ray / column shade.
+VERSION 1.0
+
+DECLARE MODULE GdOcclusion
+    FUNCTION Blocked(px AS S32, py AS S32) AS BOOL
+    FUNCTION RayHits(x0 AS S32, y0 AS S32, x1 AS S32, y1 AS S32) AS S32
+    PROCEDURE ShadeCol(x AS S32)
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdOcclusion
+
+    FUNCTION Blocked(px AS S32, py AS S32) AS BOOL
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF GdChunk.WorldTile(px, py) = 0 THEN
+            RETURN FALSE
+        END IF
+        RETURN TRUE
+    END FUNCTION
+
+    FUNCTION RayHits(x0 AS S32, y0 AS S32, x1 AS S32, y1 AS S32) AS S32
+        LET i AS S32 = 0
+        LET x AS S32 = 0
+        LET y AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 24
+            x = x0 + ((x1 - x0) * i) / 24
+            y = y0 + ((y1 - y0) * i) / 24
+            IF GdVgpu.Get(x, y) < 16 THEN
+                RETURN 1
+            END IF
+            i = i + 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    PROCEDURE ShadeCol(x AS S32)
+        LET y AS S32 = 0
+        LET hit AS S32 = 0
+        LET v AS S32 = 0
+        ASSERT(x >= 0)
+        ASSERT(1 = 1)
+        WHILE y < GdVgpu.FbH()
+            v = GdVgpu.Get(x, y)
+            IF v < 16 THEN
+                hit = 1
+            END IF
+            IF hit = 1 THEN
+                v = v / 2
+                GdVgpu.Put(x, y, v)
+            END IF
+            y = y + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION SelfTest() AS S32
+        LET n AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        GdVgpu.WipeFb(40)
+        IF RayHits(0, 0, 20, 0) = 0 THEN
+            n = n + 1
+        END IF
+        GdVgpu.Put(10, 0, 4)
+        IF RayHits(0, 0, 20, 0) = 1 THEN
+            n = n + 1
+        END IF
+        IF n = 2 THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

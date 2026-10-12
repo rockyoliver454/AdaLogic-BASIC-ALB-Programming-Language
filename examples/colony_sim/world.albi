@@ -1,0 +1,18 @@
+DECLARE MODULE World
+    PROCEDURE Setup()
+    PROCEDURE Reset()
+    PROCEDURE Process()
+    FUNCTION GetChunk(cx AS S32, cy AS S32, cz AS S32) AS S32
+    PROCEDURE SetTile(cx AS S32, cy AS S32, cz AS S32, tile_kind AS U8)
+    PROCEDURE RestoreChunk(idx AS U32, tile_kind AS U8, tile_height AS U8, tile_flags AS U8)
+    FUNCTION GetTile(cx AS S32, cy AS S32, cz AS S32) AS U8
+    FUNCTION GetWorldTime() AS U32
+    FUNCTION GetTickCount() AS U32
+    FUNCTION GetDayLength() AS U32
+    FUNCTION GetSeasonLength() AS U32
+    PROCEDURE SetWorldTime(value AS U32)
+    PROCEDURE SetTickCount(value AS U32)
+    PROCEDURE SetDayLength(value AS U32)
+    FUNCTION GetSeason() AS U8
+    FUNCTION MixChecksum(hash_value AS U64) AS U64
+END DECLARE MODULE

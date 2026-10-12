@@ -1,0 +1,136 @@
+-- ============================================================================
+-- ALBAiff — AIFF COMM + SSND
+-- ============================================================================
+-- FORM/AIFF (not AIFC compressed). COMM gives channel count, frame count,
+-- sample bits. SSND must be present. Rate is the 80-bit IEEE extended
+-- field; this probe does not convert it to Hz (use WAV if you need Rate).
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_aiff.albi"
+--
+-- ProbeBuf()   0 ok. Channels(), Bits(). Frames() is the COMM sample-frame
+--              count (the word FRAMES is a language token — this function
+--              name is Frames inside the module).
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBAiff
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION Channels() AS S32
+    FUNCTION Frames() AS S32
+    FUNCTION Bits() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBAiff
+
+    -- 1-based window. FORM/AIFF COMM chunk. Do not name a getter Frames (language token).
+    STRICT src[4096] AS U8
+    LET srclen AS S32 = 0
+    LET chn AS S32 = 0
+    LET frn AS S32 = 0
+    LET bitsn AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        chn = 0
+        frn = 0
+        bitsn = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 4096 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION Be16(i AS S32) AS S32
+        RETURN CAST(src[i] AS S32) * 256 + CAST(src[i + 1] AS S32)
+    END FUNCTION
+
+    FUNCTION Be32(i AS S32) AS S32
+        RETURN Be16(i) * 65536 + Be16(i + 2)
+    END FUNCTION
+
+    FUNCTION Four(i AS S32, a AS S32, b AS S32, c AS S32, d AS S32) AS S32
+        IF CAST(src[i] AS S32) <> a THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 1] AS S32) <> b THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 2] AS S32) <> c THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 3] AS S32) <> d THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        LET i AS S32 = 13
+        LET sz AS S32 = 0
+        chn = 0
+        frn = 0
+        bitsn = 0
+        IF srclen < 54 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        IF Four(1, 70, 79, 82, 77) = 0 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF Four(9, 65, 73, 70, 70) = 0 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        WHILE i + 8 <= srclen
+            sz = Be32(i + 4)
+            IF Four(i, 67, 79, 77, 77) <> 0 THEN
+                chn = Be16(i + 8)
+                frn = Be32(i + 10)
+                bitsn = Be16(i + 14)
+            END IF
+            IF sz < 0 THEN
+                lastst = 3
+                RETURN lastst
+            END IF
+            i = i + 8 + sz
+            IF (sz AND 1) <> 0 THEN
+                i = i + 1
+            END IF
+        END WHILE
+        IF chn < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION Channels() AS S32
+        RETURN chn
+    END FUNCTION
+
+    FUNCTION Frames() AS S32
+        RETURN frn
+    END FUNCTION
+
+    FUNCTION Bits() AS S32
+        RETURN bitsn
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,72 @@
+-- Twin of Ada tree_oak / maple / walnut / birch / joshua / pine tables.
+VERSION 1.0
+
+DECLARE MODULE GdTrees
+    FUNCTION OakH() AS S32
+    FUNCTION MapleH() AS S32
+    FUNCTION WalnutH() AS S32
+    FUNCTION BirchH() AS S32
+    FUNCTION JoshuaH() AS S32
+    FUNCTION PineH() AS S32
+    FUNCTION SaplingH() AS S32
+    PROCEDURE PresentKind(kind AS S32, x AS S32)
+    FUNCTION AdaId(kind AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdTrees
+
+    FUNCTION OakH() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 16
+    END FUNCTION
+    FUNCTION MapleH() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 16
+    END FUNCTION
+    FUNCTION WalnutH() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 16
+    END FUNCTION
+    FUNCTION BirchH() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 16
+    END FUNCTION
+    FUNCTION JoshuaH() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 16
+    END FUNCTION
+    FUNCTION PineH() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 16
+    END FUNCTION
+    FUNCTION SaplingH() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 16
+    END FUNCTION
+
+    FUNCTION AdaId(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 6)
+        IF kind = 0 THEN RETURN 35 END IF
+        IF kind = 1 THEN RETURN 37 END IF
+        IF kind = 2 THEN RETURN 38 END IF
+        IF kind = 3 THEN RETURN 36 END IF
+        IF kind = 4 THEN RETURN 39 END IF
+        IF kind = 5 THEN RETURN 34 END IF
+        RETURN 41
+    END FUNCTION
+
+    PROCEDURE PresentKind(kind AS S32, x AS S32)
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 6)
+        GdAdaTex.Present(AdaId(kind), x, 268)
+    END PROCEDURE
+
+END MODULE

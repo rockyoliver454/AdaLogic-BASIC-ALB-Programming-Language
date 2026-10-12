@@ -1,0 +1,20 @@
+-- Twin of Ada core_sfx_granular. Grain index into a 16-table.
+VERSION 1.0
+
+DECLARE MODULE GdSfxGrain
+    FUNCTION Grain(pos AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdSfxGrain
+
+    FUNCTION Grain(pos AS S32) AS S32
+        LET p AS S32 = pos MOD 16
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF p < 0 THEN
+            p = p + 16
+        END IF
+        RETURN GdSfxOsc.SampleAt(p * 16)
+    END FUNCTION
+
+END MODULE

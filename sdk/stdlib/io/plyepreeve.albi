@@ -1,0 +1,373 @@
+-- ====================================================================
+-- PLYEPREEVE.ALBI
+-- The Torture-Proof PLY Parser (Flat-Memory JVM Safe)
+-- Supports ASCII, Binary LE, and Binary BE.
+-- ====================================================================
+
+VERSION 1.0
+
+DECLARE MODULE PlyePreeve
+    PROCEDURE LoadPly(filename AS STRING)
+    FUNCTION IsOpen() AS S32
+    FUNCTION GetVertexCount() AS S32
+    FUNCTION GetFaceCount() AS S32
+    FUNCTION GetFormat() AS S32
+    
+    PROCEDURE NextVertex()
+    PROCEDURE NextFace()
+    PROCEDURE ClosePly()
+    
+    -- Internal manual I/O helpers exposed for the module
+    PROCEDURE ReadWord(OUT w AS STRING)
+    PROCEDURE ReadBinInt32(OUT out_val AS S32)
+END DECLARE MODULE
+
+MODULE PlyePreeve
+
+    -- ------------------------------------------------------------
+    -- Public Output State (Read these after NextVertex/NextFace)
+    -- ------------------------------------------------------------
+    LET PP_Success AS S32 = 0
+    
+    LET PP_Out_X AS S32 = 0
+    LET PP_Out_Y AS S32 = 0
+    LET PP_Out_Z AS S32 = 0
+    LET PP_Out_NX AS S32 = 0
+    LET PP_Out_NY AS S32 = 0
+    LET PP_Out_NZ AS S32 = 0
+    LET PP_Out_U AS S32 = 0
+    LET PP_Out_V AS S32 = 0
+    LET PP_Out_R AS S32 = 255
+    LET PP_Out_G AS S32 = 255
+    LET PP_Out_B AS S32 = 255
+    LET PP_Out_A AS S32 = 255
+    
+    LET PP_Out_Face_Verts AS S32 = 0
+    LET PP_Out_F1 AS S32 = 0
+    LET PP_Out_F2 AS S32 = 0
+    LET PP_Out_F3 AS S32 = 0
+    LET PP_Out_F4 AS S32 = 0
+
+    -- ------------------------------------------------------------
+    -- Internal Parser State
+    -- ------------------------------------------------------------
+    LET PP_Is_Valid AS S32 = 0
+    LET PP_EOF AS S32 = 0
+    LET PP_Format AS S32 = 0 -- 0=Ascii, 1=BinLE, 2=BinBE
+    LET PP_File_ID AS S32 = 0
+    
+    LET PP_Verts_Total AS S32 = 0
+    LET PP_Faces_Total AS S32 = 0
+    LET PP_Verts_Read AS S32 = 0
+    LET PP_Faces_Read AS S32 = 0
+
+    -- Property Mapping Schemas (Flattened)
+    LET PP_Vert_Num_Props AS S32 = 0
+    STRICT PP_Vert_Prop_Target[32] AS S32
+    STRICT PP_Vert_Prop_Type[32] AS S32
+    
+    LET PP_Face_Num_Props AS S32 = 0
+    STRICT PP_Face_Prop_Target[32] AS S32
+    STRICT PP_Face_Prop_Type[32] AS S32
+    STRICT PP_Face_List_Count_Type[32] AS S32
+    STRICT PP_Face_List_Item_Type[32] AS S32
+
+    -- ============================================================
+    -- INTERNAL MANUAL I/O HELPERS
+    -- ============================================================
+    PROCEDURE ReadWord(OUT w AS STRING)
+        w = ""
+        LET c AS BINARY = ""
+        LET b AS S32 = 0
+        LET started AS S32 = 0
+        
+        WHILE PP_EOF = 0
+            c = READ(PP_File_ID, 1)
+            IF LEN(c) = 0 THEN
+                PP_EOF = 1
+                RETURN
+            END IF
+            
+            b = S32(c)
+            -- Space(32), LineFeed(10), CarriageReturn(13), Tab(9)
+            IF b = 32 OR b = 10 OR b = 13 OR b = 9 THEN
+                IF started = 1 THEN RETURN END IF
+            ELSE
+                started = 1
+                w = CONCAT(w, c)
+            END IF
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE ReadBinInt32(OUT out_val AS S32)
+        LET b1 AS S32 = 0 LET b2 AS S32 = 0 LET b3 AS S32 = 0 LET b4 AS S32 = 0
+        LET c AS BINARY = ""
+
+        c = READ(PP_File_ID, 1) b1 = S32(c)
+        c = READ(PP_File_ID, 1) b2 = S32(c)
+        c = READ(PP_File_ID, 1) b3 = S32(c)
+        c = READ(PP_File_ID, 1) b4 = S32(c)
+        
+        LET raw AS U32 = 0
+        IF PP_Format = 2 THEN
+            -- Big Endian (Avoid SHL command parser collisions by using pure math!)
+            raw = U32(b1)
+            raw = (raw * 256) + U32(b2)
+            raw = (raw * 256) + U32(b3)
+            raw = (raw * 256) + U32(b4)
+        ELSE
+            -- Little Endian
+            raw = U32(b4)
+            raw = (raw * 256) + U32(b3)
+            raw = (raw * 256) + U32(b2)
+            raw = (raw * 256) + U32(b1)
+        END IF
+        out_val = S32(raw)
+    END PROCEDURE
+
+    FUNCTION IdentifyTarget(name AS STRING, is_face AS S32) AS S32
+        IF is_face = 1 THEN
+            IF name = "vertex_indices" OR name = "vertex_index" THEN RETURN 13 END IF
+        ELSE
+            IF name = "x" THEN RETURN 1 END IF
+            IF name = "y" THEN RETURN 2 END IF
+            IF name = "z" THEN RETURN 3 END IF
+            IF name = "nx" THEN RETURN 4 END IF
+            IF name = "ny" THEN RETURN 5 END IF
+            IF name = "nz" THEN RETURN 6 END IF
+            IF name = "s" OR name = "u" THEN RETURN 7 END IF
+            IF name = "t" OR name = "v" THEN RETURN 8 END IF
+            IF name = "red" THEN RETURN 9 END IF
+            IF name = "green" THEN RETURN 10 END IF
+            IF name = "blue" THEN RETURN 11 END IF
+            IF name = "alpha" THEN RETURN 12 END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION IdentifyType(name AS STRING) AS S32
+        IF name = "char" OR name = "int8" OR name = "uchar" OR name = "uint8" THEN RETURN 1 END IF
+        IF name = "short" OR name = "int16" OR name = "ushort" OR name = "uint16" THEN RETURN 2 END IF
+        IF name = "int" OR name = "int32" OR name = "uint" OR name = "uint32" THEN RETURN 3 END IF
+        IF name = "float" OR name = "float32" THEN RETURN 4 END IF
+        IF name = "list" THEN RETURN 5 END IF
+        RETURN 0
+    END FUNCTION
+
+    -- ============================================================
+    -- HEADER PARSER
+    -- ============================================================
+    PROCEDURE LoadPly(filename AS STRING)
+        PP_Is_Valid = 0
+        PP_EOF = 0
+        PP_Vert_Num_Props = 0
+        PP_Face_Num_Props = 0
+        PP_Verts_Total = 0
+        PP_Faces_Total = 0
+        PP_Verts_Read = 0
+        PP_Faces_Read = 0
+        PP_Success = 0
+        
+        LET cur_elem AS S32 = 0
+        LET w1 AS STRING = "" LET w2 AS STRING = "" LET w3 AS STRING = "" LET w4 AS STRING = "" LET w5 AS STRING = ""
+        
+        PP_File_ID = S32(OPEN(filename, "r"))
+        IF PP_File_ID = 0 THEN RETURN END IF
+
+        CALL PlyePreeve.ReadWord(w1)
+        IF w1 <> "ply" THEN CLOSE PP_File_ID RETURN END IF
+
+        CALL PlyePreeve.ReadWord(w1)
+        CALL PlyePreeve.ReadWord(w2)
+        CALL PlyePreeve.ReadWord(w3)
+        IF w1 <> "format" THEN CLOSE PP_File_ID RETURN END IF
+        
+        IF w2 = "ascii" THEN PP_Format = 0 END IF
+        IF w2 = "binary_little_endian" THEN PP_Format = 1 END IF
+        IF w2 = "binary_big_endian" THEN PP_Format = 2 END IF
+
+        WHILE PP_EOF = 0
+            CALL PlyePreeve.ReadWord(w1)
+            
+            IF w1 = "end_header" THEN
+                PP_Is_Valid = 1
+                PP_Success = 1
+                RETURN
+            END IF
+            
+            IF w1 = "element" THEN
+                CALL PlyePreeve.ReadWord(w2)
+                CALL PlyePreeve.ReadWord(w3)
+                IF w2 = "vertex" THEN
+                    PP_Verts_Total = S32(w3)
+                    cur_elem = 1
+                ELSE IF w2 = "face" THEN
+                    PP_Faces_Total = S32(w3)
+                    cur_elem = 2
+                ELSE
+                    cur_elem = 0
+                END IF END IF
+            END IF
+            
+            IF w1 = "property" THEN
+                CALL PlyePreeve.ReadWord(w2)
+                CALL PlyePreeve.ReadWord(w3)
+                
+                IF cur_elem = 1 THEN
+                    PP_Vert_Num_Props = PP_Vert_Num_Props + 1
+                    PP_Vert_Prop_Type[PP_Vert_Num_Props] = PlyePreeve.IdentifyType(w2)
+                    PP_Vert_Prop_Target[PP_Vert_Num_Props] = PlyePreeve.IdentifyTarget(w3, 0)
+                ELSE IF cur_elem = 2 THEN
+                    PP_Face_Num_Props = PP_Face_Num_Props + 1
+                    PP_Face_Prop_Type[PP_Face_Num_Props] = PlyePreeve.IdentifyType(w2)
+                    
+                    IF w2 = "list" THEN
+                        CALL PlyePreeve.ReadWord(w4)
+                        CALL PlyePreeve.ReadWord(w5)
+                        PP_Face_List_Count_Type[PP_Face_Num_Props] = PlyePreeve.IdentifyType(w3)
+                        PP_Face_List_Item_Type[PP_Face_Num_Props] = PlyePreeve.IdentifyType(w4)
+                        PP_Face_Prop_Target[PP_Face_Num_Props] = PlyePreeve.IdentifyTarget(w5, 1)
+                    ELSE
+                        PP_Face_Prop_Target[PP_Face_Num_Props] = PlyePreeve.IdentifyTarget(w3, 1)
+                    END IF
+                END IF END IF
+            END IF
+        END WHILE
+    END PROCEDURE
+
+    -- ============================================================
+    -- GETTERS
+    -- ============================================================
+    FUNCTION IsOpen() AS S32 RETURN PP_Is_Valid END FUNCTION
+    FUNCTION GetVertexCount() AS S32 RETURN PP_Verts_Total END FUNCTION
+    FUNCTION GetFaceCount() AS S32 RETURN PP_Faces_Total END FUNCTION
+    FUNCTION GetFormat() AS S32 RETURN PP_Format END FUNCTION
+
+    PROCEDURE ClosePly()
+        IF PP_Is_Valid = 1 THEN
+            CLOSE PP_File_ID
+            PP_Is_Valid = 0
+        END IF
+    END PROCEDURE
+
+    -- ============================================================
+    -- DATA STREAMING
+    -- ============================================================
+    PROCEDURE NextVertex()
+        PP_Success = 0
+        IF PP_Is_Valid = 0 OR PP_Verts_Read >= PP_Verts_Total THEN RETURN END IF
+        
+        -- Reset Defaults
+        PP_Out_X = 0 PP_Out_Y = 0 PP_Out_Z = 0
+        PP_Out_NX = 0 PP_Out_NY = 0 PP_Out_NZ = 0
+        PP_Out_U = 0 PP_Out_V = 0
+        PP_Out_R = 255 PP_Out_G = 255 PP_Out_B = 255 PP_Out_A = 255
+        
+        LET i AS S32 = 1
+        LET p_target AS S32 = 0
+        LET p_type AS S32 = 0
+        LET b_val AS BINARY = ""
+        LET i_val AS S32 = 0
+        LET w_ascii AS STRING = ""
+        
+        WHILE i <= PP_Vert_Num_Props
+            p_target = PP_Vert_Prop_Target[i]
+            p_type = PP_Vert_Prop_Type[i]
+            
+            IF PP_Format = 0 THEN
+                CALL PlyePreeve.ReadWord(w_ascii)
+                i_val = S32(w_ascii)
+            ELSE
+                IF p_type = 1 THEN
+                    b_val = READ(PP_File_ID, 1)
+                    i_val = S32(b_val)
+                ELSE IF p_type = 3 OR p_type = 4 THEN
+                    CALL PlyePreeve.ReadBinInt32(i_val)
+                END IF END IF
+            END IF
+            
+            IF p_target = 1 THEN PP_Out_X = i_val END IF
+            IF p_target = 2 THEN PP_Out_Y = i_val END IF
+            IF p_target = 3 THEN PP_Out_Z = i_val END IF
+            IF p_target = 4 THEN PP_Out_NX = i_val END IF
+            IF p_target = 5 THEN PP_Out_NY = i_val END IF
+            IF p_target = 6 THEN PP_Out_NZ = i_val END IF
+            IF p_target = 7 THEN PP_Out_U = i_val END IF
+            IF p_target = 8 THEN PP_Out_V = i_val END IF
+            IF p_target = 9 THEN PP_Out_R = i_val END IF
+            IF p_target = 10 THEN PP_Out_G = i_val END IF
+            IF p_target = 11 THEN PP_Out_B = i_val END IF
+            IF p_target = 12 THEN PP_Out_A = i_val END IF
+            
+            i = i + 1
+        END WHILE
+        
+        PP_Verts_Read = PP_Verts_Read + 1
+        PP_Success = 1
+    END PROCEDURE
+
+    PROCEDURE NextFace()
+        PP_Success = 0
+        IF PP_Is_Valid = 0 OR PP_Faces_Read >= PP_Faces_Total THEN RETURN END IF
+        
+        PP_Out_Face_Verts = 0
+        PP_Out_F1 = 0 PP_Out_F2 = 0 PP_Out_F3 = 0 PP_Out_F4 = 0
+
+        LET i AS S32 = 1
+        LET p_target AS S32 = 0
+        LET p_type AS S32 = 0
+        LET count_val AS S32 = 0
+        LET idx_val AS S32 = 0
+        LET k AS S32 = 1
+        LET w_ascii AS STRING = ""
+        LET b_val AS BINARY = ""
+        
+        WHILE i <= PP_Face_Num_Props
+            p_target = PP_Face_Prop_Target[i]
+            p_type = PP_Face_Prop_Type[i]
+            
+            IF p_type = 5 THEN -- List Type
+                IF PP_Format = 0 THEN
+                    CALL PlyePreeve.ReadWord(w_ascii)
+                    count_val = S32(w_ascii)
+                ELSE
+                    b_val = READ(PP_File_ID, 1)
+                    count_val = S32(b_val)
+                END IF
+                
+                IF p_target = 13 THEN PP_Out_Face_Verts = count_val END IF
+                
+                k = 1
+                WHILE k <= count_val
+                    IF PP_Format = 0 THEN
+                        CALL PlyePreeve.ReadWord(w_ascii)
+                        idx_val = S32(w_ascii)
+                    ELSE
+                        CALL PlyePreeve.ReadBinInt32(idx_val)
+                    END IF
+                    
+                    IF p_target = 13 THEN
+                        IF k = 1 THEN PP_Out_F1 = idx_val + 1 END IF
+                        IF k = 2 THEN PP_Out_F2 = idx_val + 1 END IF
+                        IF k = 3 THEN PP_Out_F3 = idx_val + 1 END IF
+                        IF k = 4 THEN PP_Out_F4 = idx_val + 1 END IF
+                    END IF
+                    k = k + 1
+                END WHILE
+            ELSE
+                -- Scalar Property
+                IF PP_Format = 0 THEN
+                    CALL PlyePreeve.ReadWord(w_ascii)
+                ELSE
+                    CALL PlyePreeve.ReadBinInt32(idx_val)
+                END IF
+            END IF
+            
+            i = i + 1
+        END WHILE
+        
+        PP_Faces_Read = PP_Faces_Read + 1
+        PP_Success = 1
+    END PROCEDURE
+
+END MODULE

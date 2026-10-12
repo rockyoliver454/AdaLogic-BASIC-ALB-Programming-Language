@@ -1,0 +1,28 @@
+-- Twin of Ada geo_distribution. Weighted pick 0..3 from a nibble.
+VERSION 1.0
+
+DECLARE MODULE GdDistro
+    FUNCTION Pick4(w0 AS S32, w1 AS S32, w2 AS S32, w3 AS S32, roll AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdDistro
+
+    FUNCTION Pick4(w0 AS S32, w1 AS S32, w2 AS S32, w3 AS S32, roll AS S32) AS S32
+        LET t AS S32 = w0 + w1 + w2 + w3
+        LET r AS S32 = roll
+        ASSERT(t > 0)
+        ASSERT(roll >= 0)
+        r = r MOD t
+        IF r < w0 THEN
+            RETURN 0
+        END IF
+        IF r < w0 + w1 THEN
+            RETURN 1
+        END IF
+        IF r < w0 + w1 + w2 THEN
+            RETURN 2
+        END IF
+        RETURN 3
+    END FUNCTION
+
+END MODULE

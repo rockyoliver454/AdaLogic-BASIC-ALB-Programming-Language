@@ -1,0 +1,19 @@
+-- Twin of Ada core_sfx_utils.
+VERSION 1.0
+
+DECLARE MODULE GdSfxUtil
+    FUNCTION AbsS(s AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdSfxUtil
+
+    FUNCTION AbsS(s AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF s < 0 THEN
+            RETURN 0 - s
+        END IF
+        RETURN s
+    END FUNCTION
+
+END MODULE

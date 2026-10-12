@@ -1,0 +1,5 @@
+DECLARE MODULE Lighting
+    PROCEDURE Setup()
+    FUNCTION GetAmbientBrightness(day_time AS U32, day_len AS U32, season AS U8, weather AS U8) AS U8
+    PROCEDURE DrawLightOverlay(brightness AS U8, weather AS U8, intensity AS U8, scr_w AS S32, scr_h AS S32)
+END DECLARE MODULE

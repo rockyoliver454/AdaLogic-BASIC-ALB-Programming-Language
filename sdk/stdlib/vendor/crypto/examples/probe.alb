@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_crypto.albi"
+
+LET rc = alb_crypto_test_probe()
+IF rc = 0 THEN
+  PRINT "crypto probe PASS"
+ELSE
+  PRINT "crypto probe FAIL " | rc
+END IF
+END

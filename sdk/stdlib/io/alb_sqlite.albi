@@ -1,0 +1,186 @@
+-- ============================================================================
+-- ALBSqlite — SQLite 3 database header
+-- ============================================================================
+-- "SQLite format 3\\0" at byte 1, then page size (U16 BE at 17; 1 means
+-- 65536), page count (U32 BE at 29), text encoding (U32 BE at 57:
+-- 1 UTF-8, 2 UTF-16le, 3 UTF-16be).
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_sqlite.albi"
+--
+-- ProbeBuf()   0 ok. PageSize(), PageN(), Enc().
+-- This is not a SQL engine and does not walk b-trees or sqlite_schema.
+-- Files may be larger than the 8192-byte parser window; the 100-byte
+-- header is enough. LoadPath still refuses files over #IO_CAP.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBSqlite
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION PageSize() AS S32
+    FUNCTION PageN() AS S32
+    FUNCTION Enc() AS S32
+    FUNCTION WriteVersion() AS S32
+    FUNCTION ReadVersion() AS S32
+    FUNCTION ReservedBytes() AS S32
+    FUNCTION ChangeCounter() AS S32
+    FUNCTION SchemaCookie() AS S32
+    FUNCTION UserVersion() AS S32
+    FUNCTION ApplicationId() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBSqlite
+
+    -- 1-based window. Header is 100 bytes; PageSize 1 means 65536.
+    STRICT src[8192] AS U8
+    LET srclen AS S32 = 0
+    LET psz AS S32 = 0
+    LET npg AS S32 = 0
+    LET encn AS S32 = 0
+    LET writev AS S32 = 0
+    LET readv AS S32 = 0
+    LET reservedn AS S32 = 0
+    LET changen AS S32 = 0
+    LET scheman AS S32 = 0
+    LET usern AS S32 = 0
+    LET appn AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        psz = 0
+        npg = 0
+        encn = 0
+        writev = 0
+        readv = 0
+        reservedn = 0
+        changen = 0
+        scheman = 0
+        usern = 0
+        appn = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 8192 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION Be16(i AS S32) AS S32
+        RETURN CAST(src[i] AS S32) * 256 + CAST(src[i + 1] AS S32)
+    END FUNCTION
+
+    FUNCTION Be32(i AS S32) AS S32
+        RETURN CAST(src[i] AS S32) * 16777216 + CAST(src[i + 1] AS S32) * 65536 + CAST(src[i + 2] AS S32) * 256 + CAST(src[i + 3] AS S32)
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        LET i AS S32 = 1
+        psz = 0
+        npg = 0
+        encn = 0
+        IF srclen < 100 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        IF src[1] <> 83 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[2] <> 81 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[3] <> 76 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[4] <> 105 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        psz = Be16(17)
+        IF psz = 1 THEN
+            psz = 65536
+        END IF
+        writev = CAST(src[19] AS S32)
+        readv = CAST(src[20] AS S32)
+        reservedn = CAST(src[21] AS S32)
+        changen = Be32(25)
+        npg = Be32(29)
+        scheman = Be32(41)
+        encn = Be32(57)
+        usern = Be32(61)
+        appn = Be32(69)
+        IF psz < 512 OR psz > 65536 OR (psz AND (psz - 1)) <> 0 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF writev < 1 OR writev > 2 OR readv < 1 OR readv > 2 THEN
+            lastst = 5
+            RETURN lastst
+        END IF
+        IF src[22] <> 64 OR src[23] <> 32 OR src[24] <> 32 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF encn < 1 OR encn > 3 THEN
+            lastst = 5
+            RETURN lastst
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION PageSize() AS S32
+        RETURN psz
+    END FUNCTION
+
+    FUNCTION PageN() AS S32
+        RETURN npg
+    END FUNCTION
+
+    FUNCTION Enc() AS S32
+        RETURN encn
+    END FUNCTION
+
+    FUNCTION WriteVersion() AS S32
+        RETURN writev
+    END FUNCTION
+
+    FUNCTION ReadVersion() AS S32
+        RETURN readv
+    END FUNCTION
+
+    FUNCTION ReservedBytes() AS S32
+        RETURN reservedn
+    END FUNCTION
+
+    FUNCTION ChangeCounter() AS S32
+        RETURN changen
+    END FUNCTION
+
+    FUNCTION SchemaCookie() AS S32
+        RETURN scheman
+    END FUNCTION
+
+    FUNCTION UserVersion() AS S32
+        RETURN usern
+    END FUNCTION
+
+    FUNCTION ApplicationId() AS S32
+        RETURN appn
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

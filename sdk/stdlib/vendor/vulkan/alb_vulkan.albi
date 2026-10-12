@@ -1,0 +1,118 @@
+-- ============================================================================
+-- alb_vulkan.albi — REAL thin ALB binding for vendor/vulkan (ABI 0.3)
+-- ============================================================================
+-- Place alb_vulkan.dll beside the program (needs vulkan-1.dll on PATH).
+--   INCLUDE "../stdlib/vendor/vulkan/alb_vulkan.albi"
+--
+-- DLL = Win32 present lifecycle + raw alb_vk* only. Application builds demos.
+-- Handles are opaque S64. Status 0 = OK.
+-- Soft present: alb_vk_present_pixels(ctx, px_ptr) between begin/end frame.
+-- Get cmd buffer: alb_vulkan_context_cmd(ctx) AS S64 for alb_vkCmd* wrappers.
+-- ALB | is STRING CONCAT (not bitwise OR).
+-- ============================================================================
+
+VERSION 0.3
+
+-- Status
+#ALB_VULKAN_OK = 0
+#ALB_VULKAN_ERR_INVALID_ARG = 1
+#ALB_VULKAN_ERR_NO_LOADER = 2
+#ALB_VULKAN_ERR_INSTANCE = 3
+#ALB_VULKAN_ERR_NO_DEVICE = 4
+#ALB_VULKAN_ERR_DEVICE = 5
+#ALB_VULKAN_ERR_QUEUE = 6
+#ALB_VULKAN_ERR_SURFACE = 7
+#ALB_VULKAN_ERR_SWAPCHAIN = 8
+#ALB_VULKAN_ERR_COMMAND = 9
+#ALB_VULKAN_ERR_SYNC = 10
+#ALB_VULKAN_ERR_HWND = 11
+#ALB_VULKAN_ERR_NOT_READY = 12
+#ALB_VULKAN_ERR_INTERNAL = 100
+
+-- Topology (keep)
+#ALB_VULKAN_TOPOLOGY_POINTLIST = 1
+#ALB_VULKAN_TOPOLOGY_LINELIST = 2
+#ALB_VULKAN_TOPOLOGY_TRIANGLELIST = 4
+
+-- VK-style constants
+#ALB_VK_FALSE = 0
+#ALB_VK_TRUE = 1
+#ALB_VK_FORMAT_UNDEFINED = 0
+#ALB_VK_FORMAT_R8G8B8A8_UNORM = 37
+#ALB_VK_FORMAT_B8G8R8A8_UNORM = 44
+#ALB_VK_FORMAT_D32_SFLOAT = 126
+#ALB_VK_IMAGE_ASPECT_COLOR_BIT = 1
+#ALB_VK_IMAGE_ASPECT_DEPTH_BIT = 2
+#ALB_VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT = 1
+#ALB_VK_PIPELINE_STAGE_TRANSFER_BIT = 4096
+#ALB_VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT = 8192
+#ALB_VK_ACCESS_TRANSFER_WRITE_BIT = 4096
+#ALB_VK_BUFFER_USAGE_TRANSFER_SRC_BIT = 1
+#ALB_VK_BUFFER_USAGE_VERTEX_BUFFER_BIT = 128
+#ALB_VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT = 2
+#ALB_VK_MEMORY_PROPERTY_HOST_COHERENT_BIT = 4
+
+-- Lifecycle
+IMPORT_DLL FUNCTION alb_vulkan_version() AS S32 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_loader_init() AS S32 FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vulkan_loader_shutdown() FROM ("alb_vulkan.dll")
+
+IMPORT_DLL FUNCTION alb_vulkan_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vulkan_device_destroy(device AS S64) FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_device_native(device AS S64) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_device_instance(device AS S64) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_device_physical(device AS S64) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_device_queue(device AS S64) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_device_queue_family(device AS S64) AS S32 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_device_wait_idle(device AS S64) AS S32 FROM ("alb_vulkan.dll")
+
+IMPORT_DLL FUNCTION alb_vulkan_context_create(desc AS S64, out_ctx AS S64) AS S32 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_context_create_simple(width AS S32, height AS S32) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vulkan_context_destroy(ctx AS S64) FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_context_resize(ctx AS S64, width AS S32, height AS S32) AS S32 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_context_begin_frame(ctx AS S64) AS S32 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_context_clear(ctx AS S64, r AS F64, g AS F64, b AS F64, a AS F64) AS S32 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_context_end_frame(ctx AS S64, vsync AS S32) AS S32 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_context_device(ctx AS S64) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_context_width(ctx AS S64) AS S32 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_context_height(ctx AS S64) AS S32 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_context_should_close(ctx AS S64) AS S32 FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vulkan_context_set_should_close(ctx AS S64, v AS S32) FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vulkan_poll_events() FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vulkan_sleep_ms(ms AS S32) FROM ("alb_vulkan.dll")
+
+IMPORT_DLL FUNCTION alb_vulkan_context_cmd(ctx AS S64) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_context_vk_device(ctx AS S64) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_context_vk_instance(ctx AS S64) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_context_vk_queue(ctx AS S64) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_context_vk_image(ctx AS S64) AS S64 FROM ("alb_vulkan.dll")
+
+-- Soft present + frame info
+IMPORT_DLL FUNCTION alb_vk_present_pixels(ctx AS S64, pixels_ptr AS S64) AS S32 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vk_frame_info(ctx AS S64, out_w AS S64, out_h AS S64, out_bgra AS S64) AS S32 FROM ("alb_vulkan.dll")
+
+-- Memory helpers
+IMPORT_DLL FUNCTION alb_vulkan_alloc(size AS S64) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vulkan_free(data_ptr AS S64) FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vulkan_write_f32(data_ptr AS S64, index AS S32, value AS F64) FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vulkan_write_i32(data_ptr AS S64, index AS S32, value AS S32) FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vulkan_write_u32(data_ptr AS S64, index AS S32, value AS S32) FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vulkan_read_u32(data_ptr AS S64, index AS S32) AS S32 FROM ("alb_vulkan.dll")
+
+-- Raw alb_vk* wrappers
+IMPORT_DLL PROCEDURE alb_vkCmdClearColorImage(cmd AS S64, image AS S64, r AS F64, g AS F64, b AS F64, a AS F64) FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vkCmdSetViewport(cmd AS S64, x AS F64, y AS F64, width AS F64, height AS F64, minDepth AS F64, maxDepth AS F64) FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vkCmdSetScissor(cmd AS S64, x AS S32, y AS S32, width AS S32, height AS S32) FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vkCmdPipelineBarrier(cmd AS S64, src_stage AS S32, dst_stage AS S32, src_access AS S32, dst_access AS S32) FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vkCmdBindPipeline(cmd AS S64, bind_point AS S32, pipeline AS S64) FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vkCmdBindVertexBuffers(cmd AS S64, first_binding AS S32, buffer AS S64, offset AS S64) FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vkCmdDraw(cmd AS S64, vertex_count AS S32, instance_count AS S32, first_vertex AS S32, first_instance AS S32) FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vkCmdDrawIndexed(cmd AS S64, index_count AS S32, instance_count AS S32, first_index AS S32, vertex_offset AS S32, first_instance AS S32) FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vkCreateBuffer(device AS S64, physical AS S64, size AS S64, usage AS S32, mem_props AS S32, out_memory AS S64) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vkMapMemory(device AS S64, memory AS S64, size AS S64) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vkUnmapMemory(device AS S64, memory AS S64) FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vkDestroyBuffer(device AS S64, buffer AS S64, memory AS S64) FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vkCreateShaderModule(device AS S64, code_ptr AS S64, code_size AS S64) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vkDestroyShaderModule(device AS S64, shader_mod AS S64) FROM ("alb_vulkan.dll")
+IMPORT_DLL FUNCTION alb_vkCreateGraphicsPipeline(device AS S64, render_pass AS S64, vert_module AS S64, frag_module AS S64, topology AS S32) AS S64 FROM ("alb_vulkan.dll")
+IMPORT_DLL PROCEDURE alb_vkDestroyPipeline(device AS S64, pipe AS S64) FROM ("alb_vulkan.dll")

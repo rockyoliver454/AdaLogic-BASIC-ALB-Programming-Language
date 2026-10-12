@@ -1,0 +1,7 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_openblas.albi>
+PRINT "openblas ver=" | alb_openblas_version()
+LET rc AS S32 = alb_openblas_test_ddot()
+PRINT "ddot_test=" | rc
+END

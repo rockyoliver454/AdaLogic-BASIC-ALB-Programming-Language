@@ -1,0 +1,51 @@
+-- ============================================================================
+-- alb_sdl2.albi — thin ALB binding for vendor/sdl2 (legacy C ABI)
+-- ============================================================================
+-- Place alb_sdl2.dll AND SDL2.dll beside the program.
+--   INCLUDE "../stdlib/vendor/sdl2/alb_sdl2.albi"
+-- ============================================================================
+
+VERSION 0.1
+
+IMPORT_DLL FUNCTION alb_sdl2_version() AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_loader_init() AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL PROCEDURE alb_sdl2_loader_shutdown() FROM ("alb_sdl2.dll")
+
+IMPORT_DLL FUNCTION alb_sdl2_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL PROCEDURE alb_sdl2_device_destroy(device AS S64) FROM ("alb_sdl2.dll")
+IMPORT_DLL PROCEDURE alb_sdl2_delay(ms AS S32) FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_ticks() AS S32 FROM ("alb_sdl2.dll")
+
+IMPORT_DLL FUNCTION alb_sdl2_context_create(desc AS S64, out_ctx AS S64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_create_simple(width AS S32, height AS S32) AS S64 FROM ("alb_sdl2.dll")
+IMPORT_DLL PROCEDURE alb_sdl2_context_destroy(ctx AS S64) FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_resize(ctx AS S64, width AS S32, height AS S32) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_begin_frame(ctx AS S64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_clear(ctx AS S64, r AS F64, g AS F64, b AS F64, a AS F64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_draw_prism_tetra(ctx AS S64, yaw AS F64, pitch AS F64, scale AS F64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_draw_hello_triangle(ctx AS S64, yaw AS F64, pitch AS F64, scale AS F64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_draw_primitives(ctx AS S64, t AS F64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_draw_lines(ctx AS S64, t AS F64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_draw_points(ctx AS S64, t AS F64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_draw_rectangles(ctx AS S64, t AS F64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_draw_geometry(ctx AS S64, t AS F64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_draw_streaming_texture(ctx AS S64, t AS F64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_draw_rotating_texture(ctx AS S64, angle_deg AS F64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_draw_colored_quad(ctx AS S64, yaw AS F64, pitch AS F64, scale AS F64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_draw_cube(ctx AS S64, yaw AS F64, pitch AS F64, scale AS F64) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_end_frame(ctx AS S64, vsync AS S32) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_device(ctx AS S64) AS S64 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_window(ctx AS S64) AS S64 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_context_renderer(ctx AS S64) AS S64 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_test_clear_cycle(frames AS S32) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_test_hello_triangle(frames AS S32) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_test_prism_tetra(frames AS S32) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_test_primitives(frames AS S32) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_test_lines(frames AS S32) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_test_points(frames AS S32) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_test_rectangles(frames AS S32) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_test_geometry(frames AS S32) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_test_streaming_texture(frames AS S32) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_test_rotating_texture(frames AS S32) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_test_colored_quad(frames AS S32) AS S32 FROM ("alb_sdl2.dll")
+IMPORT_DLL FUNCTION alb_sdl2_test_cube(frames AS S32) AS S32 FROM ("alb_sdl2.dll")

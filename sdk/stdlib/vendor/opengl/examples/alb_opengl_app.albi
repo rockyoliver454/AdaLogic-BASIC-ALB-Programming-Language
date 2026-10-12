@@ -1,0 +1,12 @@
+-- ============================================================================
+-- alb_opengl_app.albi — APPLICATION companion for OpenGL demos
+-- ============================================================================
+-- NOT the graphics API. Thin alb_opengl.dll stays raw GL only.
+-- This DLL holds demos: shapes / OpenBLAS tint / Nuklear control panel.
+-- Place alb_opengl_app.dll beside the program (plus alb_opengl.dll,
+-- alb_openblas.dll, libopenblas.dll, alb_nuklear.dll, alb_glfw.dll, glfw3.dll).
+-- ============================================================================
+
+VERSION 0.1
+
+IMPORT_DLL FUNCTION demo_opengl_run_all_features() AS S32 FROM ("alb_opengl_app.dll")

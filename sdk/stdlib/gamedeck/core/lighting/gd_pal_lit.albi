@@ -1,0 +1,32 @@
+-- Twin of Ada core_palette_lighting. LUT shade of packed RGB.
+VERSION 1.0
+
+DECLARE MODULE GdPalLit
+    FUNCTION Shade(rgb AS S32, k AS S32) AS S32
+    PROCEDURE PresentWash(k AS S32)
+END DECLARE MODULE
+
+MODULE GdPalLit
+
+    FUNCTION Shade(rgb AS S32, k AS S32) AS S32
+        LET r AS S32 = (rgb / 65536) AND 255
+        LET g AS S32 = (rgb / 256) AND 255
+        LET b AS S32 = rgb AND 255
+        ASSERT(k >= 0)
+        ASSERT(k <= 255)
+        r = (r * k) / 255
+        g = (g * k) / 255
+        b = (b * k) / 255
+        RETURN r * 65536 + g * 256 + b
+    END FUNCTION
+
+    PROCEDURE PresentWash(k AS S32)
+        LET rgb AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        rgb = Shade($2C3E50, k)
+        COLOR rgb
+        FILL RECT 0, 0, 640, 8
+    END PROCEDURE
+
+END MODULE

@@ -1,0 +1,42 @@
+-- Twin of Ada float_expr, integer only.
+VERSION 1.0
+
+DECLARE MODULE GdIntExpr
+    FUNCTION Scale(v AS S32, n AS S32, d AS S32) AS S32
+    FUNCTION EvalAdd(a AS S32, b AS S32) AS S32
+    FUNCTION EvalSub(a AS S32, b AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdIntExpr
+
+    FUNCTION Scale(v AS S32, n AS S32, d AS S32) AS S32 REQUIRE d <> 0
+        ASSERT(d <> 0)
+        ASSERT(1 = 1)
+        RETURN (v * n) / d
+    END FUNCTION
+
+    FUNCTION EvalAdd(a AS S32, b AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN a + b
+    END FUNCTION
+
+    FUNCTION EvalSub(a AS S32, b AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN a - b
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF Scale(10, 2, 1) = 20 THEN
+            IF EvalSub(9, 4) = 5 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

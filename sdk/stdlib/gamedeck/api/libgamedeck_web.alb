@@ -1,0 +1,14 @@
+-- libgamedeck (web) — full engine EXPORT_ES / EXPORT_WASM weave for albw.
+-- Pure library: no CREATE_WINDOW, no LISTEN, no IMPORT_DLL / IMPORT_ES of I/O.
+-- Regenerate facades: powershell -File gen_libgamedeck.ps1
+-- Build: albw libgamedeck_web.alb --library --target es2020 --outdir _build\albw -o libgamedeck.ts
+
+INCLUDE "libgamedeck_includes.alb"
+INCLUDE "libgamedeck_imports.alb"
+INCLUDE "gd_api_boot_web.albi"
+INCLUDE "gd_api_host_web.albi"
+INCLUDE "generated/gd_api_exports_es.albi"
+
+BEGIN
+VERSION 1.0
+END

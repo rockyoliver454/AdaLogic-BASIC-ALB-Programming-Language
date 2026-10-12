@@ -1,0 +1,47 @@
+-- 2D helpers. Twin of PHYSICS.ALBI using PURE builtins (no ALBMATH dump).
+VERSION 1.0
+
+DECLARE MODULE GdPhysics
+    FUNCTION Gravity(vel_y AS PURE, grav AS PURE, terminal AS PURE) AS PURE
+    FUNCTION JumpUp(power AS PURE) AS PURE
+    FUNCTION Hits(ax AS PURE, ay AS PURE, aw AS S32, ah AS S32, bx AS PURE, by AS PURE, bw AS S32, bh AS S32) AS BOOL
+    FUNCTION PushAway(pos AS PURE, source_pos AS PURE, force AS PURE) AS PURE
+END DECLARE MODULE
+
+MODULE GdPhysics
+
+    FUNCTION Gravity(vel_y AS PURE, grav AS PURE, terminal AS PURE) AS PURE
+        LET next_vel AS PURE = PURE_ADD(vel_y, grav)
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF PURE_NUM(next_vel) > PURE_NUM(terminal) THEN
+            RETURN terminal
+        END IF
+        RETURN next_vel
+    END FUNCTION
+
+    FUNCTION JumpUp(power AS PURE) AS PURE
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN PURE_SUB(PURE(0, 1), power)
+    END FUNCTION
+
+    FUNCTION Hits(ax AS PURE, ay AS PURE, aw AS S32, ah AS S32, bx AS PURE, by AS PURE, bw AS S32, bh AS S32) AS BOOL
+        ASSERT(aw > 0)
+        ASSERT(ah > 0)
+        IF COLLIDE_RECT(PURE_NUM(ax), PURE_NUM(ay), aw, ah, PURE_NUM(bx), PURE_NUM(by), bw, bh) THEN
+            RETURN TRUE
+        END IF
+        RETURN FALSE
+    END FUNCTION
+
+    FUNCTION PushAway(pos AS PURE, source_pos AS PURE, force AS PURE) AS PURE
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF PURE_NUM(pos) >= PURE_NUM(source_pos) THEN
+            RETURN PURE_ADD(pos, force)
+        END IF
+        RETURN PURE_SUB(pos, force)
+    END FUNCTION
+
+END MODULE

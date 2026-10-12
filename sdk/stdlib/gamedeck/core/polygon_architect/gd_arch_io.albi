@@ -1,0 +1,163 @@
+-- Twin of Ada Architect_IO. Bounded ASCII dump/load of GdPoly soup (RAM).
+VERSION 1.0
+
+DECLARE MODULE GdArchIo
+    PROCEDURE BakeDemo()
+    PROCEDURE DumpSoup()
+    PROCEDURE LoadSoup()
+    FUNCTION VertN() AS S32
+    FUNCTION OkFlag() AS S32
+    FUNCTION ByteAt(i AS S32) AS S32
+    FUNCTION DumpLen() AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdArchIo
+
+    STRICT dump[1024] AS S32
+    STRICT lx[256] AS S32
+    STRICT ly[256] AS S32
+    STRICT lz[256] AS S32
+    LET n AS S32 = 0
+    LET ok AS S32 = 0
+    LET dlen AS S32 = 0
+
+    PROCEDURE PutByte(b AS S32)
+        ASSERT(dlen < 1024)
+        dlen = dlen + 1
+        dump[dlen] = b AND 255
+    END PROCEDURE
+
+    PROCEDURE PutNum(v AS S32)
+        LET t AS S32 = v
+        LET neg AS S32 = 0
+        LET d0 AS S32 = 0
+        LET d1 AS S32 = 0
+        LET d2 AS S32 = 0
+        ASSERT(1 = 1)
+        IF t < 0 THEN
+            neg = 1
+            t = 0 - t
+        END IF
+        IF neg = 1 THEN
+            PutByte(45)
+        END IF
+        d2 = t / 100
+        d1 = (t / 10) MOD 10
+        d0 = t MOD 10
+        IF d2 > 0 THEN
+            PutByte(48 + d2)
+            PutByte(48 + d1)
+            PutByte(48 + d0)
+        ELSE
+            IF d1 > 0 THEN
+                PutByte(48 + d1)
+                PutByte(48 + d0)
+            ELSE
+                PutByte(48 + d0)
+            END IF
+        END IF
+    END PROCEDURE
+
+    PROCEDURE BakeDemo()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        n = GdPoly.VertN()
+        ok = 1
+    END PROCEDURE
+
+    PROCEDURE DumpSoup()
+        LET i AS S32 = 1
+        LET vn AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        dlen = 0
+        vn = GdPoly.VertN()
+        n = vn
+        PutByte(86)
+        PutByte(32)
+        PutNum(vn)
+        PutByte(10)
+        WHILE i <= vn
+            lx[i] = GdPoly.VertX(i)
+            ly[i] = GdPoly.VertY(i)
+            lz[i] = GdPoly.VertZ(i)
+            PutByte(118)
+            PutByte(32)
+            PutNum(lx[i])
+            PutByte(32)
+            PutNum(ly[i])
+            PutByte(32)
+            PutNum(lz[i])
+            PutByte(10)
+            i = i + 1
+        END WHILE
+        ok = 1
+    END PROCEDURE
+
+    PROCEDURE LoadSoup()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF n < 1 THEN
+            ok = 0
+            RETURN
+        END IF
+        GdPoly.ClearVerts()
+        WHILE i <= n
+            GdPoly.AddVert(lx[i], ly[i], lz[i])
+            i = i + 1
+        END WHILE
+        IF GdPoly.VertN() = n THEN
+            ok = 1
+        ELSE
+            ok = 0
+        END IF
+    END PROCEDURE
+
+    FUNCTION VertN() AS S32
+        ASSERT(n >= 0)
+        ASSERT(n <= 256)
+        RETURN n
+    END FUNCTION
+
+    FUNCTION OkFlag() AS S32
+        ASSERT(ok >= 0)
+        ASSERT(ok <= 1)
+        RETURN ok
+    END FUNCTION
+
+    FUNCTION ByteAt(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 1024)
+        IF i > dlen THEN
+            RETURN 0
+        END IF
+        RETURN dump[i]
+    END FUNCTION
+
+    FUNCTION DumpLen() AS S32
+        ASSERT(dlen >= 0)
+        ASSERT(dlen <= 1024)
+        RETURN dlen
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        GdPoly.MakeBox(0, 0, 0, 2, 2, 2)
+        DumpSoup()
+        IF dlen > 10 THEN
+            IF ByteAt(1) = 86 THEN
+                IF n = 24 THEN
+                    LoadSoup()
+                    IF ok = 1 THEN
+                        RETURN 1
+                    END IF
+                END IF
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

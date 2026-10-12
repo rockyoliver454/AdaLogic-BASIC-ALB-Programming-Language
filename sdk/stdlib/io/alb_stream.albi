@@ -1,0 +1,125 @@
+VERSION 1.0
+
+#IO_STREAM_PAGE = 4096
+
+DECLARE MODULE ALBStream
+    FUNCTION OpenPath(path AS STRING) AS S32
+    PROCEDURE CloseStream()
+    FUNCTION Pull() AS S32
+    FUNCTION SeekAbs(offset AS U64) AS S32
+    FUNCTION ByteAt(i AS S32) AS U8
+    FUNCTION PageCount() AS S32
+    FUNCTION PageOffset() AS U64
+    FUNCTION Tell() AS U64
+    FUNCTION FileSize() AS U64
+    FUNCTION Err() AS S32
+END DECLARE MODULE
+
+MODULE ALBStream
+    STRICT page[#IO_STREAM_PAGE] AS U8
+    LET handle AS S32 = 0
+    LET file_size AS U64 = 0
+    LET cursor AS U64 = 0
+    LET page_offset AS U64 = 0
+    LET page_count AS S32 = 0
+    LET errn AS S32 = 0
+
+    PROCEDURE CloseStream()
+        IF handle <> 0 THEN CLOSE handle END IF
+        handle = 0
+        file_size = 0
+        cursor = 0
+        page_offset = 0
+        page_count = 0
+    END PROCEDURE
+
+    FUNCTION OpenPath(path AS STRING) AS S32
+        CloseStream()
+        errn = 0
+        file_size = FILELEN(path)
+        IF file_size = 0 THEN
+            errn = 1
+            RETURN errn
+        END IF
+        handle = CAST(OPEN(path, "r") AS S32)
+        IF handle = 0 THEN
+            errn = 1
+            file_size = 0
+            RETURN errn
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION Pull() AS S32
+        LET want AS S32 = 0
+        LET i AS S32 = 1
+        LET chunk AS STRING = ""
+        IF handle = 0 THEN
+            errn = 1
+            RETURN 0
+        END IF
+        page_count = 0
+        page_offset = cursor
+        IF cursor >= file_size THEN RETURN 0 END IF
+        want = #IO_STREAM_PAGE
+        IF CAST(file_size - cursor AS U64) < CAST(want AS U64) THEN
+            want = CAST(file_size - cursor AS S32)
+        END IF
+        chunk = READ(handle, want)
+        i = 1
+        WHILE i <= want
+            page[i] = CAST(ASC(MID$(chunk, i, 1)) AS U8)
+            i = i + 1
+        END WHILE
+        page_count = want
+        cursor = cursor + CAST(want AS U64)
+        RETURN page_count
+    END FUNCTION
+
+    FUNCTION SeekAbs(offset AS U64) AS S32
+        LET actual AS U64 = 0
+        IF handle = 0 THEN
+            errn = 1
+            RETURN errn
+        END IF
+        IF offset > file_size THEN
+            errn = 6
+            RETURN errn
+        END IF
+        actual = CAST(FILESEEK(handle, offset) AS U64)
+        IF actual <> offset THEN
+            errn = 6
+            RETURN errn
+        END IF
+        cursor = offset
+        page_offset = offset
+        page_count = 0
+        errn = 0
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION ByteAt(i AS S32) AS U8
+        IF i < 1 OR i > page_count THEN RETURN 0 END IF
+        RETURN page[i]
+    END FUNCTION
+
+    FUNCTION PageCount() AS S32
+        RETURN page_count
+    END FUNCTION
+
+    FUNCTION PageOffset() AS U64
+        RETURN page_offset
+    END FUNCTION
+
+    FUNCTION Tell() AS U64
+        RETURN cursor
+    END FUNCTION
+
+    FUNCTION FileSize() AS U64
+        RETURN file_size
+    END FUNCTION
+
+    FUNCTION Err() AS S32
+        RETURN errn
+    END FUNCTION
+END MODULE

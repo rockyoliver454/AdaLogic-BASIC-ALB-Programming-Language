@@ -1,0 +1,250 @@
+-- Twin of Ada core_console_commands. Keyword table over GdConText buffer.
+VERSION 1.0
+
+#GD_CMD_NONE = 0
+#GD_CMD_HELP = 1
+#GD_CMD_CLEAR = 2
+#GD_CMD_QUIT = 3
+#GD_CMD_GOD = 4
+#GD_CMD_STATUS = 5
+
+DECLARE MODULE GdConCmd
+    FUNCTION ParseId(raw AS S32) AS S32
+    FUNCTION ParseBuf() AS S32
+    FUNCTION ParamN() AS S32
+    FUNCTION NameOf(id AS S32) AS S32
+    FUNCTION MatchWord(a AS S32, b AS S32, c AS S32, d AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdConCmd
+
+    FUNCTION ToLower(c AS S32) AS S32
+        LET n AS S32 = c AND 255
+        ASSERT(1 = 1)
+        IF n >= 65 THEN
+            IF n <= 90 THEN
+                RETURN n + 32
+            END IF
+        END IF
+        RETURN n
+    END FUNCTION
+
+    FUNCTION ParseId(raw AS S32) AS S32
+        LET c AS S32 = ToLower(raw)
+        ASSERT(raw >= 0)
+        ASSERT(raw <= 255)
+        IF c = 104 THEN
+            RETURN 1
+        END IF
+        IF c = 99 THEN
+            RETURN 2
+        END IF
+        IF c = 113 THEN
+            RETURN 3
+        END IF
+        IF c = 103 THEN
+            RETURN 4
+        END IF
+        IF c = 115 THEN
+            RETURN 5
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION MatchWord(a AS S32, b AS S32, c AS S32, d AS S32) AS S32
+        LET n AS S32 = GdConText.CountN()
+        LET i AS S32 = 1
+        LET ch AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF n < 1 THEN
+            RETURN 0
+        END IF
+        WHILE i <= n
+            ch = ToLower(GdConText.ByteAt(i))
+            IF ch = 32 THEN
+                IF i = 1 THEN
+                    i = i + 1
+                ELSE
+                    n = i - 1
+                    i = 99
+                END IF
+            ELSE
+                i = i + 1
+            END IF
+        END WHILE
+        n = GdConText.CountN()
+        i = 1
+        WHILE i <= n
+            IF ToLower(GdConText.ByteAt(i)) = 32 THEN
+                n = i - 1
+                i = 99
+            ELSE
+                i = i + 1
+            END IF
+        END WHILE
+        IF n = 4 THEN
+            IF ToLower(GdConText.ByteAt(1)) = a THEN
+                IF ToLower(GdConText.ByteAt(2)) = b THEN
+                    IF ToLower(GdConText.ByteAt(3)) = c THEN
+                        IF ToLower(GdConText.ByteAt(4)) = d THEN
+                            RETURN 1
+                        END IF
+                    END IF
+                END IF
+            END IF
+        END IF
+        IF n = 5 THEN
+            IF a = 99 THEN
+                IF ToLower(GdConText.ByteAt(1)) = 99 THEN
+                    IF ToLower(GdConText.ByteAt(2)) = 108 THEN
+                        IF ToLower(GdConText.ByteAt(3)) = 101 THEN
+                            IF ToLower(GdConText.ByteAt(4)) = 97 THEN
+                                IF ToLower(GdConText.ByteAt(5)) = 114 THEN
+                                    RETURN 1
+                                END IF
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+        END IF
+        IF n = 6 THEN
+            IF a = 115 THEN
+                IF ToLower(GdConText.ByteAt(1)) = 115 THEN
+                    IF ToLower(GdConText.ByteAt(2)) = 116 THEN
+                        IF ToLower(GdConText.ByteAt(3)) = 97 THEN
+                            IF ToLower(GdConText.ByteAt(4)) = 116 THEN
+                                IF ToLower(GdConText.ByteAt(5)) = 117 THEN
+                                    IF ToLower(GdConText.ByteAt(6)) = 115 THEN
+                                        RETURN 1
+                                    END IF
+                                END IF
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION ParseBuf() AS S32
+        LET n AS S32 = 0
+        LET c0 AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        n = GdConText.CountN()
+        IF n < 1 THEN
+            RETURN 0
+        END IF
+        IF MatchWord(104, 101, 108, 112) = 1 THEN
+            RETURN 1
+        END IF
+        IF MatchWord(113, 117, 105, 116) = 1 THEN
+            RETURN 3
+        END IF
+        IF n = 3 THEN
+            IF ToLower(GdConText.ByteAt(1)) = 103 THEN
+                IF ToLower(GdConText.ByteAt(2)) = 111 THEN
+                    IF ToLower(GdConText.ByteAt(3)) = 100 THEN
+                        RETURN 4
+                    END IF
+                END IF
+            END IF
+        END IF
+        IF MatchWord(99, 108, 101, 97) = 1 THEN
+            RETURN 2
+        END IF
+        IF n >= 5 THEN
+            IF ToLower(GdConText.ByteAt(1)) = 99 THEN
+                IF ToLower(GdConText.ByteAt(2)) = 108 THEN
+                    IF ToLower(GdConText.ByteAt(3)) = 101 THEN
+                        IF ToLower(GdConText.ByteAt(4)) = 97 THEN
+                            IF ToLower(GdConText.ByteAt(5)) = 114 THEN
+                                RETURN 2
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+        END IF
+        IF MatchWord(115, 116, 97, 116) = 1 THEN
+            RETURN 5
+        END IF
+        IF n >= 6 THEN
+            IF ToLower(GdConText.ByteAt(1)) = 115 THEN
+                IF ToLower(GdConText.ByteAt(2)) = 116 THEN
+                    IF ToLower(GdConText.ByteAt(3)) = 97 THEN
+                        IF ToLower(GdConText.ByteAt(4)) = 116 THEN
+                            IF ToLower(GdConText.ByteAt(5)) = 117 THEN
+                                IF ToLower(GdConText.ByteAt(6)) = 115 THEN
+                                    RETURN 5
+                                END IF
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+        END IF
+        c0 = ToLower(GdConText.ByteAt(1))
+        RETURN ParseId(c0)
+    END FUNCTION
+
+    FUNCTION ParamN() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 8
+    END FUNCTION
+
+    FUNCTION NameOf(id AS S32) AS S32
+        ASSERT(id >= 0)
+        ASSERT(id <= 5)
+        RETURN id
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET n AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF ParseId(104) = 1 THEN
+            n = n + 1
+        END IF
+        GdConText.WipeBuf()
+        GdConText.PushCh(104)
+        GdConText.PushCh(101)
+        GdConText.PushCh(108)
+        GdConText.PushCh(112)
+        IF ParseBuf() = 1 THEN
+            n = n + 1
+        END IF
+        GdConText.WipeBuf()
+        GdConText.PushCh(99)
+        GdConText.PushCh(108)
+        GdConText.PushCh(101)
+        GdConText.PushCh(97)
+        GdConText.PushCh(114)
+        IF ParseBuf() = 2 THEN
+            n = n + 1
+        END IF
+        GdConText.WipeBuf()
+        GdConText.PushCh(113)
+        GdConText.PushCh(117)
+        GdConText.PushCh(105)
+        GdConText.PushCh(116)
+        IF ParseBuf() = 3 THEN
+            n = n + 1
+        END IF
+        GdConText.WipeBuf()
+        GdConText.PushCh(32)
+        IF ParseBuf() = 0 THEN
+            n = n + 1
+        END IF
+        IF n = 5 THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

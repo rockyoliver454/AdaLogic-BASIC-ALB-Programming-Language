@@ -1,0 +1,243 @@
+INCLUDE "buildings.albi"
+INCLUDE "../ALBHASH.ALBI"
+IMPORT Buildings
+IMPORT ALBHash
+
+MODULE Buildings
+    LET MAX_BUILDINGS AS U16 = 256
+    LET BLD_WALL AS U8 = 1
+    LET BLD_FLOOR AS U8 = 2
+    LET BLD_DOOR AS U8 = 3
+    LET BLD_FURNITURE AS U8 = 4
+
+    PARALLEL buildings[256]
+        bx AS S32
+        by AS S32
+        bz AS S32
+        kind AS U8
+        state AS U8
+        hp AS U8
+        build_progress AS U8
+    END PARALLEL
+
+    LET active_count AS U16 = 0
+    LET build_mode AS U8 = 0
+    LET build_kind AS U8 = 1
+    LET cursor_tx AS S32 = 10
+    LET cursor_ty AS S32 = 10
+
+    PROCEDURE Setup()
+        LET i AS U16 = 1
+        active_count = 0
+        build_mode = 0
+        build_kind = 1
+        FOR i = 1 TO MAX_BUILDINGS THEN
+            buildings[i].bx = 0
+            buildings[i].by = 0
+            buildings[i].bz = 0
+            buildings[i].kind = 0
+            buildings[i].state = 0
+            buildings[i].hp = 0
+            buildings[i].build_progress = 0
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE PlaceBuilding(tx AS S32, ty AS S32, tz AS S32, kind AS U8)
+        IF active_count >= MAX_BUILDINGS THEN RETURN END IF
+        IF kind < 1 OR kind > 4 THEN RETURN END IF
+        IF IsTileBlocked(tx, ty, tz) THEN RETURN END IF
+        active_count = active_count + 1
+        buildings[active_count].bx = tx
+        buildings[active_count].by = ty
+        buildings[active_count].bz = tz
+        buildings[active_count].kind = kind
+        buildings[active_count].state = 2
+        buildings[active_count].hp = 100
+        buildings[active_count].build_progress = 100
+    END PROCEDURE
+
+    PROCEDURE ProcessAll()
+        LET i AS U16 = 1
+        WHILE i <= active_count
+            IF buildings[i].state >= 2 THEN
+                IF buildings[i].hp > 0 AND buildings[i].hp < 100 THEN
+                    buildings[i].hp = buildings[i].hp + 1
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION GetBuildingCount() AS U16
+        RETURN active_count
+    END FUNCTION
+
+    FUNCTION GetBuildingX(idx AS U16) AS S32
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN buildings[idx].bx
+    END FUNCTION
+
+    FUNCTION GetBuildingY(idx AS U16) AS S32
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN buildings[idx].by
+    END FUNCTION
+
+    FUNCTION GetBuildingKind(idx AS U16) AS U8
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN buildings[idx].kind
+    END FUNCTION
+
+    FUNCTION GetBuildingState(idx AS U16) AS U8
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN buildings[idx].state
+    END FUNCTION
+
+    FUNCTION GetBuildingHP(idx AS U16) AS U8
+        IF idx > active_count THEN RETURN 0 END IF
+        RETURN buildings[idx].hp
+    END FUNCTION
+
+    FUNCTION IsTileBlocked(tx AS S32, ty AS S32, tz AS S32) AS U8
+        LET i AS U16 = 1
+        WHILE i <= active_count
+            IF buildings[i].bx = tx AND buildings[i].by = ty AND buildings[i].bz = tz THEN
+                IF buildings[i].kind = BLD_WALL OR buildings[i].kind = BLD_FURNITURE THEN
+                    RETURN 1
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION GetBuildMode() AS U8
+        RETURN build_mode
+    END FUNCTION
+
+    PROCEDURE SetBuildMode(mode AS U8)
+        build_mode = mode
+    END PROCEDURE
+
+    FUNCTION GetBuildKind() AS U8
+        RETURN build_kind
+    END FUNCTION
+
+    PROCEDURE SetBuildKind(kind AS U8)
+        IF kind >= 1 AND kind <= 4 THEN
+            build_kind = kind
+        END IF
+    END PROCEDURE
+
+    FUNCTION GetCursorX() AS S32
+        RETURN cursor_tx
+    END FUNCTION
+
+    FUNCTION GetCursorY() AS S32
+        RETURN cursor_ty
+    END FUNCTION
+
+    PROCEDURE SetCursorPos(tx AS S32, ty AS S32)
+        cursor_tx = tx
+        cursor_ty = ty
+    END PROCEDURE
+
+    -- Buffer arrays for PARALLEL group save/load
+    STRICT fb_bx[256] AS S32
+    STRICT fb_by[256] AS S32
+    STRICT fb_bz[256] AS S32
+    STRICT fb_kind[256] AS U8
+    STRICT fb_state[256] AS U8
+    STRICT fb_hp[256] AS U8
+    STRICT fb_bp[256] AS U8
+    STRICT fb_ac[1] AS U16
+
+    PROCEDURE freeze_module(filename AS STRING)
+        LET path_name AS STRING = ""
+        fb_ac[1] = active_count
+        path_name = CONCAT(filename, "_B_AC")
+        FLUSH fb_ac INTO path_name
+        LET i AS U16 = 1
+        FOR i = 1 TO active_count THEN
+            fb_bx[i] = buildings[i].bx
+            fb_by[i] = buildings[i].by
+            fb_bz[i] = buildings[i].bz
+            fb_kind[i] = buildings[i].kind
+            fb_state[i] = buildings[i].state
+            fb_hp[i] = buildings[i].hp
+            fb_bp[i] = buildings[i].build_progress
+        END FOR
+        path_name = CONCAT(filename, "_B_BX")
+        FLUSH fb_bx INTO path_name
+        path_name = CONCAT(filename, "_B_BY")
+        FLUSH fb_by INTO path_name
+        path_name = CONCAT(filename, "_B_BZ")
+        FLUSH fb_bz INTO path_name
+        path_name = CONCAT(filename, "_B_KI")
+        FLUSH fb_kind INTO path_name
+        path_name = CONCAT(filename, "_B_ST")
+        FLUSH fb_state INTO path_name
+        path_name = CONCAT(filename, "_B_HP")
+        FLUSH fb_hp INTO path_name
+        path_name = CONCAT(filename, "_B_BP")
+        FLUSH fb_bp INTO path_name
+    END PROCEDURE
+
+    PROCEDURE thaw_module(filename AS STRING)
+        LET i AS U16 = 1
+        LET path_name AS STRING = ""
+        fb_ac[1] = 0
+        FOR i = 1 TO MAX_BUILDINGS THEN
+            fb_bx[i] = 0
+            fb_by[i] = 0
+            fb_bz[i] = 0
+            fb_kind[i] = 0
+            fb_state[i] = 0
+            fb_hp[i] = 0
+            fb_bp[i] = 0
+        END FOR
+        path_name = CONCAT(filename, "_B_AC")
+        LOAD path_name INTO fb_ac
+        active_count = fb_ac[1]
+        path_name = CONCAT(filename, "_B_BX")
+        LOAD path_name INTO fb_bx
+        path_name = CONCAT(filename, "_B_BY")
+        LOAD path_name INTO fb_by
+        path_name = CONCAT(filename, "_B_BZ")
+        LOAD path_name INTO fb_bz
+        path_name = CONCAT(filename, "_B_KI")
+        LOAD path_name INTO fb_kind
+        path_name = CONCAT(filename, "_B_ST")
+        LOAD path_name INTO fb_state
+        path_name = CONCAT(filename, "_B_HP")
+        LOAD path_name INTO fb_hp
+        path_name = CONCAT(filename, "_B_BP")
+        LOAD path_name INTO fb_bp
+        FOR i = 1 TO active_count THEN
+            buildings[i].bx = fb_bx[i]
+            buildings[i].by = fb_by[i]
+            buildings[i].bz = fb_bz[i]
+            buildings[i].kind = fb_kind[i]
+            buildings[i].state = fb_state[i]
+            buildings[i].hp = fb_hp[i]
+            buildings[i].build_progress = fb_bp[i]
+        END FOR
+    END PROCEDURE
+
+    FUNCTION MixChecksum(hash_value AS U64) AS U64
+        LET idx AS U16 = 0
+        hash_value = ALBHash.MixU16(hash_value, active_count)
+        hash_value = ALBHash.MixU8(hash_value, build_kind)
+        hash_value = ALBHash.MixS32(hash_value, cursor_tx)
+        hash_value = ALBHash.MixS32(hash_value, cursor_ty)
+        FOR idx = 1 TO active_count THEN
+            hash_value = ALBHash.MixS32(hash_value, buildings[idx].bx)
+            hash_value = ALBHash.MixS32(hash_value, buildings[idx].by)
+            hash_value = ALBHash.MixS32(hash_value, buildings[idx].bz)
+            hash_value = ALBHash.MixU8(hash_value, buildings[idx].kind)
+            hash_value = ALBHash.MixU8(hash_value, buildings[idx].state)
+            hash_value = ALBHash.MixU8(hash_value, buildings[idx].hp)
+            hash_value = ALBHash.MixU8(hash_value, buildings[idx].build_progress)
+        END FOR
+        RETURN hash_value
+    END FUNCTION
+END MODULE

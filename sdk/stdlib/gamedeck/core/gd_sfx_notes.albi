@@ -1,0 +1,23 @@
+-- Twin of Ada core_sfx_notes. MIDI-ish step to phase delta.
+VERSION 1.0
+
+DECLARE MODULE GdSfxNotes
+    FUNCTION DeltaOf(note AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdSfxNotes
+
+    FUNCTION DeltaOf(note AS S32) AS S32
+        LET n AS S32 = note
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF n < 0 THEN
+            n = 0
+        END IF
+        IF n > 24 THEN
+            n = 24
+        END IF
+        RETURN 4 + n
+    END FUNCTION
+
+END MODULE

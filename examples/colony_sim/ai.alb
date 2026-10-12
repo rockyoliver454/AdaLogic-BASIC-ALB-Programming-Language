@@ -1,0 +1,207 @@
+INCLUDE "../INPUT.ALBI"
+INCLUDE "world.albi"
+INCLUDE "agents.albi"
+INCLUDE "colony.albi"
+INCLUDE "gathering.albi"
+INCLUDE "ai.albi"
+IMPORT World
+IMPORT Agents
+IMPORT Colony
+IMPORT Gathering
+IMPORT AI
+
+MODULE AI
+    LET SEARCH_RADIUS AS S32 = 320
+    LET GATHER_RANGE AS S32 = 18
+    LET WANDER_DISTANCE AS S32 = 64
+    LET HOME_LEASH_DISTANCE AS S32 = 224
+    LET WANDER_INTERVAL AS U16 = 90
+
+    PROCEDURE Setup()
+    END PROCEDURE
+
+    PROCEDURE TickAgent(idx AS U16)
+        LET state AS U8 = Agents.GetAgentState(idx)
+        IF state = 0 THEN RETURN END IF
+        IF Agents.IsAgentDrafted(idx) = 1 THEN
+            Agents.SetAgentWanderTimer(idx, 0)
+            RETURN
+        END IF
+
+        LET ax AS S32 = Agents.GetAgentX(idx)
+        LET ay AS S32 = Agents.GetAgentY(idx)
+        LET az AS S32 = Agents.GetAgentZ(idx)
+        LET home_x AS S32 = Agents.GetAgentHomeX(idx)
+        LET home_y AS S32 = Agents.GetAgentHomeY(idx)
+        LET home_z AS S32 = Agents.GetAgentHomeZ(idx)
+        LET home_idx AS S32 = 0
+        LET dx AS S32 = 0
+        LET dy AS S32 = 0
+        LET dist AS S32 = 0
+        LET day_len AS U32 = World.GetDayLength()
+        LET day_clock AS U32 = 0
+        LET should_return_home AS U8 = 0
+        LET bx AS S32 = 0
+        LET by AS S32 = 0
+        LET berry_idx AS S32 = 0
+        LET timer AS U16 = 0
+        LET dir AS S32 = 0
+        LET next_x AS S32 = ax
+        LET next_y AS S32 = ay
+
+        IF home_x = 0 AND home_y = 0 THEN
+            home_idx = AI.FindNearestHome(ax, ay, az)
+            IF home_idx > 0 THEN
+                home_x = Agents.GetAgentHomeX(U16(home_idx))
+                home_y = Agents.GetAgentHomeY(U16(home_idx))
+                home_z = Agents.GetAgentHomeZ(U16(home_idx))
+            ELSE
+                home_x = ax
+                home_y = ay
+                home_z = az
+            END IF
+            Agents.SetAgentHome(idx, home_x, home_y, home_z)
+        END IF
+
+        IF day_len > 0 THEN
+            day_clock = World.GetWorldTime() MOD day_len
+        END IF
+
+        dx = ax - home_x
+        dy = ay - home_y
+        IF dx < 0 THEN dx = 0 - dx END IF
+        IF dy < 0 THEN dy = 0 - dy END IF
+        dist = dx + dy
+        IF dist > HOME_LEASH_DISTANCE THEN should_return_home = 1 END IF
+        IF day_len > 0 THEN
+            IF day_clock >= (day_len * 3) / 4 OR day_clock <= day_len / 5 THEN
+                should_return_home = 1
+            END IF
+        END IF
+        IF should_return_home = 1 THEN
+            Agents.SetAgentTarget(idx, home_x, home_y, home_z)
+            Agents.SetAgentWanderTimer(idx, 0)
+            RETURN
+        END IF
+
+        berry_idx = AI.FindNearestBerry(ax, ay, az)
+        IF berry_idx > 0 THEN
+            bx = Gathering.GetBerryX(U16(berry_idx))
+            by = Gathering.GetBerryY(U16(berry_idx))
+            dx = ax - bx
+            dy = ay - by
+            IF dx < 0 THEN dx = 0 - dx END IF
+            IF dy < 0 THEN dy = 0 - dy END IF
+            dist = dx + dy
+            IF dist <= GATHER_RANGE THEN
+                IF Gathering.IsBerryGrown(U16(berry_idx)) THEN
+                    Gathering.GatherBerry(U16(berry_idx))
+                    Colony.AddFood(1)
+                    Agents.SetAgentTarget(idx, ax, ay, az)
+                    Agents.SetAgentWanderTimer(idx, 0)
+                END IF
+            ELSE
+                Agents.SetAgentTarget(idx, bx, by, az)
+                Agents.SetAgentWanderTimer(idx, 0)
+            END IF
+            RETURN
+        END IF
+
+        timer = Agents.GetAgentWanderTimer(idx)
+        timer = timer + 1
+        Agents.SetAgentWanderTimer(idx, timer)
+        dx = Agents.GetAgentTargetX(idx) - ax
+        dy = Agents.GetAgentTargetY(idx) - ay
+        IF dx < 0 THEN dx = 0 - dx END IF
+        IF dy < 0 THEN dy = 0 - dy END IF
+        dist = dx + dy
+        IF timer >= WANDER_INTERVAL AND dist <= 8 THEN
+            dir = AI.WanderDirection()
+            next_x = ax
+            next_y = ay
+            IF dir = 0 THEN next_x = ax + WANDER_DISTANCE END IF
+            IF dir = 1 THEN next_x = ax - WANDER_DISTANCE END IF
+            IF dir = 2 THEN next_y = ay + WANDER_DISTANCE END IF
+            IF dir = 3 THEN next_y = ay - WANDER_DISTANCE END IF
+
+            dx = next_x - home_x
+            dy = next_y - home_y
+            IF dx < 0 THEN dx = 0 - dx END IF
+            IF dy < 0 THEN dy = 0 - dy END IF
+            IF dx + dy > HOME_LEASH_DISTANCE THEN
+                next_x = home_x
+                next_y = home_y
+            END IF
+
+            Agents.SetAgentTarget(idx, next_x, next_y, az)
+            Agents.SetAgentWanderTimer(idx, 0)
+        END IF
+    END PROCEDURE
+
+    FUNCTION FindNearestBerry(ax AS S32, ay AS S32, az AS S32) AS S32
+        LET i AS U16 = 1
+        LET bx AS S32 = 0
+        LET by AS S32 = 0
+        LET dist AS S32 = 0
+        LET best_dist AS S32 = 9999
+        LET best_idx AS S32 = -1
+
+        WHILE i <= Gathering.GetBerryCount()
+            bx = Gathering.GetBerryX(i)
+            by = Gathering.GetBerryY(i)
+            LET dx AS S32 = ax - bx
+            LET dy AS S32 = ay - by
+            IF dx < 0 THEN dx = -dx END IF
+            IF dy < 0 THEN dy = -dy END IF
+            dist = dx + dy
+            IF dist <= SEARCH_RADIUS AND dist < best_dist THEN
+                IF Gathering.IsBerryGrown(i) THEN
+                    best_dist = dist
+                    best_idx = S32(i)
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+
+        RETURN best_idx
+    END FUNCTION
+
+    FUNCTION FindNearestHome(ax AS S32, ay AS S32, az AS S32) AS S32
+        LET i AS U16 = 1
+        LET hx AS S32 = 0
+        LET hy AS S32 = 0
+        LET hz AS S32 = 0
+        LET dx AS S32 = 0
+        LET dy AS S32 = 0
+        LET dz AS S32 = 0
+        LET dist AS S32 = 0
+        LET best_dist AS S32 = 999999
+        LET best_idx AS S32 = 0
+
+        WHILE i <= Agents.GetAgentCount()
+            IF Agents.GetAgentState(i) != 0 THEN
+                hx = Agents.GetAgentHomeX(i)
+                hy = Agents.GetAgentHomeY(i)
+                hz = Agents.GetAgentHomeZ(i)
+                dx = ax - hx
+                dy = ay - hy
+                dz = az - hz
+                IF dx < 0 THEN dx = 0 - dx END IF
+                IF dy < 0 THEN dy = 0 - dy END IF
+                IF dz < 0 THEN dz = 0 - dz END IF
+                dist = dx + dy + dz * 32
+                IF dist < best_dist THEN
+                    best_dist = dist
+                    best_idx = S32(i)
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+
+        RETURN best_idx
+    END FUNCTION
+
+    FUNCTION WanderDirection() AS S32
+        RETURN S32(RND(4))
+    END FUNCTION
+END MODULE

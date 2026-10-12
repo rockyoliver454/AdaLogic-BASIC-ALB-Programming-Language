@@ -1,0 +1,118 @@
+-- libgamedeck lifecycle + legacy gd_public aliases.
+-- Hand-written; generated ops live in generated/gd_api_exports.albi.
+
+EXPORT_DLL FUNCTION GdApi_Version() AS S32
+EXPORT_DLL FUNCTION GdApi_Boot() AS S32
+EXPORT_DLL FUNCTION GdApi_Shutdown() AS S32
+EXPORT_DLL FUNCTION GdApi_IsBooted() AS S32
+EXPORT_DLL FUNCTION GdApi_Caps_BootW() AS S32
+EXPORT_DLL FUNCTION GdApi_Caps_BootH() AS S32
+EXPORT_DLL FUNCTION GdApi_Caps_VgpuW() AS S32
+EXPORT_DLL FUNCTION GdApi_Caps_VgpuH() AS S32
+EXPORT_DLL FUNCTION GdApi_HashState() AS S32
+
+-- Legacy aliases (exact names from gd_public.alb)
+EXPORT_DLL FUNCTION GdApi_Hash(x AS S32, y AS S32, seed AS S32) AS S32
+EXPORT_DLL FUNCTION GdApi_Dist2(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+EXPORT_DLL FUNCTION GdApi_Hits(ax AS S32, ay AS S32, aw AS S32, ah AS S32, bx AS S32, by AS S32, bw AS S32, bh AS S32) AS S32
+EXPORT_DLL FUNCTION GdApi_RngNext() AS S32
+EXPORT_DLL FUNCTION GdApi_GetScene() AS S32
+EXPORT_DLL PROCEDURE GdApi_SetScene(id AS S32)
+EXPORT_DLL FUNCTION GdApi_SceneLast() AS S32
+EXPORT_DLL PROCEDURE GdApi_Seed(v AS U32)
+
+LET gd_api_booted AS S32 = 0
+
+FUNCTION GdApi_Version() AS S32
+    -- 8.0.0 encoded as major*10000 + minor*100 + patch
+    RETURN 80000
+END FUNCTION
+
+FUNCTION GdApi_IsBooted() AS S32
+    RETURN gd_api_booted
+END FUNCTION
+
+FUNCTION GdApi_Caps_BootW() AS S32
+    RETURN #GD_BOOT_W
+END FUNCTION
+
+FUNCTION GdApi_Caps_BootH() AS S32
+    RETURN #GD_BOOT_H
+END FUNCTION
+
+FUNCTION GdApi_Caps_VgpuW() AS S32
+    RETURN #GD_VGPU_W
+END FUNCTION
+
+FUNCTION GdApi_Caps_VgpuH() AS S32
+    RETURN #GD_VGPU_H
+END FUNCTION
+
+FUNCTION GdApi_HashState() AS S32
+    -- Deterministic mix of scene + caps (does not advance RNG)
+    RETURN S32(GdHash.Mix3(GdRegistry.GetScene(), #GD_VGPU_W, #GD_BOOT_W) MOD 2147483647)
+END FUNCTION
+
+FUNCTION GdApi_Boot() AS S32
+    IF gd_api_booted <> 0 THEN
+        RETURN 0
+    END IF
+    GdRegistry.Boot()
+    GdVgpu.Setup()
+    GdVgpuBr.Setup()
+    GdTexReg.Wipe()
+    GdAdaTex.ArmAll()
+    GdSfxOsc.Setup()
+    GdIsotope.Setup()
+    GdSfxRev.Setup()
+    GdConsole.Init()
+    GdPlye.Setup()
+    gd_api_booted = 1
+    RETURN 0
+END FUNCTION
+
+FUNCTION GdApi_Shutdown() AS S32
+    gd_api_booted = 0
+    RETURN 0
+END FUNCTION
+
+FUNCTION GdApi_Hash(x AS S32, y AS S32, seed AS S32) AS S32
+    RETURN GdHash.ByteOf(x, y, seed)
+END FUNCTION
+
+FUNCTION GdApi_Dist2(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+    RETURN GdVec2.Dist2(ax, ay, bx, by)
+END FUNCTION
+
+FUNCTION GdApi_Hits(ax AS S32, ay AS S32, aw AS S32, ah AS S32, bx AS S32, by AS S32, bw AS S32, bh AS S32) AS S32
+    IF GdCollision.Aabb(ax, ay, aw, ah, bx, by, bw, bh) THEN
+        RETURN 1
+    END IF
+    RETURN 0
+END FUNCTION
+
+FUNCTION GdApi_RngNext() AS S32
+    RETURN S32(GdRng.NextU32() MOD 2147483647)
+END FUNCTION
+
+FUNCTION GdApi_GetScene() AS S32
+    RETURN GdRegistry.GetScene()
+END FUNCTION
+
+FUNCTION GdApi_SceneLast() AS S32
+    RETURN #SCENE_LAST
+END FUNCTION
+
+PROCEDURE GdApi_SetScene(id AS S32)
+    IF id < 0 THEN
+        RETURN
+    END IF
+    IF id > #SCENE_LAST THEN
+        RETURN
+    END IF
+    GdRegistry.SetScene(id)
+END PROCEDURE
+
+PROCEDURE GdApi_Seed(v AS U32)
+    GdRng.Seed(v)
+END PROCEDURE

@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_d3d8.albi"
+
+LET rc = alb_d3d8_test_colored_quad(90)
+IF rc = 0 THEN
+  PRINT "d3d8 colored_quad PASS"
+ELSE
+  PRINT "d3d8 colored_quad FAIL " | rc
+END IF
+END

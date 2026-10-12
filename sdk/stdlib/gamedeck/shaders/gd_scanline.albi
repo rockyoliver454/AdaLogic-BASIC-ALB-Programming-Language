@@ -1,0 +1,42 @@
+-- Software scanline pass. Folder name matches Ada shaders/, meaning differs.
+VERSION 1.0
+
+DECLARE MODULE GdScanline
+    PROCEDURE Present()
+    PROCEDURE ApplyFb(t AS S32)
+END DECLARE MODULE
+
+MODULE GdScanline
+
+    PROCEDURE Present()
+        LET y AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE y < 200
+            IF (y AND 1) = 1 THEN
+                COLOR $000000
+                FILL RECT 0, y, 320, 1
+            END IF
+            y = y + 2
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE ApplyFb(t AS S32)
+        LET y AS S32 = 0
+        LET x AS S32 = 0
+        LET v AS S32 = 0
+        ASSERT(t >= 0)
+        ASSERT(1 = 1)
+        y = t AND 1
+        WHILE y < GdVgpu.FbH()
+            x = 0
+            WHILE x < GdVgpu.FbW()
+                v = GdVgpu.Get(x, y) / 2
+                GdVgpu.Put(x, y, v)
+                x = x + 1
+            END WHILE
+            y = y + 2
+        END WHILE
+    END PROCEDURE
+
+END MODULE

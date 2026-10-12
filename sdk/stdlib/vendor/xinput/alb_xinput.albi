@@ -1,0 +1,4 @@
+VERSION 0.1
+IMPORT_DLL FUNCTION alb_xinput_version() AS S32 FROM ("alb_xinput.dll")
+IMPORT_DLL FUNCTION alb_xinput_test_probe() AS S32 FROM ("alb_xinput.dll")
+

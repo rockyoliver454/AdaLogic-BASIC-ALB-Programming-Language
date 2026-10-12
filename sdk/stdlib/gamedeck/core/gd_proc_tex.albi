@@ -1,0 +1,59 @@
+-- Twin of C AzProcTextures / Ada materials. Brick/water/dirt/wood indices.
+VERSION 1.0
+
+DECLARE MODULE GdProcTex
+    FUNCTION TintOf(x AS S32, y AS S32, seed AS S32) AS S32
+    FUNCTION PixOf(kind AS S32, x AS S32, y AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdProcTex
+
+    FUNCTION TintOf(x AS S32, y AS S32, seed AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN GdHash.ByteOf(x, y, seed)
+    END FUNCTION
+
+    FUNCTION PixOf(kind AS S32, x AS S32, y AS S32) AS S32
+        LET mx AS S32 = x AND 7
+        LET my AS S32 = y AND 7
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 4)
+        IF kind = 0 THEN
+            IF my = 0 THEN
+                RETURN 8
+            END IF
+            IF mx = 0 THEN
+                IF (y AND 8) = 0 THEN
+                    RETURN 8
+                END IF
+            END IF
+            RETURN 12 + (GdHash.ByteOf(x, y, 3) AND 3)
+        END IF
+        IF kind = 1 THEN
+            RETURN 64 + (GdHash.ByteOf(x, y / 2, 9) AND 15)
+        END IF
+        IF kind = 2 THEN
+            RETURN 20 + (GdHash.ByteOf(x / 2, y / 2, 5) AND 7)
+        END IF
+        IF kind = 3 THEN
+            RETURN 24 + ((x + y) AND 3)
+        END IF
+        RETURN GdHash.ByteOf(x, y, kind)
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        a = PixOf(0, 1, 1)
+        b = PixOf(1, 1, 1)
+        IF a <> b THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,208 @@
+-- Twin of Ada Core_Texture_Registry. Bound slots + procedural Fill pixels.
+-- Kinds: 0 brick, 1 dirt, 2 grass, 3 water, 4 wood. Working cache 16x16 per slot.
+VERSION 1.0
+
+#GD_TEX_SLOTS = 16
+#GD_TEX_PX = 256
+
+DECLARE MODULE GdTexReg
+    PROCEDURE Wipe()
+    PROCEDURE NoteSlot(slot AS S32, w AS S32, h AS S32)
+    PROCEDURE ArmSlot(slot AS S32, kind AS S32)
+    PROCEDURE BakeSlot(slot AS S32, seed AS S32)
+    PROCEDURE WireSlot(slot AS S32, kind AS S32, seed AS S32)
+    FUNCTION SlotW(slot AS S32) AS S32
+    FUNCTION SlotH(slot AS S32) AS S32
+    FUNCTION SlotKind(slot AS S32) AS S32
+    FUNCTION SlotPix(slot AS S32, x AS S32, y AS S32) AS S32
+    FUNCTION SlotRgb(slot AS S32, x AS S32, y AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdTexReg
+
+    STRICT tw[16] AS S32
+    STRICT th[16] AS S32
+    STRICT tk[16] AS S32
+    STRICT pix[4096] AS S32
+    LET seeded AS S32 = 1
+
+    FUNCTION PixIx(slot AS S32, x AS S32, y AS S32) AS S32
+        LET mx AS S32 = x AND 15
+        LET my AS S32 = y AND 15
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 16)
+        RETURN (slot - 1) * 256 + my * 16 + mx + 1
+    END FUNCTION
+
+    FUNCTION GenPix(kind AS S32, x AS S32, y AS S32, seed AS S32) AS S32
+        LET mx AS S32 = x AND 15
+        LET my AS S32 = y AND 15
+        LET n AS S32 = GdHash.ByteOf(mx, my, seed + kind * 17)
+        LET row AS S32 = 0
+        LET col AS S32 = 0
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 4)
+        IF kind = 0 THEN
+            row = my / 2
+            col = mx
+            IF (row AND 1) = 1 THEN
+                col = mx + 4
+            END IF
+            IF (my AND 1) = 0 THEN
+                RETURN 7882290
+            END IF
+            IF (col AND 7) = 0 THEN
+                RETURN 5263440
+            END IF
+            IF n > 200 THEN
+                RETURN 10511420
+            END IF
+            RETURN 1323540 + (n AND 31) * 65536
+        END IF
+        IF kind = 1 THEN
+            IF n > 210 THEN
+                RETURN 9208395
+            END IF
+            IF n > 120 THEN
+                RETURN 7882290
+            END IF
+            RETURN 6579300
+        END IF
+        IF kind = 2 THEN
+            IF (mx + my) AND 1 THEN
+                RETURN 2263842 + (n AND 15) * 256
+            END IF
+            RETURN 3329330
+        END IF
+        IF kind = 3 THEN
+            RETURN 2001950 + ((mx + my + n) AND 63) * 256
+        END IF
+        IF (mx AND 3) = 0 THEN
+            RETURN 3942420
+        END IF
+        IF n > 180 THEN
+            RETURN 9208395
+        END IF
+        RETURN 7882290
+    END FUNCTION
+
+    PROCEDURE Wipe()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 16
+            tw[i] = 16
+            th[i] = 16
+            tk[i] = 0
+            i = i + 1
+        END WHILE
+        i = 1
+        WHILE i <= 4096
+            pix[i] = 0
+            i = i + 1
+        END WHILE
+        seeded = 1
+    END PROCEDURE
+
+    PROCEDURE NoteSlot(slot AS S32, w AS S32, h AS S32) REQUIRE slot >= 1
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 16)
+        tw[slot] = GdVec2.ClipI(w, 1, 64)
+        th[slot] = GdVec2.ClipI(h, 1, 64)
+    END PROCEDURE
+
+    FUNCTION SlotW(slot AS S32) AS S32 REQUIRE slot >= 1
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 16)
+        RETURN tw[slot]
+    END FUNCTION
+
+    FUNCTION SlotH(slot AS S32) AS S32 REQUIRE slot >= 1
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 16)
+        RETURN th[slot]
+    END FUNCTION
+
+    PROCEDURE BakeSlot(slot AS S32, seed AS S32) REQUIRE slot >= 1
+        LET x AS S32 = 0
+        LET y AS S32 = 0
+        LET ix AS S32 = 0
+        LET k AS S32 = 0
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 16)
+        k = tk[slot]
+        y = 0
+        WHILE y < 16
+            x = 0
+            WHILE x < 16
+                ix = PixIx(slot, x, y)
+                pix[ix] = GenPix(k, x, y, seed)
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+        tw[slot] = 16
+        th[slot] = 16
+        seeded = seed
+    END PROCEDURE
+
+    PROCEDURE ArmSlot(slot AS S32, kind AS S32) REQUIRE slot >= 1
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 16)
+        tk[slot] = GdVec2.ClipI(kind, 0, 4)
+        tw[slot] = 16
+        th[slot] = 16
+        BakeSlot(slot, 1 + kind)
+    END PROCEDURE
+
+    PROCEDURE WireSlot(slot AS S32, kind AS S32, seed AS S32) REQUIRE slot >= 1
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 16)
+        tk[slot] = GdVec2.ClipI(kind, 0, 4)
+        BakeSlot(slot, seed)
+    END PROCEDURE
+
+    FUNCTION SlotKind(slot AS S32) AS S32 REQUIRE slot >= 1
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 16)
+        RETURN tk[slot]
+    END FUNCTION
+
+    FUNCTION SlotRgb(slot AS S32, x AS S32, y AS S32) AS S32 REQUIRE slot >= 1
+        LET ix AS S32 = 0
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 16)
+        ix = PixIx(slot, x, y)
+        RETURN pix[ix]
+    END FUNCTION
+
+    FUNCTION SlotPix(slot AS S32, x AS S32, y AS S32) AS S32 REQUIRE slot >= 1
+        LET rgb AS S32 = 0
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 16)
+        rgb = SlotRgb(slot, x, y)
+        RETURN ((rgb / 65536) AND 255) / 16
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        Wipe()
+        WireSlot(1, 0, 3)
+        WireSlot(2, 3, 3)
+        a = SlotRgb(1, 4, 4)
+        b = SlotRgb(2, 4, 4)
+        IF a <> b THEN
+            IF SlotKind(1) = 0 THEN
+                IF SlotKind(2) = 3 THEN
+                    RETURN 1
+                END IF
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

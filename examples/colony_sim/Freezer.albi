@@ -1,0 +1,7 @@
+DECLARE MODULE Freezer
+    PROCEDURE freeze_game(filename AS STRING)
+    PROCEDURE thaw_game(filename AS STRING)
+    FUNCTION ComputeStateChecksum() AS U64
+    FUNCTION ReadStoredChecksum(filename AS STRING) AS U64
+    PROCEDURE WriteStoredChecksum(filename AS STRING, checksum_value AS U64)
+END DECLARE MODULE

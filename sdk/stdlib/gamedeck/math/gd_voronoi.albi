@@ -1,0 +1,76 @@
+-- Twin of Ada Geo_Voronoi. Integer orientation + 8-site nearest.
+VERSION 1.0
+
+DECLARE MODULE GdVoronoi
+    PROCEDURE Bake(seed AS S32)
+    FUNCTION Orient2(ax AS S32, ay AS S32, bx AS S32, by AS S32, cx AS S32, cy AS S32) AS S32
+    FUNCTION Nearest(x AS S32, y AS S32) AS S32
+    FUNCTION SiteX(i AS S32) AS S32
+    FUNCTION SiteY(i AS S32) AS S32
+    PROCEDURE PresentSites()
+END DECLARE MODULE
+
+MODULE GdVoronoi
+
+    STRICT sx[8] AS S32
+    STRICT sy[8] AS S32
+
+    PROCEDURE Bake(seed AS S32)
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 8
+            sx[i] = 40 + GdHash.ByteOf(i, 1, seed)
+            sy[i] = 40 + GdHash.ByteOf(i, 7, seed)
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION Orient2(ax AS S32, ay AS S32, bx AS S32, by AS S32, cx AS S32, cy AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+    END FUNCTION
+
+    FUNCTION Nearest(x AS S32, y AS S32) AS S32
+        LET i AS S32 = 1
+        LET best AS S32 = 1
+        LET bd AS S32 = 999999999
+        LET d AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 8
+            d = GdVec2.Dist2(x, y, sx[i], sy[i])
+            IF d < bd THEN
+                bd = d
+                best = i
+            END IF
+            i = i + 1
+        END WHILE
+        RETURN best
+    END FUNCTION
+
+    FUNCTION SiteX(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 8)
+        RETURN sx[i]
+    END FUNCTION
+
+    FUNCTION SiteY(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 8)
+        RETURN sy[i]
+    END FUNCTION
+
+    PROCEDURE PresentSites()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $FACC15
+        WHILE i <= 8
+            FILL RECT sx[i], sy[i], 4, 4
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

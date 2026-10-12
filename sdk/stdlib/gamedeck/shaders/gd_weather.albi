@@ -1,0 +1,84 @@
+-- Twin of Ada Shaders_Weather. Present* window overlays; Apply* write VGPU.
+VERSION 1.0
+
+DECLARE MODULE GdWeather
+    PROCEDURE PresentRain(n AS S32)
+    PROCEDURE PresentSnow(n AS S32)
+    PROCEDURE PresentHaze()
+    PROCEDURE PresentUnder()
+    PROCEDURE ApplyRain(t AS S32)
+    PROCEDURE ApplyHaze()
+END DECLARE MODULE
+
+MODULE GdWeather
+
+    PROCEDURE PresentRain(n AS S32)
+        LET i AS S32 = 0
+        LET x AS S32 = 0
+        LET y AS S32 = 0
+        ASSERT(n >= 0)
+        ASSERT(n <= 64)
+        COLOR $64748B
+        WHILE i < n
+            x = (i * 37) MOD 640
+            y = 20 + (i AND 7) * 8
+            FILL RECT x, y, 1, 18
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PresentSnow(n AS S32)
+        LET i AS S32 = 0
+        LET x AS S32 = 0
+        LET y AS S32 = 0
+        ASSERT(n >= 0)
+        ASSERT(n <= 64)
+        COLOR $F8FAFC
+        WHILE i < n
+            x = (i * 51) MOD 640
+            y = 30 + (i * 13) MOD 200
+            FILL RECT x, y, 2, 2
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PresentHaze()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $F59E0B
+        FILL RECT 0, 220, 640, 8
+    END PROCEDURE
+
+    PROCEDURE PresentUnder()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $0E4A6E
+        FILL RECT 0, 300, 640, 60
+    END PROCEDURE
+
+    PROCEDURE ApplyRain(t AS S32)
+        LET i AS S32 = 0
+        LET x AS S32 = 0
+        LET y AS S32 = 0
+        ASSERT(t >= 0)
+        ASSERT(1 = 1)
+        WHILE i < 24
+            x = (i * 13 + t) MOD GdVgpu.FbW()
+            y = (i * 7 + t * 3) MOD GdVgpu.FbH()
+            GdVgpu.VLine(x, y, y + 6, 80)
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE ApplyHaze()
+        LET y AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        y = GdVgpu.FbH() - 16
+        WHILE y < GdVgpu.FbH()
+            GdVgpu.RowFill(y, 48 + (y AND 3))
+            y = y + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

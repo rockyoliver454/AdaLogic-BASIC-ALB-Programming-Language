@@ -1,0 +1,10 @@
+DECLARE MODULE Renderer
+    PROCEDURE Setup()
+    FUNCTION GetTileColor(kind AS U8) AS S32
+    FUNCTION GetMoodColor(mood AS U8) AS S32
+    FUNCTION GetWeatherColor(weather AS U8, intensity AS U8) AS S32
+    FUNCTION GetBuildColor(kind AS U8) AS S32
+    FUNCTION GetSkinColor(kind AS U8) AS S32
+    FUNCTION GetClothesColor(kind AS U8) AS S32
+    FUNCTION GetHairColor(kind AS U8) AS S32
+END DECLARE MODULE

@@ -1,0 +1,189 @@
+INCLUDE "gathering.albi"
+INCLUDE "../ALBHASH.ALBI"
+IMPORT Gathering
+IMPORT ALBHash
+
+MODULE Gathering
+    LET MAX_BERRIES AS U16 = 64
+
+    PARALLEL berries[64]
+        wx AS S32
+        wy AS S32
+        wz AS S32
+        amount AS U8
+        max_amount AS U8
+        grow_timer AS U16
+    END PARALLEL
+
+    LET berry_active AS U16 = 0
+
+    PROCEDURE Setup()
+        LET i AS U16 = 1
+        berry_active = 0
+        FOR i = 1 TO MAX_BERRIES THEN
+            berries[i].wx = 0
+            berries[i].wy = 0
+            berries[i].wz = 0
+            berries[i].amount = 0
+            berries[i].max_amount = 3
+            berries[i].grow_timer = 0
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE SpawnBerries(count AS U16)
+        LET i AS U16 = 0
+        LET tx AS S32 = 0
+        LET ty AS S32 = 0
+        FOR i = 1 TO count THEN
+            IF berry_active >= MAX_BERRIES THEN RETURN END IF
+            berry_active = berry_active + 1
+            tx = S32(berry_active * 7) MOD 32
+            ty = S32(berry_active * 13) MOD 32
+            berries[berry_active].wx = tx * 24 + 200
+            berries[berry_active].wy = ty * 16 + 120
+            berries[berry_active].wz = 0
+            berries[berry_active].amount = 3
+            berries[berry_active].max_amount = 3
+            berries[berry_active].grow_timer = 0
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE TickBerries()
+        LET i AS U16 = 1
+        WHILE i <= berry_active
+            IF berries[i].amount < berries[i].max_amount THEN
+                berries[i].grow_timer = berries[i].grow_timer + 1
+                IF berries[i].grow_timer > 120 THEN
+                    berries[i].amount = berries[i].amount + 1
+                    berries[i].grow_timer = 0
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION GetBerryX(idx AS U16) AS S32
+        IF idx > berry_active THEN RETURN 0 END IF
+        RETURN berries[idx].wx
+    END FUNCTION
+
+    FUNCTION GetBerryY(idx AS U16) AS S32
+        IF idx > berry_active THEN RETURN 0 END IF
+        RETURN berries[idx].wy
+    END FUNCTION
+
+    FUNCTION GetBerryZ(idx AS U16) AS S32
+        IF idx > berry_active THEN RETURN 0 END IF
+        RETURN berries[idx].wz
+    END FUNCTION
+
+    FUNCTION GetBerryCount() AS U16
+        RETURN berry_active
+    END FUNCTION
+
+    FUNCTION GetBerryAmount(idx AS U16) AS U8
+        IF idx > berry_active THEN RETURN 0 END IF
+        RETURN berries[idx].amount
+    END FUNCTION
+
+    PROCEDURE GatherBerry(idx AS U16)
+        IF idx > berry_active THEN RETURN END IF
+        IF berries[idx].amount > 0 THEN
+            berries[idx].amount = berries[idx].amount - 1
+        END IF
+    END PROCEDURE
+
+    FUNCTION IsBerryGrown(idx AS U16) AS U8
+        IF idx > berry_active THEN RETURN 0 END IF
+        IF berries[idx].amount > 0 THEN RETURN 1 END IF
+        RETURN 0
+    END FUNCTION
+
+    -- Buffer arrays for PARALLEL group save/load
+    STRICT fb_wx[64] AS S32
+    STRICT fb_wy[64] AS S32
+    STRICT fb_wz[64] AS S32
+    STRICT fb_am[64] AS U8
+    STRICT fb_ma[64] AS U8
+    STRICT fb_gt[64] AS U16
+    STRICT fb_ac[1] AS U16
+
+    PROCEDURE freeze_module(filename AS STRING)
+        LET path_name AS STRING = ""
+        fb_ac[1] = berry_active
+        path_name = CONCAT(filename, "_G_AC")
+        FLUSH fb_ac INTO path_name
+        LET i AS U16 = 1
+        FOR i = 1 TO berry_active THEN
+            fb_wx[i] = berries[i].wx
+            fb_wy[i] = berries[i].wy
+            fb_wz[i] = berries[i].wz
+            fb_am[i] = berries[i].amount
+            fb_ma[i] = berries[i].max_amount
+            fb_gt[i] = berries[i].grow_timer
+        END FOR
+        path_name = CONCAT(filename, "_G_WX")
+        FLUSH fb_wx INTO path_name
+        path_name = CONCAT(filename, "_G_WY")
+        FLUSH fb_wy INTO path_name
+        path_name = CONCAT(filename, "_G_WZ")
+        FLUSH fb_wz INTO path_name
+        path_name = CONCAT(filename, "_G_AM")
+        FLUSH fb_am INTO path_name
+        path_name = CONCAT(filename, "_G_MA")
+        FLUSH fb_ma INTO path_name
+        path_name = CONCAT(filename, "_G_GT")
+        FLUSH fb_gt INTO path_name
+    END PROCEDURE
+
+    PROCEDURE thaw_module(filename AS STRING)
+        LET i AS U16 = 1
+        LET path_name AS STRING = ""
+        fb_ac[1] = 0
+        FOR i = 1 TO MAX_BERRIES THEN
+            fb_wx[i] = 0
+            fb_wy[i] = 0
+            fb_wz[i] = 0
+            fb_am[i] = 0
+            fb_ma[i] = 0
+            fb_gt[i] = 0
+        END FOR
+        path_name = CONCAT(filename, "_G_AC")
+        LOAD path_name INTO fb_ac
+        berry_active = fb_ac[1]
+        path_name = CONCAT(filename, "_G_WX")
+        LOAD path_name INTO fb_wx
+        path_name = CONCAT(filename, "_G_WY")
+        LOAD path_name INTO fb_wy
+        path_name = CONCAT(filename, "_G_WZ")
+        LOAD path_name INTO fb_wz
+        path_name = CONCAT(filename, "_G_AM")
+        LOAD path_name INTO fb_am
+        path_name = CONCAT(filename, "_G_MA")
+        LOAD path_name INTO fb_ma
+        path_name = CONCAT(filename, "_G_GT")
+        LOAD path_name INTO fb_gt
+        FOR i = 1 TO berry_active THEN
+            berries[i].wx = fb_wx[i]
+            berries[i].wy = fb_wy[i]
+            berries[i].wz = fb_wz[i]
+            berries[i].amount = fb_am[i]
+            berries[i].max_amount = fb_ma[i]
+            berries[i].grow_timer = fb_gt[i]
+        END FOR
+    END PROCEDURE
+
+    FUNCTION MixChecksum(hash_value AS U64) AS U64
+        LET idx AS U16 = 0
+        hash_value = ALBHash.MixU16(hash_value, berry_active)
+        FOR idx = 1 TO berry_active THEN
+            hash_value = ALBHash.MixS32(hash_value, berries[idx].wx)
+            hash_value = ALBHash.MixS32(hash_value, berries[idx].wy)
+            hash_value = ALBHash.MixS32(hash_value, berries[idx].wz)
+            hash_value = ALBHash.MixU8(hash_value, berries[idx].amount)
+            hash_value = ALBHash.MixU8(hash_value, berries[idx].max_amount)
+            hash_value = ALBHash.MixU16(hash_value, berries[idx].grow_timer)
+        END FOR
+        RETURN hash_value
+    END FUNCTION
+END MODULE

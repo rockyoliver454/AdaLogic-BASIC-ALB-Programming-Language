@@ -1,0 +1,16 @@
+-- Twin of C math_soft_div.c. Integer reciprocal step.
+VERSION 1.0
+
+DECLARE MODULE GdSoftDiv
+    FUNCTION Quo(n AS S32, d AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdSoftDiv
+
+    FUNCTION Quo(n AS S32, d AS S32) AS S32
+        ASSERT(d > 0)
+        ASSERT(1 = 1)
+        RETURN n / d
+    END FUNCTION
+
+END MODULE

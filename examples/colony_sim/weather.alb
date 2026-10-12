@@ -1,0 +1,64 @@
+INCLUDE "../SCREEN.ALBI"
+INCLUDE "weather.albi"
+IMPORT Weather
+
+MODULE Weather
+    LET WEATHER_CLEAR AS U8 = 0
+    LET WEATHER_RAIN AS U8 = 1
+    LET WEATHER_SNOW AS U8 = 2
+    LET WEATHER_FOG AS U8 = 3
+    LET weather_type AS U8 = 0
+    LET weather_intensity AS U8 = 0
+    LET weather_timer AS U16 = 0
+
+    PROCEDURE Setup()
+        weather_type = WEATHER_CLEAR
+        weather_intensity = 0
+        weather_timer = 0
+    END PROCEDURE
+
+    PROCEDURE Process()
+        weather_timer = weather_timer + 1
+        IF weather_timer > 600 THEN
+            weather_timer = 0
+            LET r AS S32 = weather_timer MOD 4
+            IF r = 0 THEN weather_type = WEATHER_CLEAR
+            ELSE
+                IF r = 1 THEN weather_type = WEATHER_RAIN
+                ELSE
+                    IF r = 2 THEN weather_type = WEATHER_SNOW
+                    ELSE weather_type = WEATHER_FOG
+                    END IF
+                END IF
+            END IF
+            weather_intensity = U8((weather_timer * 7) MOD 5) * 20 + 20
+        END IF
+    END PROCEDURE
+
+    PROCEDURE SetState(next_type AS U8, next_intensity AS U8, next_timer AS U16)
+        weather_type = next_type
+        IF weather_type > WEATHER_FOG THEN weather_type = WEATHER_CLEAR END IF
+        weather_intensity = next_intensity
+        weather_timer = next_timer
+    END PROCEDURE
+
+    FUNCTION GetWeather() AS U8
+        RETURN weather_type
+    END FUNCTION
+
+    FUNCTION GetWeatherIntensity() AS U8
+        RETURN weather_intensity
+    END FUNCTION
+
+    FUNCTION GetAmbientColor() AS S32
+        IF weather_type = WEATHER_RAIN THEN RETURN $888899
+        ELSE
+            IF weather_type = WEATHER_SNOW THEN RETURN $CCCCDD
+            ELSE
+                IF weather_type = WEATHER_FOG THEN RETURN $999988
+                ELSE RETURN $FFFFFF
+                END IF
+            END IF
+        END IF
+    END FUNCTION
+END MODULE

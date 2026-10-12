@@ -1,0 +1,54 @@
+-- ============================================================================
+-- alb_win32.albi — thin ALB binding for vendor/win32 (C ABI)
+-- ============================================================================
+-- Place alb_win32.dll beside the program.
+--   INCLUDE "../stdlib/vendor/win32/alb_win32.albi"
+-- ============================================================================
+
+VERSION 0.1
+
+IMPORT_DLL FUNCTION alb_win32_version() AS S32 FROM ("alb_win32.dll")
+
+IMPORT_DLL FUNCTION alb_win32_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL PROCEDURE alb_win32_device_destroy(device AS S64) FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_device_instance(device AS S64) AS S64 FROM ("alb_win32.dll")
+
+IMPORT_DLL FUNCTION alb_win32_window_create(desc AS S64, out_window AS S64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_create_simple(width AS S32, height AS S32) AS S64 FROM ("alb_win32.dll")
+IMPORT_DLL PROCEDURE alb_win32_window_destroy(window AS S64) FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_hwnd(window AS S64) AS S64 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_device(window AS S64) AS S64 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_should_close(window AS S64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL PROCEDURE alb_win32_window_set_should_close(window AS S64, v AS S32) FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_show(window AS S64, show AS S32) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_get_client_size(window AS S64, out_w AS S64, out_h AS S64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_set_client_size(window AS S64, w AS S32, h AS S32) AS S32 FROM ("alb_win32.dll")
+
+IMPORT_DLL FUNCTION alb_win32_poll_events() AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_wait_event() AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL PROCEDURE alb_win32_sleep_ms(ms AS S32) FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_ticks_ms() AS S64 FROM ("alb_win32.dll")
+
+IMPORT_DLL FUNCTION alb_win32_window_fill_client(window AS S64, r AS F64, g AS F64, b AS F64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_draw_text(window AS S64, x AS S32, y AS S32, utf8 AS S64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_draw_prism_tetra(window AS S64, yaw AS F64, pitch AS F64, scale AS F64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_draw_hello_triangle(window AS S64, yaw AS F64, pitch AS F64, scale AS F64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_draw_colored_quad(window AS S64, yaw AS F64, pitch AS F64, scale AS F64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_draw_cube(window AS S64, yaw AS F64, pitch AS F64, scale AS F64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_draw_lines(window AS S64, t AS F64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_draw_points(window AS S64, t AS F64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_draw_rectangles(window AS S64, t AS F64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_draw_geometry(window AS S64, t AS F64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_draw_primitives(window AS S64, t AS F64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_window_draw_text_hud(window AS S64, t AS F64) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_test_clear_cycle(frames AS S32) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_test_hello_triangle(frames AS S32) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_test_prism_tetra(frames AS S32) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_test_colored_quad(frames AS S32) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_test_cube(frames AS S32) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_test_lines(frames AS S32) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_test_points(frames AS S32) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_test_rectangles(frames AS S32) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_test_geometry(frames AS S32) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_test_primitives(frames AS S32) AS S32 FROM ("alb_win32.dll")
+IMPORT_DLL FUNCTION alb_win32_test_text_hud(frames AS S32) AS S32 FROM ("alb_win32.dll")

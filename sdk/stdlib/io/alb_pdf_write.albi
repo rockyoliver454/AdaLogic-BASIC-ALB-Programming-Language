@@ -1,0 +1,231 @@
+VERSION 1.0
+
+#PDF_WRITE_XREF_CAP = 256
+
+DECLARE MODULE ALBPdfWrite
+    PROCEDURE Reset()
+    PROCEDURE SetMeasure(enabled AS S32)
+    PROCEDURE Byte(c AS S32)
+    PROCEDURE Ascii(s AS STRING)
+    PROCEDURE Newline()
+    PROCEDURE Dec(n AS S32)
+    PROCEDURE DecW(n AS S32, width AS S32)
+    PROCEDURE StrLit(s AS STRING)
+    PROCEDURE PdfText(font AS S32, size AS S32, x AS S32, y AS S32, s AS STRING)
+    PROCEDURE PdfRect(x AS S32, y AS S32, w AS S32, h AS S32)
+    PROCEDURE Obj(num AS S32)
+    PROCEDURE ObjEnd()
+    FUNCTION Finish(root_obj AS S32, total_objs AS S32) AS S32
+    FUNCTION Save(path AS STRING) AS S32
+    FUNCTION Length() AS S32
+    FUNCTION MeasuredLength() AS S32
+    FUNCTION ObjectOffset(num AS S32) AS S32
+    FUNCTION ObjectCount() AS S32
+    FUNCTION ByteAt(i AS S32) AS U8
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBPdfWrite
+    STRICT xref[#PDF_WRITE_XREF_CAP] AS S32
+    LET dst AS STRING = ""
+    LET measuring AS S32 = 0
+    LET measured AS S32 = 0
+    LET objects AS S32 = 0
+    LET lastst AS S32 = 0
+
+    PROCEDURE Reset()
+        LET i AS S32 = 1
+        dst = ""
+        measuring = 0
+        measured = 0
+        objects = 0
+        lastst = 0
+        WHILE i <= #PDF_WRITE_XREF_CAP
+            xref[i] = 0
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE SetMeasure(enabled AS S32)
+        measuring = enabled
+        measured = 0
+    END PROCEDURE
+
+    PROCEDURE Byte(c AS S32)
+        IF measuring <> 0 THEN
+            measured = measured + 1
+        ELSE
+            dst = dst | CHR(c AND 255)
+        END IF
+    END PROCEDURE
+
+    PROCEDURE Ascii(s AS STRING)
+        IF measuring <> 0 THEN
+            measured = measured + LEN(s)
+        ELSE
+            dst = dst | s
+        END IF
+    END PROCEDURE
+
+    PROCEDURE Newline()
+        Byte(10)
+    END PROCEDURE
+
+    PROCEDURE Dec(n AS S32)
+        Ascii("" | n)
+    END PROCEDURE
+
+    PROCEDURE DecW(n AS S32, width AS S32)
+        LET s AS STRING = "" | n
+        LET pad AS S32 = width - LEN(s)
+        WHILE pad > 0
+            Byte(48)
+            pad = pad - 1
+        END WHILE
+        Ascii(s)
+    END PROCEDURE
+
+    PROCEDURE StrLit(s AS STRING)
+        LET i AS S32 = 1
+        LET c AS S32 = 0
+        Byte(40)
+        WHILE i <= LEN(s)
+            c = S32(ASC(MID$(s, i, 1)))
+            IF c >= 128 THEN c = 69 END IF
+            IF c = 40 OR c = 41 OR c = 92 THEN Byte(92) END IF
+            Byte(c)
+            i = i + 1
+        END WHILE
+        Byte(41)
+    END PROCEDURE
+
+    PROCEDURE PdfText(font AS S32, size AS S32, x AS S32, y AS S32, s AS STRING)
+        Ascii("BT /F")
+        Dec(font)
+        Ascii(" ")
+        Dec(size)
+        Ascii(" Tf 1 0 0 1 ")
+        Dec(x)
+        Ascii(" ")
+        Dec(y)
+        Ascii(" Tm ")
+        StrLit(s)
+        Ascii(" Tj ET")
+        Newline()
+    END PROCEDURE
+
+    PROCEDURE PdfRect(x AS S32, y AS S32, w AS S32, h AS S32)
+        Dec(x)
+        Ascii(" ")
+        Dec(y)
+        Ascii(" ")
+        Dec(w)
+        Ascii(" ")
+        Dec(h)
+        Ascii(" re S")
+        Newline()
+    END PROCEDURE
+
+    PROCEDURE Obj(num AS S32)
+        IF num < 1 OR num > #PDF_WRITE_XREF_CAP THEN
+            lastst = 2
+            RETURN
+        END IF
+        xref[num] = LEN(dst)
+        IF num > objects THEN objects = num END IF
+        Dec(num)
+        Ascii(" 0 obj")
+        Newline()
+    END PROCEDURE
+
+    PROCEDURE ObjEnd()
+        Ascii("endobj")
+        Newline()
+    END PROCEDURE
+
+    FUNCTION Finish(root_obj AS S32, total_objs AS S32) AS S32
+        LET i AS S32 = 1
+        LET start AS S32 = 0
+        IF lastst <> 0 THEN RETURN lastst END IF
+        IF total_objs < 1 OR total_objs > #PDF_WRITE_XREF_CAP THEN
+            lastst = 2
+            RETURN lastst
+        END IF
+        IF root_obj < 1 OR root_obj > total_objs THEN
+            lastst = 5
+            RETURN lastst
+        END IF
+        i = 1
+        WHILE i <= total_objs
+            IF xref[i] < 1 THEN
+                lastst = 5
+                RETURN lastst
+            END IF
+            i = i + 1
+        END WHILE
+        start = LEN(dst)
+        Ascii("xref")
+        Newline()
+        Ascii("0 ")
+        Dec(total_objs + 1)
+        Newline()
+        Ascii("0000000000 65535 f ")
+        Newline()
+        i = 1
+        WHILE i <= total_objs
+            DecW(xref[i], 10)
+            Ascii(" 00000 n ")
+            Newline()
+            i = i + 1
+        END WHILE
+        Ascii("trailer")
+        Newline()
+        Ascii("<< /Size ")
+        Dec(total_objs + 1)
+        Ascii(" /Root ")
+        Dec(root_obj)
+        Ascii(" 0 R >>")
+        Newline()
+        Ascii("startxref")
+        Newline()
+        Dec(start)
+        Newline()
+        Ascii("%%EOF")
+        Newline()
+        objects = total_objs
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION Save(path AS STRING) AS S32
+        IF lastst <> 0 THEN RETURN lastst END IF
+        FLUSH dst INTO path
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION Length() AS S32
+        RETURN LEN(dst)
+    END FUNCTION
+
+    FUNCTION MeasuredLength() AS S32
+        RETURN measured
+    END FUNCTION
+
+    FUNCTION ObjectOffset(num AS S32) AS S32
+        IF num < 1 OR num > #PDF_WRITE_XREF_CAP THEN RETURN 0 END IF
+        RETURN xref[num]
+    END FUNCTION
+
+    FUNCTION ObjectCount() AS S32
+        RETURN objects
+    END FUNCTION
+
+    FUNCTION ByteAt(i AS S32) AS U8
+        IF i < 1 OR i > LEN(dst) THEN RETURN 0 END IF
+        RETURN CAST(ASC(MID$(dst, i, 1)) AS U8)
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+END MODULE

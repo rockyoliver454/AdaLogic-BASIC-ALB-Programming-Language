@@ -1,0 +1,334 @@
+-- Twin of Ada core_vgpu. Indexed 160x120 FB, palette, prims, RLE present.
+-- Ada max 320x240; v1 cap 19200 cells. Pulse still fills solid rows for title.
+VERSION 1.0
+
+DECLARE MODULE GdVgpu
+    PROCEDURE Setup()
+    PROCEDURE BakePal()
+    PROCEDURE PalSet(idx AS S32, r AS S32, g AS S32, b AS S32)
+    FUNCTION PalRgb(idx AS S32) AS S32
+    PROCEDURE WipeFb(idx AS S32)
+    PROCEDURE Put(x AS S32, y AS S32, idx AS S32)
+    FUNCTION Get(x AS S32, y AS S32) AS S32
+    PROCEDURE RectFill(x AS S32, y AS S32, bw AS S32, bh AS S32, idx AS S32)
+    PROCEDURE RowFill(y AS S32, idx AS S32)
+    PROCEDURE HLine(x0 AS S32, x1 AS S32, y AS S32, idx AS S32)
+    PROCEDURE VLine(x AS S32, y0 AS S32, y1 AS S32, idx AS S32)
+    FUNCTION FbW() AS S32
+    FUNCTION FbH() AS S32
+    PROCEDURE Pulse(t AS S32, mx AS S32, my AS S32)
+    PROCEDURE PlotRow(row AS S32, glow AS S32)
+    FUNCTION PeekRow(row AS S32) AS S32
+    PROCEDURE PresentLayer()
+    PROCEDURE PresentRow(y AS S32, ox AS S32, oy AS S32, sc AS S32)
+    PROCEDURE PresentScaled(ox AS S32, oy AS S32, sc AS S32)
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdVgpu
+
+    STRICT fb[19200] AS U8
+    STRICT pal_r[256] AS U8
+    STRICT pal_g[256] AS U8
+    STRICT pal_b[256] AS U8
+    LET gw AS S32 = 160
+    LET gh AS S32 = 120
+
+    FUNCTION IdxOf(x AS S32, y AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN y * gw + x + 1
+    END FUNCTION
+
+    PROCEDURE BakePal()
+        LET i AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i < 256
+            pal_r[i + 1] = (i AND 7) * 32
+            pal_g[i + 1] = ((i / 8) AND 7) * 32
+            pal_b[i + 1] = ((i / 64) AND 3) * 85
+            i = i + 1
+        END WHILE
+        pal_r[1] = 0
+        pal_g[1] = 0
+        pal_b[1] = 0
+    END PROCEDURE
+
+    PROCEDURE PalSet(idx AS S32, r AS S32, g AS S32, b AS S32)
+        LET i AS S32 = 0
+        ASSERT(idx >= 0)
+        ASSERT(idx <= 255)
+        i = idx + 1
+        pal_r[i] = GdVec2.ClipI(r, 0, 255)
+        pal_g[i] = GdVec2.ClipI(g, 0, 255)
+        pal_b[i] = GdVec2.ClipI(b, 0, 255)
+    END PROCEDURE
+
+    FUNCTION PalRgb(idx AS S32) AS S32
+        LET i AS S32 = 0
+        LET c AS S32 = 0
+        ASSERT(idx >= 0)
+        ASSERT(idx <= 255)
+        i = idx + 1
+        c = S32(pal_r[i]) * 65536 + S32(pal_g[i]) * 256 + S32(pal_b[i])
+        RETURN c
+    END FUNCTION
+
+    PROCEDURE Setup()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        gw = 160
+        gh = 120
+        BakePal()
+        PalSet(0, 2, 6, 23)
+        PalSet(7, 34, 197, 94)
+        PalSet(9, 250, 204, 21)
+        PalSet(12, 220, 38, 38)
+        WipeFb(0)
+    END PROCEDURE
+
+    PROCEDURE WipeFb(idx AS S32)
+        LET i AS S32 = 1
+        LET n AS S32 = 0
+        LET v AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        v = idx AND 255
+        n = gw * gh
+        WHILE i <= n
+            fb[i] = v
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE Put(x AS S32, y AS S32, idx AS S32)
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF x < 0 THEN
+            RETURN
+        END IF
+        IF y < 0 THEN
+            RETURN
+        END IF
+        IF x >= gw THEN
+            RETURN
+        END IF
+        IF y >= gh THEN
+            RETURN
+        END IF
+        fb[IdxOf(x, y)] = idx AND 255
+    END PROCEDURE
+
+    FUNCTION Get(x AS S32, y AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF x < 0 THEN
+            RETURN 0
+        END IF
+        IF y < 0 THEN
+            RETURN 0
+        END IF
+        IF x >= gw THEN
+            RETURN 0
+        END IF
+        IF y >= gh THEN
+            RETURN 0
+        END IF
+        RETURN S32(fb[IdxOf(x, y)])
+    END FUNCTION
+
+    PROCEDURE RowFill(y AS S32, idx AS S32)
+        LET x AS S32 = 0
+        LET i AS S32 = 0
+        LET v AS S32 = 0
+        ASSERT(y >= 0)
+        ASSERT(y < gh)
+        v = idx AND 255
+        i = IdxOf(0, y)
+        WHILE x < gw
+            fb[i] = v
+            i = i + 1
+            x = x + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE RectFill(x AS S32, y AS S32, bw AS S32, bh AS S32, idx AS S32)
+        LET yy AS S32 = y
+        LET xx AS S32 = 0
+        LET x1 AS S32 = 0
+        LET y1 AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        x1 = x + bw
+        y1 = y + bh
+        IF x1 > gw THEN
+            x1 = gw
+        END IF
+        IF y1 > gh THEN
+            y1 = gh
+        END IF
+        IF yy < 0 THEN
+            yy = 0
+        END IF
+        WHILE yy < y1
+            xx = x
+            IF xx < 0 THEN
+                xx = 0
+            END IF
+            WHILE xx < x1
+                fb[IdxOf(xx, yy)] = idx AND 255
+                xx = xx + 1
+            END WHILE
+            yy = yy + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE HLine(x0 AS S32, x1 AS S32, y AS S32, idx AS S32)
+        LET a AS S32 = x0
+        LET b AS S32 = x1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF a > b THEN
+            a = x1
+            b = x0
+        END IF
+        RectFill(a, y, b - a + 1, 1, idx)
+    END PROCEDURE
+
+    PROCEDURE VLine(x AS S32, y0 AS S32, y1 AS S32, idx AS S32)
+        LET a AS S32 = y0
+        LET b AS S32 = y1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF a > b THEN
+            a = y1
+            b = y0
+        END IF
+        RectFill(x, a, 1, b - a + 1, idx)
+    END PROCEDURE
+
+    FUNCTION FbW() AS S32
+        ASSERT(gw > 0)
+        ASSERT(gw <= 320)
+        RETURN gw
+    END FUNCTION
+
+    FUNCTION FbH() AS S32
+        ASSERT(gh > 0)
+        ASSERT(gh <= 240)
+        RETURN gh
+    END FUNCTION
+
+    PROCEDURE Pulse(t AS S32, mx AS S32, my AS S32)
+        LET y AS S32 = 0
+        LET glow AS S32 = 0
+        LET row AS S32 = 0
+        ASSERT(t >= 0)
+        ASSERT(mx >= 0)
+        row = my / 3
+        IF row < 0 THEN
+            row = 0
+        END IF
+        IF row >= gh THEN
+            row = gh - 1
+        END IF
+        WHILE y < gh
+            glow = 12 + ((t / 4 + y) AND 15)
+            IF y = row THEN
+                glow = 40 + (mx AND 31)
+            END IF
+            RowFill(y, glow)
+            y = y + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PlotRow(row AS S32, glow AS S32)
+        LET y0 AS S32 = 0
+        LET k AS S32 = 0
+        ASSERT(row >= 1)
+        ASSERT(row <= 24)
+        y0 = (row - 1) * 5
+        WHILE k < 5
+            IF y0 + k < gh THEN
+                RowFill(y0 + k, glow)
+            END IF
+            k = k + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION PeekRow(row AS S32) AS S32
+        LET y0 AS S32 = 0
+        ASSERT(row >= 1)
+        ASSERT(row <= 24)
+        y0 = (row - 1) * 5
+        RETURN Get(0, y0)
+    END FUNCTION
+
+    PROCEDURE PresentRow(y AS S32, ox AS S32, oy AS S32, sc AS S32)
+        LET x AS S32 = 0
+        LET run AS S32 = 1
+        LET idx AS S32 = 0
+        LET nidx AS S32 = 0
+        LET py AS S32 = 0
+        ASSERT(sc > 0)
+        ASSERT(y >= 0)
+        idx = Get(0, y)
+        x = 1
+        py = oy + y * sc
+        WHILE x <= gw
+            nidx = 0 - 1
+            IF x < gw THEN
+                nidx = Get(x, y)
+            END IF
+            IF nidx = idx THEN
+                run = run + 1
+            ELSE
+                COLOR PalRgb(idx)
+                FILL RECT ox + (x - run) * sc, py, run * sc, sc
+                idx = nidx
+                run = 1
+            END IF
+            x = x + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PresentScaled(ox AS S32, oy AS S32, sc AS S32)
+        LET y AS S32 = 0
+        ASSERT(sc > 0)
+        ASSERT(ox >= 0)
+        WHILE y < gh
+            PresentRow(y, ox, oy, sc)
+            y = y + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PresentLayer()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        PresentScaled(80, 0, 3)
+    END PROCEDURE
+
+    FUNCTION SelfTest() AS S32
+        LET n AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WipeFb(7)
+        Put(3, 4, 9)
+        IF Get(3, 4) = 9 THEN
+            n = n + 1
+        END IF
+        IF Get(0, 0) = 7 THEN
+            n = n + 1
+        END IF
+        RectFill(10, 10, 4, 4, 12)
+        IF Get(11, 11) = 12 THEN
+            n = n + 1
+        END IF
+        IF n = 3 THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

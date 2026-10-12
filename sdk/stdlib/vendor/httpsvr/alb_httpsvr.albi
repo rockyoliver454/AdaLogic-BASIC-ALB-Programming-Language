@@ -1,0 +1,4 @@
+VERSION 0.1
+IMPORT_DLL FUNCTION alb_httpsvr_version() AS S32 FROM ("alb_httpsvr.dll")
+IMPORT_DLL FUNCTION alb_httpsvr_test_probe() AS S32 FROM ("alb_httpsvr.dll")
+

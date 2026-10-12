@@ -1,0 +1,21 @@
+-- Twin of Ada core_console_render. History cursor + wrap segs.
+VERSION 1.0
+
+DECLARE MODULE GdConRender
+    PROCEDURE PresentLine(shown AS S32, cmd AS S32)
+END DECLARE MODULE
+
+MODULE GdConRender
+
+    PROCEDURE PresentLine(shown AS S32, cmd AS S32)
+        ASSERT(shown >= 0)
+        ASSERT(cmd >= 0)
+        IF shown = 1 THEN
+            COLOR $22C55E
+            DRAW TEXT 8, 304, "CON CMD=" | cmd | " HIST=" | GdConHist.CountN() | "/" | GdConHist.Cursor()
+            DRAW TEXT 8, 316, "WRAP S0=" | GdConWrap.SegStart(0) | " S1=" | GdConWrap.SegStart(1) | " LEN=" | GdConWrap.SegLen(0)
+            DRAW TEXT 8, 328, "SLOT=" | GdConPersist.Stored() | " SAVED=" | GdConPersist.CmdOf(GdConPersist.Stored()) | " LINES=" | GdConCfg.MaxLines()
+        END IF
+    END PROCEDURE
+
+END MODULE

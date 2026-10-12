@@ -1,0 +1,16 @@
+-- 2D signed distance as integer (dist2 - r2).
+VERSION 1.0
+
+DECLARE MODULE GdSdf
+    FUNCTION Circle2(px AS S32, py AS S32, cx AS S32, cy AS S32, r AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdSdf
+
+    FUNCTION Circle2(px AS S32, py AS S32, cx AS S32, cy AS S32, r AS S32) AS S32
+        ASSERT(r > 0)
+        ASSERT(1 = 1)
+        RETURN GdVec2.Dist2(px, py, cx, cy) - r * r
+    END FUNCTION
+
+END MODULE

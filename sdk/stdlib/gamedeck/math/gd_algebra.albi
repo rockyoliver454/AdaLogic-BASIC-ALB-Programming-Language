@@ -1,0 +1,23 @@
+-- Twin of Ada geo_algebra. Integer 2D wedge / dot.
+VERSION 1.0
+
+DECLARE MODULE GdAlgebra
+    FUNCTION Dot2(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+    FUNCTION Wedge2(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdAlgebra
+
+    FUNCTION Dot2(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN ax * bx + ay * by
+    END FUNCTION
+
+    FUNCTION Wedge2(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN ax * by - ay * bx
+    END FUNCTION
+
+END MODULE

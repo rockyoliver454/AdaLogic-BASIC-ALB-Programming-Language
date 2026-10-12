@@ -1,0 +1,12 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_d2d.albi"
+
+LET rc = alb_d2d_test_probe()
+IF rc = 0 THEN
+  PRINT "d2d probe PASS"
+ELSE
+  PRINT "d2d probe FAIL " | rc
+END IF
+END
+

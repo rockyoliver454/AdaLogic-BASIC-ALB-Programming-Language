@@ -1,0 +1,97 @@
+INCLUDE "../SCREEN.ALBI"
+INCLUDE "../YSort.ALBI"
+INCLUDE "sprites.albi"
+INCLUDE "controls.albi"
+IMPORT Sprites
+IMPORT YSort
+IMPORT Controls
+
+MODULE Sprites
+    PROCEDURE Setup()
+    END PROCEDURE
+
+    PROCEDURE DrawColonist(sx AS S32, sy AS S32, body_col AS S32, clothes_col AS S32, skin_col AS S32, hair_col AS S32, mood_col AS S32, priority AS S32)
+        LET zoom AS S32 = Controls.GetZoom()
+        LET cx AS S32 = S32(VIRTUAL_WIDTH) / 2
+        LET cy AS S32 = S32(VIRTUAL_HEIGHT) / 2
+        LET zx AS S32 = cx + (sx - cx) * zoom / 100
+        LET zy AS S32 = cy + (sy - cy) * zoom / 100
+
+        LET body_w AS S32 = (14 * zoom) / 100
+        LET body_h AS S32 = (14 * zoom) / 100
+        LET clothes_w AS S32 = (10 * zoom) / 100
+        LET clothes_h AS S32 = (10 * zoom) / 100
+        LET head_w AS S32 = (8 * zoom) / 100
+        LET head_h AS S32 = (8 * zoom) / 100
+        LET hair_w AS S32 = (6 * zoom) / 100
+        LET hair_h AS S32 = (4 * zoom) / 100
+        LET shadow_w AS S32 = (16 * zoom) / 100
+        LET shadow_h AS S32 = (4 * zoom) / 100
+        LET mood_w AS S32 = (4 * zoom) / 100
+        LET mood_h AS S32 = (4 * zoom) / 100
+
+        LET body_off AS S32 = (7 * zoom) / 100
+        LET head_off AS S32 = (18 * zoom) / 100
+        LET hair_off AS S32 = (22 * zoom) / 100
+        LET mood_off AS S32 = (26 * zoom) / 100
+
+        IF body_w < 2 THEN body_w = 2 END IF
+        IF body_h < 2 THEN body_h = 2 END IF
+        IF head_w < 2 THEN head_w = 2 END IF
+
+        YSort.Push(0, 0, 0, 0, 0, zx - shadow_w / 2, zy - shadow_h / 2, shadow_w, shadow_h, $222222, priority + 0)
+        YSort.Push(0, 0, 0, 0, 0, zx - body_w / 2, zy - body_off - body_h / 2, body_w, body_h, body_col, priority + 1)
+        YSort.Push(0, 0, 0, 0, 0, zx - clothes_w / 2, zy - body_off - clothes_h / 2, clothes_w, clothes_h, clothes_col, priority + 2)
+        YSort.Push(0, 0, 0, 0, 0, zx - head_w / 2, zy - head_off - head_h / 2, head_w, head_h, skin_col, priority + 3)
+        YSort.Push(0, 0, 0, 0, 0, zx - hair_w / 2, zy - hair_off - hair_h / 2, hair_w, hair_h, hair_col, priority + 4)
+        YSort.Push(0, 0, 0, 0, 0, zx - mood_w / 2, zy - mood_off - mood_h / 2, mood_w, mood_h, mood_col, priority + 5)
+    END PROCEDURE
+
+    PROCEDURE DrawBerry(sx AS S32, sy AS S32, priority AS S32)
+        LET zoom AS S32 = Controls.GetZoom()
+        LET cx AS S32 = S32(VIRTUAL_WIDTH) / 2
+        LET cy AS S32 = S32(VIRTUAL_HEIGHT) / 2
+        LET zx AS S32 = cx + (sx - cx) * zoom / 100
+        LET zy AS S32 = cy + (sy - cy) * zoom / 100
+
+        LET bw AS S32 = (10 * zoom) / 100
+        LET bh AS S32 = (10 * zoom) / 100
+        LET stem_w AS S32 = (2 * zoom) / 100
+        LET stem_h AS S32 = (4 * zoom) / 100
+        IF stem_w < 1 THEN stem_w = 1 END IF
+
+        YSort.Push(0, 0, 0, 0, 0, zx - bw / 2, zy - bh / 2, bw, bh, $FF3333, priority + 0)
+        YSort.Push(0, 0, 0, 0, 0, zx - stem_w / 2, zy - bh / 2 - stem_h, stem_w, stem_h, $33AA33, priority + 1)
+    END PROCEDURE
+
+    PROCEDURE DrawBuilding(sx AS S32, sy AS S32, kind AS U8, col AS S32, priority AS S32)
+        LET zoom AS S32 = Controls.GetZoom()
+        LET cx AS S32 = S32(VIRTUAL_WIDTH) / 2
+        LET cy AS S32 = S32(VIRTUAL_HEIGHT) / 2
+        LET zx AS S32 = cx + (sx - cx) * zoom / 100
+        LET zy AS S32 = cy + (sy - cy) * zoom / 100
+
+        LET bw AS S32 = (32 * zoom) / 100
+        LET bh AS S32 = (32 * zoom) / 100
+        LET border AS S32 = 1
+        IF bw > 16 THEN border = 2 END IF
+
+        YSort.Push(0, 0, 0, 0, 0, zx, zy, bw, bh, col, priority + 0)
+        YSort.Push(0, 0, 0, 0, 0, zx + border, zy + border, bw - border * 2, bh - border * 2, $000000, priority + 1)
+    END PROCEDURE
+
+    PROCEDURE DrawTerrainTile(sx AS S32, sy AS S32, kind AS U8, col AS S32, priority AS S32)
+        LET zoom AS S32 = Controls.GetZoom()
+        LET cx AS S32 = S32(VIRTUAL_WIDTH) / 2
+        LET cy AS S32 = S32(VIRTUAL_HEIGHT) / 2
+        LET zx AS S32 = cx + (sx - cx) * zoom / 100
+        LET zy AS S32 = cy + (sy - cy) * zoom / 100
+
+        LET tw AS S32 = (32 * zoom) / 100
+        LET th AS S32 = (32 * zoom) / 100
+        IF tw < 4 THEN tw = 4 END IF
+        IF th < 4 THEN th = 4 END IF
+
+        YSort.Push(0, 0, 0, 0, 0, zx, zy, tw, th, col, priority + 0)
+    END PROCEDURE
+END MODULE

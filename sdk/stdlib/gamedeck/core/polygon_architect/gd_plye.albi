@@ -1,0 +1,90 @@
+-- Twin of Ada PlyePreeve. Streams GdPoly verts into a preview ledger + VGPU.
+VERSION 1.0
+
+DECLARE MODULE GdPlye
+    PROCEDURE Setup()
+    PROCEDURE IngestPoly()
+    PROCEDURE NoteVert()
+    PROCEDURE PresentPreview(ox AS S32, oy AS S32)
+    FUNCTION VertN() AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdPlye
+
+    STRICT sx[256] AS S32
+    STRICT sy[256] AS S32
+    LET n AS S32 = 0
+
+    PROCEDURE Setup()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 256
+            sx[i] = 0
+            sy[i] = 0
+            i = i + 1
+        END WHILE
+        n = 0
+    END PROCEDURE
+
+    PROCEDURE NoteVert()
+        ASSERT(n >= 0)
+        ASSERT(n < 256)
+        n = n + 1
+        sx[n] = 0
+        sy[n] = 0
+    END PROCEDURE
+
+    PROCEDURE IngestPoly()
+        LET i AS S32 = 1
+        LET vn AS S32 = 0
+        LET x AS S32 = 0
+        LET y AS S32 = 0
+        LET z AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        Setup()
+        vn = GdPoly.VertN()
+        WHILE i <= vn
+            IF n >= 256 THEN
+                RETURN
+            END IF
+            x = GdPoly.VertX(i)
+            y = GdPoly.VertY(i)
+            z = GdPoly.VertZ(i)
+            n = n + 1
+            sx[n] = x + z / 2
+            sy[n] = y - z / 2
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PresentPreview(ox AS S32, oy AS S32)
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= n
+            GdVgpu.RectFill(ox + sx[i], oy + sy[i], 2, 2, 14)
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION VertN() AS S32
+        ASSERT(n >= 0)
+        ASSERT(n <= 256)
+        RETURN n
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        GdPoly.MakeBox(0, 0, 0, 3, 3, 3)
+        IngestPoly()
+        IF n = 24 THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

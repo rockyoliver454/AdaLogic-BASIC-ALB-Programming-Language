@@ -1,0 +1,22 @@
+-- ============================================================================
+-- alb_com.albi — thin ALB binding for vendor/com (ole32 + oleaut32)
+-- ============================================================================
+VERSION 0.1
+
+IMPORT_DLL FUNCTION alb_com_version() AS S32 FROM ("alb_com.dll")
+IMPORT_DLL FUNCTION alb_com_loader_init() AS S32 FROM ("alb_com.dll")
+IMPORT_DLL PROCEDURE alb_com_loader_shutdown() FROM ("alb_com.dll")
+IMPORT_DLL FUNCTION alb_com_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_com.dll")
+IMPORT_DLL PROCEDURE alb_com_device_destroy(device AS S64) FROM ("alb_com.dll")
+IMPORT_DLL FUNCTION alb_com_initialize(apartment AS S32) AS S32 FROM ("alb_com.dll")
+IMPORT_DLL PROCEDURE alb_com_uninitialize() FROM ("alb_com.dll")
+IMPORT_DLL FUNCTION alb_com_create_by_progid(progid AS S64, out_obj AS S64) AS S32 FROM ("alb_com.dll")
+IMPORT_DLL FUNCTION alb_com_create_by_clsid(clsid AS S64, out_obj AS S64) AS S32 FROM ("alb_com.dll")
+IMPORT_DLL PROCEDURE alb_com_object_release(obj AS S64) FROM ("alb_com.dll")
+IMPORT_DLL FUNCTION alb_com_get_string_prop(obj AS S64, name AS S64, buf AS S64, buflen AS S32) AS S32 FROM ("alb_com.dll")
+IMPORT_DLL FUNCTION alb_com_get_int_prop(obj AS S64, name AS S64, out_value AS S64) AS S32 FROM ("alb_com.dll")
+IMPORT_DLL FUNCTION alb_com_invoke_method0(obj AS S64, name AS S64) AS S32 FROM ("alb_com.dll")
+IMPORT_DLL FUNCTION alb_com_bstr_alloc(utf8 AS S64, out_bstr AS S64) AS S32 FROM ("alb_com.dll")
+IMPORT_DLL PROCEDURE alb_com_bstr_free(bstr AS S64) FROM ("alb_com.dll")
+IMPORT_DLL FUNCTION alb_com_last_hresult() AS S32 FROM ("alb_com.dll")
+IMPORT_DLL FUNCTION alb_com_test_probe() AS S32 FROM ("alb_com.dll")

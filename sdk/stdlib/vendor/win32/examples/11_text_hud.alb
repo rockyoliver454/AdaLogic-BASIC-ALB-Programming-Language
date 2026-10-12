@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_win32.albi"
+
+LET rc = alb_win32_test_text_hud(90)
+IF rc = 0 THEN
+  PRINT "win32 text_hud PASS"
+ELSE
+  PRINT "win32 text_hud FAIL " | rc
+END IF
+END

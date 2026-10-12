@@ -1,0 +1,45 @@
+-- Integer 2D helpers. Sub-pixel work stays in PURE at the call site.
+VERSION 1.0
+
+DECLARE MODULE GdVec2
+    FUNCTION Add(a AS S32, b AS S32) AS S32
+    FUNCTION Sub(a AS S32, b AS S32) AS S32
+    FUNCTION Dist2(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+    FUNCTION ClipI(v AS S32, lo AS S32, hi AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdVec2
+
+    FUNCTION Add(a AS S32, b AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN a + b
+    END FUNCTION
+
+    FUNCTION Sub(a AS S32, b AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN a - b
+    END FUNCTION
+
+    FUNCTION Dist2(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+        LET dx AS S32 = ax - bx
+        LET dy AS S32 = ay - by
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN dx * dx + dy * dy
+    END FUNCTION
+
+    FUNCTION ClipI(v AS S32, lo AS S32, hi AS S32) AS S32 REQUIRE hi >= lo
+        ASSERT(hi >= lo)
+        ASSERT(1 = 1)
+        IF v < lo THEN
+            RETURN lo
+        END IF
+        IF v > hi THEN
+            RETURN hi
+        END IF
+        RETURN v
+    END FUNCTION
+
+END MODULE

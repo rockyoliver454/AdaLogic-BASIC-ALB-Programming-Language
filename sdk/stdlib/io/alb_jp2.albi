@@ -1,0 +1,97 @@
+-- ============================================================================
+-- ALBJp2 — JPEG 2000 codestream or JP2 file
+-- ============================================================================
+-- Kind() 1: raw J2K, starts FF 4F (SOC). Kind() 2: JP2, `jP  ` signature
+-- box and/or `ftyp` `jp2 `.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_jp2.albi"
+--
+-- ProbeBuf()  0 ok. SIZ / COD / wavelet decode is not implemented.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBJp2
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION Kind() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBJp2
+
+    -- 1-based window. Kind 1 = SOC FF 4F, Kind 2 = jP  / jp2  signature box.
+    STRICT src[4096] AS U8
+    LET srclen AS S32 = 0
+    LET kindn AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        kindn = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 4096 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION Four(i AS S32, a AS S32, b AS S32, c AS S32, d AS S32) AS S32
+        IF CAST(src[i] AS S32) <> a THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 1] AS S32) <> b THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 2] AS S32) <> c THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 3] AS S32) <> d THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        kindn = 0
+        IF srclen < 8 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        -- 255 79 = SOC (FF 4F) raw J2K. Else jP  at 5 or jp2  at 9.
+        IF src[1] = 255 THEN
+            IF src[2] = 79 THEN
+                kindn = 1
+                lastst = 0
+                RETURN lastst
+            END IF
+        END IF
+        IF Four(5, 106, 80, 32, 32) <> 0 THEN
+            kindn = 2
+            lastst = 0
+            RETURN lastst
+        END IF
+        IF Four(9, 106, 112, 50, 32) <> 0 THEN
+            kindn = 2
+            lastst = 0
+            RETURN lastst
+        END IF
+        lastst = 3
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION Kind() AS S32
+        RETURN kindn
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

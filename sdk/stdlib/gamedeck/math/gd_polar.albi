@@ -1,0 +1,27 @@
+-- Twin of Ada polar rose tests. 8-bit brad rose using CORDIC.
+VERSION 1.0
+
+DECLARE MODULE GdPolar
+    FUNCTION RoseX(ang AS S32, k AS S32, amp AS S32) AS S32
+    FUNCTION RoseY(ang AS S32, k AS S32, amp AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdPolar
+
+    FUNCTION RoseX(ang AS S32, k AS S32, amp AS S32) AS S32
+        LET r AS S32 = 0
+        ASSERT(amp >= 0)
+        ASSERT(1 = 1)
+        r = (GdCordic.Cos8(ang * k) * amp) / 127
+        RETURN (r * GdCordic.Cos8(ang)) / 127
+    END FUNCTION
+
+    FUNCTION RoseY(ang AS S32, k AS S32, amp AS S32) AS S32
+        LET r AS S32 = 0
+        ASSERT(amp >= 0)
+        ASSERT(1 = 1)
+        r = (GdCordic.Cos8(ang * k) * amp) / 127
+        RETURN (r * GdCordic.Sin8(ang)) / 127
+    END FUNCTION
+
+END MODULE

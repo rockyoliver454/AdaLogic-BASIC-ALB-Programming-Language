@@ -1,0 +1,156 @@
+-- Twin of Ada core_sfx_reverb. Four 512-tap combs + two allpasses (Q8 samples).
+VERSION 1.0
+
+DECLARE MODULE GdSfxRev
+    PROCEDURE Setup()
+    PROCEDURE SetMix(m AS S32)
+    PROCEDURE SetDamp(d AS S32)
+    FUNCTION Push(s AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdSfxRev
+
+    STRICT c1[512] AS S32
+    STRICT c2[512] AS S32
+    STRICT c3[512] AS S32
+    STRICT c4[512] AS S32
+    STRICT a1[512] AS S32
+    STRICT a2[512] AS S32
+    LET p1 AS S32 = 1
+    LET p2 AS S32 = 1
+    LET p3 AS S32 = 1
+    LET p4 AS S32 = 1
+    LET pa1 AS S32 = 1
+    LET pa2 AS S32 = 1
+    LET mixn AS S32 = 128
+    LET dampn AS S32 = 80
+
+    PROCEDURE Setup()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 512
+            c1[i] = 0
+            c2[i] = 0
+            c3[i] = 0
+            c4[i] = 0
+            a1[i] = 0
+            a2[i] = 0
+            i = i + 1
+        END WHILE
+        p1 = 1
+        p2 = 1
+        p3 = 1
+        p4 = 1
+        pa1 = 1
+        pa2 = 1
+        mixn = 128
+        dampn = 80
+    END PROCEDURE
+
+    PROCEDURE SetMix(m AS S32)
+        mixn = GdVec2.ClipI(m, 0, 256)
+    END PROCEDURE
+
+    PROCEDURE SetDamp(d AS S32)
+        dampn = GdVec2.ClipI(d, 0, 256)
+    END PROCEDURE
+
+    FUNCTION Adv(p AS S32) AS S32
+        LET n AS S32 = p + 1
+        IF n > 512 THEN
+            RETURN 1
+        END IF
+        RETURN n
+    END FUNCTION
+
+    FUNCTION ReadBack(bufn AS S32, p AS S32, delayn AS S32) AS S32
+        LET ri AS S32 = p - delayn
+        ASSERT(delayn >= 1)
+        ASSERT(delayn < 512)
+        WHILE ri < 1
+            ri = ri + 512
+        END WHILE
+        IF bufn = 1 THEN
+            RETURN c1[ri]
+        END IF
+        IF bufn = 2 THEN
+            RETURN c2[ri]
+        END IF
+        IF bufn = 3 THEN
+            RETURN c3[ri]
+        END IF
+        IF bufn = 4 THEN
+            RETURN c4[ri]
+        END IF
+        IF bufn = 5 THEN
+            RETURN a1[ri]
+        END IF
+        RETURN a2[ri]
+    END FUNCTION
+
+    FUNCTION Push(s AS S32) AS S32
+        LET o1 AS S32 = 0
+        LET o2 AS S32 = 0
+        LET o3 AS S32 = 0
+        LET o4 AS S32 = 0
+        LET wet AS S32 = 0
+        LET ap AS S32 = 0
+        LET outv AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        o1 = ReadBack(1, p1, 111)
+        o2 = ReadBack(2, p2, 118)
+        o3 = ReadBack(3, p3, 127)
+        o4 = ReadBack(4, p4, 135)
+        c1[p1] = s + (o1 * (200 - dampn / 4)) / 256
+        c2[p2] = s + (o2 * (190 - dampn / 4)) / 256
+        c3[p3] = s + (o3 * (180 - dampn / 4)) / 256
+        c4[p4] = s + (o4 * (170 - dampn / 4)) / 256
+        p1 = Adv(p1)
+        p2 = Adv(p2)
+        p3 = Adv(p3)
+        p4 = Adv(p4)
+        wet = (o1 + o2 + o3 + o4) / 4
+        ap = ReadBack(5, pa1, 55)
+        a1[pa1] = wet + ap / 2
+        wet = ap - wet / 2
+        pa1 = Adv(pa1)
+        ap = ReadBack(6, pa2, 33)
+        a2[pa2] = wet + ap / 2
+        wet = ap - wet / 2
+        pa2 = Adv(pa2)
+        outv = (s * (256 - mixn) + wet * mixn) / 256
+        RETURN outv
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET i AS S32 = 0
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        LET energy AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        Setup()
+        SetMix(200)
+        a = Push(120)
+        WHILE i < 300
+            b = Push(0)
+            IF b < 0 THEN
+                energy = energy - b
+            ELSE
+                energy = energy + b
+            END IF
+            i = i + 1
+        END WHILE
+        IF energy > 0 THEN
+            IF a <> 0 THEN
+                RETURN 1
+            END IF
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

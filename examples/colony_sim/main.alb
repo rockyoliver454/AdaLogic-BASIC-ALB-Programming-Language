@@ -1,0 +1,119 @@
+INCLUDE "../SCREEN.ALBI"
+INCLUDE "../INPUT.ALBI"
+INCLUDE "../ZLevels.ALBI"
+INCLUDE "../ZDepth.ALBI"
+INCLUDE "../YSort.ALBI"
+
+IMPORT ZLevels
+IMPORT ZDepth
+IMPORT YSort
+
+INCLUDE "world.albi"
+INCLUDE "agents.albi"
+INCLUDE "terrain.albi"
+INCLUDE "colony.albi"
+INCLUDE "renderer.albi"
+INCLUDE "sprites.albi"
+INCLUDE "controls.albi"
+INCLUDE "simulation.albi"
+INCLUDE "ai.albi"
+INCLUDE "gathering.albi"
+INCLUDE "buildings.albi"
+INCLUDE "weather.albi"
+INCLUDE "research.albi"
+INCLUDE "lighting.albi"
+INCLUDE "menu.albi"
+INCLUDE "Freezer.albi"
+INCLUDE "AppState.albi"
+INCLUDE "Settings.albi"
+INCLUDE "SaveGame.albi"
+
+IMPORT World
+IMPORT Agents
+IMPORT Terrain
+IMPORT Colony
+IMPORT Renderer
+IMPORT Sprites
+IMPORT Controls
+IMPORT Simulation
+IMPORT AI
+IMPORT Gathering
+IMPORT Buildings
+IMPORT Weather
+IMPORT Research
+IMPORT Lighting
+IMPORT Menu
+IMPORT Freezer
+IMPORT AppState
+IMPORT Settings
+IMPORT SaveGame
+
+INCLUDE "world.alb"
+INCLUDE "agents.alb"
+INCLUDE "terrain.alb"
+INCLUDE "colony.alb"
+INCLUDE "renderer.alb"
+INCLUDE "sprites.alb"
+INCLUDE "controls.alb"
+INCLUDE "ai.alb"
+INCLUDE "gathering.alb"
+INCLUDE "buildings.alb"
+INCLUDE "weather.alb"
+INCLUDE "research.alb"
+INCLUDE "lighting.alb"
+INCLUDE "AppState.alb"
+INCLUDE "Settings.alb"
+INCLUDE "Freezer.alb"
+INCLUDE "SaveGame.alb"
+INCLUDE "simulation.alb"
+INCLUDE "menu.alb"
+
+#SCREEN_W = 1280
+#SCREEN_H = 720
+
+BEGIN
+    VERSION 1.0.0.0
+
+    Settings.Setup()
+
+    CREATE_WINDOW "COLONY SIM", #SCREEN_W, #SCREEN_H
+    INIT_SCREEN()
+
+    AppState.ResetForBoot()
+    SaveGame.Setup()
+    Menu.Setup()
+
+    ON TICK
+        IF Menu.IsInMenu() THEN
+            Menu.Stage1_Input()
+            IF Menu.IsQuitting() THEN
+                CEASE
+            END IF
+        ELSE
+            IF AppState.IsGameInitialized() = 0 THEN
+                Simulation.Setup()
+                AppState.SetGameInitialized(1)
+            END IF
+            Simulation.Stage1_Input()
+            IF Controls.ConsumeMenuRequest() = 1 THEN
+                Menu.OpenPauseMenu()
+                Controls.ClearTransientInput()
+            ELSE
+                Simulation.Stage2_Simulate()
+            END IF
+        END IF
+    END
+
+    ON PAINT
+        IF Menu.IsInMenu() THEN
+            IF Menu.WantsGameplayBackdrop() = 1 THEN
+                Simulation.Stage3_Render()
+            END IF
+            Menu.Stage3_Render()
+        ELSE
+            Simulation.Stage3_Render()
+        END IF
+    END
+
+    LISTEN
+END

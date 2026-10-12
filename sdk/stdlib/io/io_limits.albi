@@ -1,0 +1,40 @@
+-- ============================================================================
+-- io_limits.albi — shared numbers for alb_* file parsers
+-- ============================================================================
+-- INCLUDE this if you want the #IO_* names in your program. Parsers also
+-- hard-code the same values, so omitting this file still compiles.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/io_limits.albi"
+--
+-- #IO_WIN   4 KiB refill used by ALBWin.LoadText (text). Binary loads use
+--           one-byte READ so a 0x00 in the file is not treated as EOF.
+-- #IO_CAP   fail-closed max bytes ALBWin will hold (65536). Larger files
+--           set Err()=2 and store nothing.
+--
+-- Status codes returned by alb_* ProbeBuf / DecodeBuf / WalkBuf / LoadBuf:
+--   0  ok            1  missing path     2  over cap
+--   3  bad magic     4  truncated        5  unsupported variant
+--
+-- STRICT arrays in these modules are 1-based. AND / OR / XOR are bitwise.
+-- The | operator concatenates strings (it is not bitwise OR).
+-- ============================================================================
+
+VERSION 1.0
+
+#IO_WIN = 4096
+#IO_CAP = 65536
+#IO_PNG_MAX_W = 256
+#IO_PNG_MAX_H = 256
+#IO_ZIP_MAX_FILES = 64
+#IO_TAR_MAX_FILES = 64
+#IO_MP4_MAX_BOXES = 128
+#IO_FITS_CARD = 2880
+#IO_TOML_MAX_KEYS = 64
+#IO_OBJ_MAX_V = 256
+#IO_OK = 0
+#IO_MISS = 1
+#IO_CAP_HIT = 2
+#IO_MAGIC = 3
+#IO_TRUNC = 4
+#IO_UNSUPPORTED = 5

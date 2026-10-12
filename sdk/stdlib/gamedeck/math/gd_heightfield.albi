@@ -1,0 +1,72 @@
+-- Twin of Ada geo_heightfield. 64-wide integer heights.
+VERSION 1.0
+
+DECLARE MODULE GdHeight
+    PROCEDURE Bake(seed AS S32)
+    FUNCTION HeightAt(x AS S32) AS S32
+    FUNCTION SlopeAt(x AS S32) AS S32
+    PROCEDURE PresentSky(horizon AS S32)
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdHeight
+
+    STRICT ht[64] AS S32
+
+    PROCEDURE Bake(seed AS S32)
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 64
+            ht[i] = 40 + (GdHash.ByteOf(i, 0, seed) / 4)
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION HeightAt(x AS S32) AS S32
+        LET i AS S32 = x
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF i < 1 THEN
+            i = 1
+        END IF
+        IF i > 64 THEN
+            i = 64
+        END IF
+        RETURN ht[i]
+    END FUNCTION
+
+    FUNCTION SlopeAt(x AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN HeightAt(x + 1) - HeightAt(x)
+    END FUNCTION
+
+    PROCEDURE PresentSky(horizon AS S32)
+        LET x AS S32 = 0
+        LET h AS S32 = 0
+        ASSERT(horizon > 0)
+        ASSERT(horizon < 360)
+        WHILE x < 64
+            h = HeightAt(x + 1)
+            COLOR $1E3A5F
+            FILL RECT x * 10, 0, 10, horizon
+            COLOR $14532D
+            FILL RECT x * 10, horizon - h, 10, h + 80
+            x = x + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        Bake(3)
+        IF HeightAt(1) >= 40 THEN
+            IF SlopeAt(1) <> 100000 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

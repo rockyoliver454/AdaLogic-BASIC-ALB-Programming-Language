@@ -1,0 +1,279 @@
+-- ====================================================================
+-- DOS_CONFIG.ALBI
+-- Minimal INI/CFG-style parsing helpers for DOS applications.
+-- ====================================================================
+
+FUNCTION DOSCFG_Is_Newline_At(blob_text AS STRING, idx AS U16) AS BOOL
+    LET blob_len AS U16 = CAST(LEN(blob_text) AS U16)
+
+    IF idx >= blob_len THEN RETURN FALSE END IF
+    IF MID$(blob_text, idx, 1) <> "\" THEN RETURN FALSE END IF
+    IF MID$(blob_text, idx + 1, 1) <> "n" THEN RETURN FALSE END IF
+    RETURN TRUE
+END FUNCTION
+
+FUNCTION DOSCFG_Substr(source_text AS STRING, first_idx AS U16, count AS U16) AS STRING
+    LET out_text AS STRING = ""
+    LET idx AS U16 = 0
+    LET text_len AS U16 = CAST(LEN(source_text) AS U16)
+
+    IF count = 0 THEN RETURN "" END IF
+    IF first_idx = 0 THEN RETURN "" END IF
+    IF first_idx > text_len THEN RETURN "" END IF
+
+    FOR idx = 0 TO count - 1 THEN
+        IF first_idx + idx <= text_len THEN
+            out_text = CONCAT(out_text, MID$(source_text, first_idx + idx, 1))
+        END IF
+    END FOR
+
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSCFG_Upper_Char(ch AS STRING) AS STRING
+    IF ch = "a" THEN RETURN "A" END IF
+    IF ch = "b" THEN RETURN "B" END IF
+    IF ch = "c" THEN RETURN "C" END IF
+    IF ch = "d" THEN RETURN "D" END IF
+    IF ch = "e" THEN RETURN "E" END IF
+    IF ch = "f" THEN RETURN "F" END IF
+    IF ch = "g" THEN RETURN "G" END IF
+    IF ch = "h" THEN RETURN "H" END IF
+    IF ch = "i" THEN RETURN "I" END IF
+    IF ch = "j" THEN RETURN "J" END IF
+    IF ch = "k" THEN RETURN "K" END IF
+    IF ch = "l" THEN RETURN "L" END IF
+    IF ch = "m" THEN RETURN "M" END IF
+    IF ch = "n" THEN RETURN "N" END IF
+    IF ch = "o" THEN RETURN "O" END IF
+    IF ch = "p" THEN RETURN "P" END IF
+    IF ch = "q" THEN RETURN "Q" END IF
+    IF ch = "r" THEN RETURN "R" END IF
+    IF ch = "s" THEN RETURN "S" END IF
+    IF ch = "t" THEN RETURN "T" END IF
+    IF ch = "u" THEN RETURN "U" END IF
+    IF ch = "v" THEN RETURN "V" END IF
+    IF ch = "w" THEN RETURN "W" END IF
+    IF ch = "x" THEN RETURN "X" END IF
+    IF ch = "y" THEN RETURN "Y" END IF
+    IF ch = "z" THEN RETURN "Z" END IF
+    RETURN CONCAT(ch, "")
+END FUNCTION
+
+FUNCTION DOSCFG_Upper(source_text AS STRING) AS STRING
+    LET out_text AS STRING = ""
+    LET idx AS U16 = 1
+    LET text_len AS U16 = CAST(LEN(source_text) AS U16)
+
+    FOR idx = 1 TO text_len THEN
+        out_text = CONCAT(out_text, DOSCFG_Upper_Char(MID$(source_text, idx, 1)))
+    END FOR
+
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSCFG_Trim(source_text AS STRING) AS STRING
+    LET text_len AS U16 = CAST(LEN(source_text) AS U16)
+    LET first_pos AS U16 = 0
+    LET last_pos AS U16 = 0
+    LET idx AS U16 = 1
+    LET ch AS STRING = ""
+
+    IF text_len = 0 THEN RETURN "" END IF
+
+    FOR idx = 1 TO text_len THEN
+        ch = MID$(source_text, idx, 1)
+        IF ch <> " " THEN
+            IF first_pos = 0 THEN first_pos = idx END IF
+            last_pos = idx
+        END IF
+    END FOR
+
+    IF first_pos = 0 THEN RETURN "" END IF
+
+    RETURN DOSCFG_Substr(source_text, first_pos, last_pos - first_pos + 1)
+END FUNCTION
+
+FUNCTION DOSCFG_Key_Line(key_text AS STRING, value_text AS STRING) AS STRING
+    LET out_text AS STRING = DOSCFG_Trim(key_text)
+
+    out_text = CONCAT(out_text, "=")
+    out_text = CONCAT(out_text, DOSCFG_Trim(value_text))
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSCFG_Section(section_text AS STRING) AS STRING
+    LET out_text AS STRING = "["
+
+    out_text = CONCAT(out_text, DOSCFG_Trim(section_text))
+    out_text = CONCAT(out_text, "]")
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSCFG_Is_Section_Line(line_text AS STRING) AS BOOL
+    LET clean_text AS STRING = DOSCFG_Trim(line_text)
+    LET clean_len AS U16 = CAST(LEN(clean_text) AS U16)
+
+    IF clean_len < 3 THEN RETURN FALSE END IF
+    IF MID$(clean_text, 1, 1) <> "[" THEN RETURN FALSE END IF
+    IF MID$(clean_text, clean_len, 1) <> "]" THEN RETURN FALSE END IF
+    RETURN TRUE
+END FUNCTION
+
+FUNCTION DOSCFG_Section_Name(line_text AS STRING) AS STRING
+    LET clean_text AS STRING = DOSCFG_Trim(line_text)
+    LET clean_len AS U16 = CAST(LEN(clean_text) AS U16)
+
+    IF DOSCFG_Is_Section_Line(clean_text) = FALSE THEN RETURN "" END IF
+    RETURN DOSCFG_Substr(clean_text, 2, clean_len - 2)
+END FUNCTION
+
+FUNCTION DOSCFG_Line_Key(line_text AS STRING) AS STRING
+    LET clean_text AS STRING = DOSCFG_Trim(line_text)
+    LET clean_len AS U16 = CAST(LEN(clean_text) AS U16)
+    LET idx AS U16 = 1
+
+    FOR idx = 1 TO clean_len THEN
+        IF MID$(clean_text, idx, 1) = "=" THEN
+            IF idx = 1 THEN RETURN "" END IF
+            RETURN DOSCFG_Trim(DOSCFG_Substr(clean_text, 1, idx - 1))
+        END IF
+    END FOR
+
+    RETURN DOSCFG_Trim(clean_text)
+END FUNCTION
+
+FUNCTION DOSCFG_Line_Value(line_text AS STRING) AS STRING
+    LET clean_text AS STRING = DOSCFG_Trim(line_text)
+    LET clean_len AS U16 = CAST(LEN(clean_text) AS U16)
+    LET idx AS U16 = 1
+
+    FOR idx = 1 TO clean_len THEN
+        IF MID$(clean_text, idx, 1) = "=" THEN
+            IF idx >= clean_len THEN RETURN "" END IF
+            RETURN DOSCFG_Trim(DOSCFG_Substr(clean_text, idx + 1, clean_len - idx))
+        END IF
+    END FOR
+
+    RETURN ""
+END FUNCTION
+
+FUNCTION DOSCFG_Line_Is_Comment(line_text AS STRING) AS BOOL
+    LET clean_text AS STRING = DOSCFG_Trim(line_text)
+
+    IF LEN(clean_text) = 0 THEN RETURN TRUE END IF
+    IF MID$(clean_text, 1, 1) = ";" THEN RETURN TRUE END IF
+    IF MID$(clean_text, 1, 1) = "#" THEN RETURN TRUE END IF
+    RETURN FALSE
+END FUNCTION
+
+FUNCTION DOSCFG_Find_Value(blob_text AS STRING, key_text AS STRING, fallback_text AS STRING) AS STRING
+    LET wanted_key AS STRING = DOSCFG_Upper(DOSCFG_Trim(key_text))
+    LET line_text AS STRING = ""
+    LET blob_len AS U16 = CAST(LEN(blob_text) AS U16)
+    LET idx AS U16 = 1
+    LET ch AS STRING = ""
+    LET clean_line AS STRING = ""
+    LET skip_next AS BOOL = FALSE
+
+    FOR idx = 1 TO blob_len THEN
+        IF skip_next THEN
+            skip_next = FALSE
+        ELSE
+            ch = MID$(blob_text, idx, 1)
+            IF DOSCFG_Is_Newline_At(blob_text, idx) THEN
+                clean_line = DOSCFG_Trim(line_text)
+                IF DOSCFG_Line_Is_Comment(clean_line) = FALSE THEN
+                    IF DOSCFG_Is_Section_Line(clean_line) = FALSE THEN
+                        IF DOSCFG_Upper(DOSCFG_Line_Key(clean_line)) = wanted_key THEN
+                            RETURN DOSCFG_Line_Value(clean_line)
+                        END IF
+                    END IF
+                END IF
+                line_text = ""
+                skip_next = TRUE
+            ELSE
+                line_text = CONCAT(line_text, ch)
+            END IF
+        END IF
+    END FOR
+
+    clean_line = DOSCFG_Trim(line_text)
+    IF DOSCFG_Line_Is_Comment(clean_line) = FALSE THEN
+        IF DOSCFG_Is_Section_Line(clean_line) = FALSE THEN
+            IF DOSCFG_Upper(DOSCFG_Line_Key(clean_line)) = wanted_key THEN
+                RETURN DOSCFG_Line_Value(clean_line)
+            END IF
+        END IF
+    END IF
+
+    RETURN fallback_text
+END FUNCTION
+
+FUNCTION DOSCFG_Find_In_Section(blob_text AS STRING, section_text AS STRING, key_text AS STRING, fallback_text AS STRING) AS STRING
+    LET wanted_section AS STRING = DOSCFG_Upper(DOSCFG_Trim(section_text))
+    LET wanted_key AS STRING = DOSCFG_Upper(DOSCFG_Trim(key_text))
+    LET line_text AS STRING = ""
+    LET blob_len AS U16 = CAST(LEN(blob_text) AS U16)
+    LET idx AS U16 = 1
+    LET ch AS STRING = ""
+    LET clean_line AS STRING = ""
+    LET active_section AS BOOL = FALSE
+    LET skip_next AS BOOL = FALSE
+
+    FOR idx = 1 TO blob_len THEN
+        IF skip_next THEN
+            skip_next = FALSE
+        ELSE
+            ch = MID$(blob_text, idx, 1)
+            IF DOSCFG_Is_Newline_At(blob_text, idx) THEN
+                clean_line = DOSCFG_Trim(line_text)
+                IF DOSCFG_Line_Is_Comment(clean_line) = FALSE THEN
+                    IF DOSCFG_Is_Section_Line(clean_line) THEN
+                        active_section = DOSCFG_Upper(DOSCFG_Section_Name(clean_line)) = wanted_section
+                    ELSE
+                        IF active_section THEN
+                            IF DOSCFG_Upper(DOSCFG_Line_Key(clean_line)) = wanted_key THEN
+                                RETURN DOSCFG_Line_Value(clean_line)
+                            END IF
+                        END IF
+                    END IF
+                END IF
+                line_text = ""
+                skip_next = TRUE
+            ELSE
+                line_text = CONCAT(line_text, ch)
+            END IF
+        END IF
+    END FOR
+
+    clean_line = DOSCFG_Trim(line_text)
+    IF DOSCFG_Line_Is_Comment(clean_line) = FALSE THEN
+        IF DOSCFG_Is_Section_Line(clean_line) THEN
+            active_section = DOSCFG_Upper(DOSCFG_Section_Name(clean_line)) = wanted_section
+        ELSE
+            IF active_section THEN
+                IF DOSCFG_Upper(DOSCFG_Line_Key(clean_line)) = wanted_key THEN
+                    RETURN DOSCFG_Line_Value(clean_line)
+                END IF
+            END IF
+        END IF
+    END IF
+
+    RETURN fallback_text
+END FUNCTION
+
+FUNCTION DOSCFG_Parse_Bool(source_text AS STRING, fallback_value AS BOOL) AS BOOL
+    LET value_text AS STRING = DOSCFG_Upper(DOSCFG_Trim(source_text))
+
+    IF value_text = "TRUE" THEN RETURN TRUE END IF
+    IF value_text = "YES" THEN RETURN TRUE END IF
+    IF value_text = "ON" THEN RETURN TRUE END IF
+    IF value_text = "1" THEN RETURN TRUE END IF
+    IF value_text = "FALSE" THEN RETURN FALSE END IF
+    IF value_text = "NO" THEN RETURN FALSE END IF
+    IF value_text = "OFF" THEN RETURN FALSE END IF
+    IF value_text = "0" THEN RETURN FALSE END IF
+
+    RETURN fallback_value
+END FUNCTION

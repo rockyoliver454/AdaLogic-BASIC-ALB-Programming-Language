@@ -1,0 +1,52 @@
+-- Named cue -> PLAY SOUND. Bake WAVs in GAMEDECK-8.0/assets.
+VERSION 1.0
+
+DECLARE MODULE GdSfxLedger
+    PROCEDURE FireCue(cue AS S32)
+    FUNCTION LastCue() AS S32
+END DECLARE MODULE
+
+MODULE GdSfxLedger
+
+    LET last_id AS S32 = 0
+
+    PROCEDURE FireCue(cue AS S32) REQUIRE cue >= 0
+        ASSERT(cue >= 0)
+        ASSERT(cue <= 9)
+        last_id = cue
+        IF cue = 1 THEN
+            PLAY SOUND "beep.wav"
+        END IF
+        IF cue = 2 THEN
+            PLAY SOUND "shot.wav"
+        END IF
+        IF cue = 3 THEN
+            PLAY SOUND "walk.wav"
+        END IF
+        IF cue = 4 THEN
+            PLAY SOUND "hurt.wav"
+        END IF
+        IF cue = 5 THEN
+            PLAY SOUND "spear.wav"
+        END IF
+        IF cue = 6 THEN
+            PLAY SOUND "ui.wav"
+        END IF
+        IF cue = 7 THEN
+            PLAY SOUND "rain.wav"
+        END IF
+        IF cue = 8 THEN
+            PLAY SOUND "craft.wav"
+        END IF
+        IF cue = 9 THEN
+            PLAY SOUND "hop.wav"
+        END IF
+    END PROCEDURE
+
+    FUNCTION LastCue() AS S32
+        ASSERT(last_id >= 0)
+        ASSERT(last_id <= 9)
+        RETURN last_id
+    END FUNCTION
+
+END MODULE

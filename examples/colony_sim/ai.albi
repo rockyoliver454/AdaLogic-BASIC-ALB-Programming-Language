@@ -1,0 +1,7 @@
+DECLARE MODULE AI
+    PROCEDURE Setup()
+    PROCEDURE TickAgent(idx AS U16)
+    FUNCTION FindNearestBerry(ax AS S32, ay AS S32, az AS S32) AS S32
+    FUNCTION FindNearestHome(ax AS S32, ay AS S32, az AS S32) AS S32
+    FUNCTION WanderDirection() AS S32
+END DECLARE MODULE

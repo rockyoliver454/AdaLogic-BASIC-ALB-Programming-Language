@@ -1,0 +1,237 @@
+-- ====================================================================
+-- SPLITTER.ALBI
+-- Particle engine for 320x200 demos (fasm16 + fasm/SDL).
+--
+-- SPLIT_P[].col holds a color SLOT (0..5), not a VGA index. DRAW paths use
+-- RGB via SPLIT_Apply_Color so particles match COLOR $RRGGBB text.
+--
+-- PARALLEL block: cache-friendly SoA layout (see test_window01.alb).
+--
+-- NOTE: fasm16 cdecl cleanup counts U8 params as 1 byte but call sites
+-- always push a word. Use U16 for every PROCEDURE/FUNCTION parameter.
+-- ====================================================================
+
+#SPLIT_POOL = 36
+#SPLIT_W = 320
+#SPLIT_H = 200
+#SPLIT_SPLIT_LIFE = 10
+
+#SPLIT_SLOT_GREEN = 0
+#SPLIT_SLOT_MAGENTA = 1
+#SPLIT_SLOT_BLUE = 2
+#SPLIT_SLOT_YELLOW = 3
+#SPLIT_SLOT_CYAN = 4
+#SPLIT_SLOT_RED = 5
+
+PARALLEL SPLIT_P[#SPLIT_POOL]
+    x AS U16
+    y AS U16
+    dx AS S32
+    dy AS S32
+    col AS U8
+    life AS U8
+    size AS U8
+END PARALLEL
+
+LET SPLIT_FRAME AS U16 = 0
+
+FUNCTION SPLIT_Shift_Slot(color_slot AS U16, delta AS U16) AS U8
+    RETURN CAST((color_slot + delta) MOD 6 AS U8)
+END FUNCTION
+
+FUNCTION SPLIT_Rainbow_Index(hue_seed AS U16) AS U8
+    RETURN CAST(hue_seed MOD 6 AS U8)
+END FUNCTION
+
+PROCEDURE SPLIT_Apply_Color(color_slot AS U16)
+    IF color_slot = #SPLIT_SLOT_GREEN THEN
+        COLOR $00FF00
+        RETURN
+    END IF
+    IF color_slot = #SPLIT_SLOT_MAGENTA THEN
+        COLOR $FF00FF
+        RETURN
+    END IF
+    IF color_slot = #SPLIT_SLOT_BLUE THEN
+        COLOR $0000FF
+        RETURN
+    END IF
+    IF color_slot = #SPLIT_SLOT_YELLOW THEN
+        COLOR $FFFF00
+        RETURN
+    END IF
+    IF color_slot = #SPLIT_SLOT_CYAN THEN
+        COLOR $00FFFF
+        RETURN
+    END IF
+    COLOR $FF3300
+END PROCEDURE
+
+FUNCTION SPLIT_Clamp_X(value AS S16) AS U16
+    IF value < 1 THEN RETURN 1 END IF
+    IF value > 318 THEN RETURN 318 END IF
+    RETURN CAST(value AS U16)
+END FUNCTION
+
+FUNCTION SPLIT_Clamp_Y(value AS S16) AS U16
+    IF value < 1 THEN RETURN 1 END IF
+    IF value > 198 THEN RETURN 198 END IF
+    RETURN CAST(value AS U16)
+END FUNCTION
+
+PROCEDURE SPLIT_Boost_Velocity(slot AS U16)
+    IF SPLIT_P[slot].dx < 0 THEN
+        SPLIT_P[slot].dx = SPLIT_P[slot].dx - 1
+    ELSE
+        SPLIT_P[slot].dx = SPLIT_P[slot].dx + 1
+    END IF
+
+    IF SPLIT_P[slot].dy < 0 THEN
+        SPLIT_P[slot].dy = SPLIT_P[slot].dy - 1
+    ELSE
+        IF SPLIT_P[slot].dy < 6 THEN SPLIT_P[slot].dy = SPLIT_P[slot].dy + 1 END IF
+    END IF
+END PROCEDURE
+
+PROCEDURE SPLIT_Reset()
+    LET idx AS U16 = 1
+
+    SPLIT_FRAME = 0
+    FOR idx = 1 TO #SPLIT_POOL THEN
+        SPLIT_P[idx].life = 0
+        SPLIT_P[idx].size = 0
+    END FOR
+END PROCEDURE
+
+PROCEDURE SPLIT_Spawn(x_pos AS U16, y_pos AS U16, x_vel AS S16, y_vel AS S16, color_slot AS U16, life_ticks AS U16, pixel_size AS U16)
+    LET idx AS U16 = 1
+
+    FOR idx = 1 TO #SPLIT_POOL THEN
+        IF SPLIT_P[idx].life = 0 THEN
+            SPLIT_P[idx].x = x_pos
+            SPLIT_P[idx].y = y_pos
+            SPLIT_P[idx].dx = CAST(x_vel AS S32)
+            SPLIT_P[idx].dy = CAST(y_vel AS S32)
+            SPLIT_P[idx].col = CAST(color_slot MOD 6 AS U8)
+            SPLIT_P[idx].life = CAST(life_ticks AS U8)
+            SPLIT_P[idx].size = CAST(pixel_size AS U8)
+            idx = #SPLIT_POOL
+        END IF
+    END FOR
+END PROCEDURE
+
+PROCEDURE SPLIT_Subdivide_Slot(slot AS U16)
+    LET base_x AS U16 = SPLIT_P[slot].x
+    LET base_y AS U16 = SPLIT_P[slot].y
+    LET base_dx AS S16 = CAST(SPLIT_P[slot].dx AS S16)
+    LET base_dy AS S16 = CAST(SPLIT_P[slot].dy AS S16)
+    LET base_slot AS U16 = CAST(SPLIT_P[slot].col AS U16)
+    LET child_life AS U16 = #SPLIT_SPLIT_LIFE - 1
+
+    SPLIT_P[slot].life = 0
+    SPLIT_P[slot].size = 0
+
+    CALL SPLIT_Spawn(base_x, base_y, base_dx - 2, base_dy - 2, CAST(SPLIT_Shift_Slot(base_slot, 1) AS U16), child_life, 1)
+    CALL SPLIT_Spawn(base_x + 1, base_y, base_dx + 2, base_dy - 2, CAST(SPLIT_Shift_Slot(base_slot, 2) AS U16), child_life, 1)
+    CALL SPLIT_Spawn(base_x, base_y + 1, base_dx - 2, base_dy + 2, CAST(SPLIT_Shift_Slot(base_slot, 3) AS U16), child_life, 1)
+    CALL SPLIT_Spawn(base_x + 1, base_y + 1, base_dx + 2, base_dy + 2, CAST(SPLIT_Shift_Slot(base_slot, 4) AS U16), child_life, 1)
+END PROCEDURE
+
+PROCEDURE SPLIT_Tick()
+    LET idx AS U16 = 1
+    LET next_x AS S16 = 0
+    LET next_y AS S16 = 0
+
+    SPLIT_FRAME = SPLIT_FRAME + 1
+
+    FOR idx = 1 TO #SPLIT_POOL THEN
+        IF SPLIT_P[idx].life > 0 THEN
+            next_x = CAST(SPLIT_P[idx].x AS S16) + CAST(SPLIT_P[idx].dx AS S16)
+            next_y = CAST(SPLIT_P[idx].y AS S16) + CAST(SPLIT_P[idx].dy AS S16)
+
+            IF next_x < 1 OR next_x > 318 THEN
+                SPLIT_P[idx].dx = 0 - SPLIT_P[idx].dx
+                CALL SPLIT_Boost_Velocity(idx)
+            END IF
+
+            IF next_y < 1 OR next_y > 198 THEN
+                SPLIT_P[idx].dy = 0 - SPLIT_P[idx].dy
+                CALL SPLIT_Boost_Velocity(idx)
+            END IF
+
+            next_x = CAST(SPLIT_P[idx].x AS S16) + CAST(SPLIT_P[idx].dx AS S16)
+            next_y = CAST(SPLIT_P[idx].y AS S16) + CAST(SPLIT_P[idx].dy AS S16)
+            SPLIT_P[idx].x = SPLIT_Clamp_X(next_x)
+            SPLIT_P[idx].y = SPLIT_Clamp_Y(next_y)
+
+            SPLIT_P[idx].dy = SPLIT_P[idx].dy + 1
+            SPLIT_P[idx].life = SPLIT_P[idx].life - 1
+
+            IF SPLIT_P[idx].life > 0 THEN
+                IF SPLIT_FRAME MOD 5 = 0 THEN
+                    SPLIT_P[idx].col = SPLIT_Rainbow_Index(CAST(SPLIT_FRAME + idx AS U16))
+                END IF
+            END IF
+
+            IF SPLIT_P[idx].life = #SPLIT_SPLIT_LIFE AND SPLIT_P[idx].size = 2 THEN
+                CALL SPLIT_Subdivide_Slot(idx)
+            END IF
+
+            IF SPLIT_P[idx].life = 0 THEN SPLIT_P[idx].size = 0 END IF
+        END IF
+    END FOR
+END PROCEDURE
+
+PROCEDURE SPLIT_Draw()
+    LET idx AS U16 = 1
+    LET color_slot AS U16 = 0
+    LET halo_slot AS U16 = 0
+
+    FOR idx = 1 TO #SPLIT_POOL THEN
+        IF SPLIT_P[idx].life > 0 THEN
+            color_slot = CAST(SPLIT_P[idx].col AS U16)
+            halo_slot = CAST(SPLIT_Shift_Slot(color_slot, 1) AS U16)
+
+            IF SPLIT_FRAME MOD 4 >= 2 THEN
+                halo_slot = CAST(SPLIT_Shift_Slot(color_slot, 2) AS U16)
+            END IF
+
+            CALL SPLIT_Apply_Color(halo_slot)
+
+            IF SPLIT_P[idx].size >= 2 THEN
+                IF SPLIT_P[idx].x > 1 AND SPLIT_P[idx].y > 1 THEN
+                    FILL RECT SPLIT_P[idx].x - 1, SPLIT_P[idx].y - 1, 4, 4
+                ELSE
+                    FILL RECT SPLIT_P[idx].x, SPLIT_P[idx].y, 3, 3
+                END IF
+            ELSE
+                PLOT SPLIT_P[idx].x, SPLIT_P[idx].y
+                IF SPLIT_P[idx].x < 319 THEN PLOT SPLIT_P[idx].x + 1, SPLIT_P[idx].y END IF
+                IF SPLIT_P[idx].y < 199 THEN PLOT SPLIT_P[idx].x, SPLIT_P[idx].y + 1 END IF
+            END IF
+
+            CALL SPLIT_Apply_Color(color_slot)
+
+            IF SPLIT_P[idx].size >= 2 THEN
+                FILL RECT SPLIT_P[idx].x, SPLIT_P[idx].y, 2, 2
+            ELSE
+                PLOT SPLIT_P[idx].x, SPLIT_P[idx].y
+            END IF
+        END IF
+    END FOR
+END PROCEDURE
+
+PROCEDURE SPLIT_Fade_Trail(fade_alpha AS U16)
+    -- fasm16: skip full-screen alpha fade (per-pixel plots freeze DOS).
+    -- SDL builds can call SPLIT_Fade_Trail_SDL instead.
+    IF fade_alpha = 0 THEN
+        RETURN
+    END IF
+END PROCEDURE
+
+PROCEDURE SPLIT_Fade_Trail_SDL(fade_alpha AS U16)
+    SET_ALPHA 1, CAST(fade_alpha AS U8)
+    COLOR 0
+    FILL RECT 0, 0, #SPLIT_W, #SPLIT_H
+    SET_ALPHA 1, 255
+END PROCEDURE

@@ -1,0 +1,90 @@
+-- Twin of Ada core_console_text. Bounded input line, length cap 64.
+VERSION 1.0
+
+DECLARE MODULE GdConText
+    FUNCTION MaxLen() AS S32
+    FUNCTION ClipLen(n AS S32) AS S32
+    PROCEDURE WipeBuf()
+    PROCEDURE PushCh(ch AS S32)
+    PROCEDURE Back()
+    FUNCTION CountN() AS S32
+    FUNCTION ByteAt(i AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdConText
+
+    STRICT buf[64] AS U8
+    LET n AS S32 = 0
+
+    FUNCTION MaxLen() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 64
+    END FUNCTION
+
+    FUNCTION ClipLen(n0 AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN GdVec2.ClipI(n0, 0, 64)
+    END FUNCTION
+
+    PROCEDURE WipeBuf()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 64
+            buf[i] = 0
+            i = i + 1
+        END WHILE
+        n = 0
+    END PROCEDURE
+
+    PROCEDURE PushCh(ch AS S32)
+        ASSERT(ch >= 0)
+        ASSERT(ch <= 255)
+        IF n < 64 THEN
+            n = n + 1
+            buf[n] = U8(ch AND 255)
+        END IF
+    END PROCEDURE
+
+    PROCEDURE Back()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF n > 0 THEN
+            buf[n] = 0
+            n = n - 1
+        END IF
+    END PROCEDURE
+
+    FUNCTION CountN() AS S32
+        ASSERT(n >= 0)
+        ASSERT(n <= 64)
+        RETURN n
+    END FUNCTION
+
+    FUNCTION ByteAt(i AS S32) AS S32
+        ASSERT(i >= 1)
+        ASSERT(i <= 64)
+        IF i > n THEN
+            RETURN 0
+        END IF
+        RETURN S32(buf[i])
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WipeBuf()
+        PushCh(104)
+        PushCh(101)
+        IF CountN() = 2 THEN
+            IF ByteAt(1) = 104 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

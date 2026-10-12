@@ -1,0 +1,10 @@
+BEGIN
+VERSION 1.0
+INCLUDE "_mini_blas.albi"
+LET v AS S32 = alb_openblas_version()
+PRINT "ver="
+PRINT v
+LET rc AS S32 = alb_openblas_test_ddot()
+PRINT "ddot="
+PRINT rc
+END

@@ -1,0 +1,48 @@
+-- ====================================================================
+-- C64_MATH.ALBI
+-- U8/U16 math helpers safe for ALB-65 (no wide types).
+-- ====================================================================
+
+FUNCTION C64Math_ClampU16(value AS U16, lo AS U16, hi AS U16) AS U16
+    IF value < lo THEN RETURN lo END IF
+    IF value > hi THEN RETURN hi END IF
+    RETURN value
+END FUNCTION
+
+FUNCTION C64Math_ClampU8(value AS U8, lo AS U8, hi AS U8) AS U8
+    IF value < lo THEN RETURN lo END IF
+    IF value > hi THEN RETURN hi END IF
+    RETURN value
+END FUNCTION
+
+FUNCTION C64Math_MinU16(a AS U16, b AS U16) AS U16
+    IF a < b THEN RETURN a END IF
+    RETURN b
+END FUNCTION
+
+FUNCTION C64Math_MaxU16(a AS U16, b AS U16) AS U16
+    IF a > b THEN RETURN a END IF
+    RETURN b
+END FUNCTION
+
+FUNCTION C64Math_AbsS16(value AS S16) AS U16
+    IF value < 0 THEN RETURN CAST(0 - value AS U16) END IF
+    RETURN CAST(value AS U16)
+END FUNCTION
+
+PROCEDURE C64Math_RandTick(OUT seed AS U16)
+    seed = seed * 17 + 13
+END PROCEDURE
+
+FUNCTION C64Math_RandMod(seed AS U16, span AS U16) AS U16
+    IF span = 0 THEN RETURN 0 END IF
+    RETURN seed MOD span
+END FUNCTION
+
+FUNCTION C64Math_DistManhattan(x1 AS U16, y1 AS U16, x2 AS U16, y2 AS U16) AS U16
+    LET dx AS U16 = 0
+    LET dy AS U16 = 0
+    IF x1 > x2 THEN dx = x1 - x2 ELSE dx = x2 - x1 END IF
+    IF y1 > y2 THEN dy = y1 - y2 ELSE dy = y2 - y1 END IF
+    RETURN dx + dy
+END FUNCTION

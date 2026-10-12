@@ -1,0 +1,41 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+INCLUDE <alb_openblas.albi>
+INCLUDE <alb_nuklear.albi>
+
+LET fails AS S32 = 0
+LET rc AS S32 = 0
+LET i AS S32 = 0
+LET ver_blas AS S32 = 0
+LET ver_nk AS S32 = 0
+
+PRINT "step1"
+LET ver_blas = alb_openblas_version()
+LET ver_nk = alb_nuklear_version()
+PRINT "vers=" | ver_blas | "," | ver_nk
+
+PRINT "step2 openblas_test_all"
+LET rc = alb_openblas_test_all()
+PRINT "blas_rc=" | rc
+
+PRINT "step3 nuklear kitchen"
+LET rc = alb_nuklear_test_kitchen_frames(8)
+PRINT "nk_rc=" | rc
+
+PRINT "step4 gfx"
+LET ctx AS S64 = gfx_init(640, 480)
+PRINT "ctx=" | ctx
+IF ctx != 0 THEN
+  LET st AS S32 = 0
+  LET frame AS S32 = 0
+  FOR frame = 1 TO 30 THEN
+    LET st = gfx_begin_frame(ctx)
+    LET st = gfx_clear(ctx, 0.1, 0.1, 0.2, 1.0)
+    LET st = gfx_end_frame(ctx, 0)
+  END FOR
+  CALL gfx_shutdown(ctx)
+  PRINT "gfx ok"
+END IF
+PRINT "DONE"
+END

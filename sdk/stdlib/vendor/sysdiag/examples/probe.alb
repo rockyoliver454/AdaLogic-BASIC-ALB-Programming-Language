@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_sysdiag.albi"
+
+LET rc = alb_sysdiag_test_probe()
+IF rc = 0 THEN
+  PRINT "sysdiag probe PASS"
+ELSE
+  PRINT "sysdiag probe FAIL " | rc
+END IF
+END

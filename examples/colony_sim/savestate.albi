@@ -1,0 +1,4 @@
+DECLARE MODULE SaveState
+    PROCEDURE save_game_state(filename AS STRING)
+    PROCEDURE load_game_state(filename AS STRING)
+END DECLARE MODULE

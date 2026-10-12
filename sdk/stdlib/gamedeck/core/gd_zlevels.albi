@@ -1,0 +1,85 @@
+-- Twin of ZLevels.ALBI.
+VERSION 1.0
+
+DECLARE MODULE GdZLevels
+    FUNCTION GetPlayerZ() AS S32
+    PROCEDURE SetPlayerZ(level AS S32)
+    FUNCTION GetViewZ() AS S32
+    PROCEDURE SetViewZ(level AS S32)
+    PROCEDURE ShiftViewUp()
+    PROCEDURE ShiftViewDown()
+    FUNCTION GetVisibility(obj_z AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdZLevels
+
+    LET cur_player_z AS S32 = 0
+    LET cur_view_z AS S32 = 0
+
+    FUNCTION GetPlayerZ() AS S32
+        ASSERT(cur_player_z >= 0 - 128)
+        ASSERT(cur_player_z <= 127)
+        RETURN cur_player_z
+    END FUNCTION
+
+    PROCEDURE SetPlayerZ(level AS S32)
+        ASSERT(level >= 0 - 128)
+        ASSERT(level <= 127)
+        cur_player_z = level
+    END PROCEDURE
+
+    FUNCTION GetViewZ() AS S32
+        ASSERT(cur_view_z >= 0 - 128)
+        ASSERT(cur_view_z <= 127)
+        RETURN cur_view_z
+    END FUNCTION
+
+    PROCEDURE SetViewZ(level AS S32)
+        ASSERT(level >= 0 - 128)
+        ASSERT(level <= 127)
+        cur_view_z = level
+    END PROCEDURE
+
+    PROCEDURE ShiftViewUp()
+        ASSERT(cur_view_z <= 127)
+        ASSERT(cur_view_z >= 0 - 128)
+        IF cur_view_z < 127 THEN
+            cur_view_z = cur_view_z + 1
+        END IF
+    END PROCEDURE
+
+    PROCEDURE ShiftViewDown()
+        ASSERT(cur_view_z <= 127)
+        ASSERT(cur_view_z >= 0 - 128)
+        IF cur_view_z > 0 - 128 THEN
+            cur_view_z = cur_view_z - 1
+        END IF
+    END PROCEDURE
+
+    FUNCTION GetVisibility(obj_z AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF obj_z > cur_view_z THEN
+            RETURN 0
+        END IF
+        IF obj_z = cur_view_z THEN
+            RETURN 2
+        END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        SetViewZ(2)
+        SetPlayerZ(2)
+        IF GetVisibility(2) = 2 THEN
+            IF GetVisibility(3) = 0 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

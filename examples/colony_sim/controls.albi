@@ -1,0 +1,26 @@
+DECLARE MODULE Controls
+    PROCEDURE Setup()
+    PROCEDURE ReadInput()
+    PROCEDURE ClearTransientInput()
+    PROCEDURE RestoreState(cam_x_value AS S32, cam_y_value AS S32, cam_z_value AS S32, cam_vx_value AS S32, cam_vy_value AS S32, zoom_value AS S32, paused_value AS U8, speed_value AS U8, build_mode_value AS U8, ui_visible_value AS U8)
+    FUNCTION ConsumeMenuRequest() AS U8
+    FUNCTION ConsumeSelectionRelease() AS U8
+    FUNCTION IsSelectionDragging() AS U8
+    FUNCTION IsSelectionSubtracting() AS U8
+    FUNCTION GetSelectionStartX() AS S32
+    FUNCTION GetSelectionStartY() AS S32
+    FUNCTION GetSelectionEndX() AS S32
+    FUNCTION GetSelectionEndY() AS S32
+    FUNCTION ConsumeDraftToggleRequest() AS U8
+    FUNCTION ConsumeMoveOrderRequest() AS U8
+    FUNCTION GetMoveOrderScreenX() AS S32
+    FUNCTION GetMoveOrderScreenY() AS S32
+    FUNCTION GetCamX() AS S32
+    FUNCTION GetCamY() AS S32
+    FUNCTION GetCamZ() AS S32
+    FUNCTION GetZoom() AS S32
+    FUNCTION IsPaused() AS U8
+    FUNCTION GetTimeSpeed() AS U8
+    FUNCTION IsBuildMode() AS U8
+    FUNCTION IsUIVisible() AS U8
+END DECLARE MODULE

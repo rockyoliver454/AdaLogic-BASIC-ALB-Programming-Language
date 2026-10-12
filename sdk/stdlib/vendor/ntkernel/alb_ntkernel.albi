@@ -1,0 +1,21 @@
+-- ============================================================================
+-- alb_ntkernel.albi — thin ALB binding for vendor/ntkernel (ntdll C ABI)
+-- ============================================================================
+VERSION 0.1
+
+IMPORT_DLL FUNCTION alb_ntkernel_version() AS S32 FROM ("alb_ntkernel.dll")
+IMPORT_DLL FUNCTION alb_ntkernel_loader_init() AS S32 FROM ("alb_ntkernel.dll")
+IMPORT_DLL PROCEDURE alb_ntkernel_loader_shutdown() FROM ("alb_ntkernel.dll")
+IMPORT_DLL FUNCTION alb_ntkernel_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_ntkernel.dll")
+IMPORT_DLL PROCEDURE alb_ntkernel_device_destroy(device AS S64) FROM ("alb_ntkernel.dll")
+IMPORT_DLL FUNCTION alb_ntkernel_get_os_version(out_ver AS S64) AS S32 FROM ("alb_ntkernel.dll")
+IMPORT_DLL FUNCTION alb_ntkernel_get_system_basic(out_info AS S64) AS S32 FROM ("alb_ntkernel.dll")
+IMPORT_DLL FUNCTION alb_ntkernel_get_current_process_id() AS S32 FROM ("alb_ntkernel.dll")
+IMPORT_DLL FUNCTION alb_ntkernel_get_current_thread_id() AS S32 FROM ("alb_ntkernel.dll")
+IMPORT_DLL FUNCTION alb_ntkernel_delay_ms(ms AS S32) AS S32 FROM ("alb_ntkernel.dll")
+IMPORT_DLL FUNCTION alb_ntkernel_query_system_time(out_100ns AS S64) AS S32 FROM ("alb_ntkernel.dll")
+IMPORT_DLL FUNCTION alb_ntkernel_virtual_alloc(size AS S64, out_ptr AS S64) AS S32 FROM ("alb_ntkernel.dll")
+IMPORT_DLL FUNCTION alb_ntkernel_virtual_free(ptr AS S64) AS S32 FROM ("alb_ntkernel.dll")
+IMPORT_DLL FUNCTION alb_ntkernel_last_ntstatus() AS S32 FROM ("alb_ntkernel.dll")
+
+IMPORT_DLL FUNCTION alb_ntkernel_test_probe() AS S32 FROM ("alb_ntkernel.dll")

@@ -1,0 +1,11 @@
+DECLARE MODULE Research
+    PROCEDURE Setup()
+    PROCEDURE Process()
+    FUNCTION GetTechLevel(tech AS U8) AS U8
+    FUNCTION GetResearchProgress() AS U16
+    PROCEDURE SetState(progress AS U16, target AS U16, tech AS U8)
+    PROCEDURE SetTechLevel(tech AS U8, level AS U8)
+    PROCEDURE AddResearch(points AS U16)
+    FUNCTION IsTechUnlocked(tech AS U8) AS U8
+    FUNCTION MixChecksum(hash_value AS U64) AS U64
+END DECLARE MODULE

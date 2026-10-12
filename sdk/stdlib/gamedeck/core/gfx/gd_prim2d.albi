@@ -1,0 +1,55 @@
+-- Twin of Ada core_primitives2d. Integer fill/outline/shadow tiles.
+VERSION 1.0
+
+DECLARE MODULE GdPrim2d
+    PROCEDURE PresentFill(x AS S32, y AS S32, w AS S32, h AS S32, rgb AS S32)
+    PROCEDURE PresentFrame(x AS S32, y AS S32, w AS S32, h AS S32, rgb AS S32)
+    PROCEDURE PresentBtn(x AS S32, y AS S32, w AS S32, h AS S32, rgb AS S32, hover AS S32)
+    PROCEDURE PresentChip(x AS S32, y AS S32, rgb AS S32, hover AS S32)
+END DECLARE MODULE
+
+MODULE GdPrim2d
+
+    PROCEDURE PresentFill(x AS S32, y AS S32, w AS S32, h AS S32, rgb AS S32)
+        ASSERT(w > 0)
+        ASSERT(h > 0)
+        COLOR rgb
+        FILL RECT x, y, w, h
+    END PROCEDURE
+
+    PROCEDURE PresentFrame(x AS S32, y AS S32, w AS S32, h AS S32, rgb AS S32)
+        ASSERT(w > 2)
+        ASSERT(h > 2)
+        COLOR rgb
+        DRAW RECT x, y, w, h
+    END PROCEDURE
+
+    PROCEDURE PresentBtn(x AS S32, y AS S32, w AS S32, h AS S32, rgb AS S32, hover AS S32)
+        ASSERT(w > 8)
+        ASSERT(h > 8)
+        COLOR $020617
+        FILL RECT x + 6, y + 6, w, h
+        COLOR rgb
+        FILL RECT x, y, w, h
+        COLOR $0F172A
+        DRAW RECT x, y, w, h
+        IF hover = 1 THEN
+            COLOR $F8FAFC
+            DRAW RECT x, y, w, h
+        END IF
+    END PROCEDURE
+
+    PROCEDURE PresentChip(x AS S32, y AS S32, rgb AS S32, hover AS S32)
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $020617
+        FILL RECT x, y, 16, 16
+        COLOR rgb
+        DRAW RECT x, y, 16, 16
+        IF hover = 1 THEN
+            COLOR $FACC15
+            DRAW RECT x, y, 16, 16
+        END IF
+    END PROCEDURE
+
+END MODULE

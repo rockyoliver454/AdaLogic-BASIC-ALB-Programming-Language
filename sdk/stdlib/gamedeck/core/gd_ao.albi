@@ -1,0 +1,79 @@
+-- Tile AO: count blocked neighbors, return 0..4.
+VERSION 1.0
+
+DECLARE MODULE GdAO
+    FUNCTION LevelAt(px AS S32, py AS S32) AS S32
+    PROCEDURE ApplyFb()
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdAO
+
+    FUNCTION LevelAt(px AS S32, py AS S32) AS S32
+        LET n AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF GdChunk.WorldTile(px - 8, py) <> 0 THEN
+            n = n + 1
+        END IF
+        IF GdChunk.WorldTile(px + 8, py) <> 0 THEN
+            n = n + 1
+        END IF
+        IF GdChunk.WorldTile(px, py - 8) <> 0 THEN
+            n = n + 1
+        END IF
+        IF GdChunk.WorldTile(px, py + 8) <> 0 THEN
+            n = n + 1
+        END IF
+        RETURN n
+    END FUNCTION
+
+    PROCEDURE ApplyFb()
+        LET x AS S32 = 1
+        LET y AS S32 = 1
+        LET n AS S32 = 0
+        LET v AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE y < GdVgpu.FbH() - 1
+            x = 1
+            WHILE x < GdVgpu.FbW() - 1
+                n = 0
+                IF GdVgpu.Get(x - 1, y) < 16 THEN
+                    n = n + 1
+                END IF
+                IF GdVgpu.Get(x + 1, y) < 16 THEN
+                    n = n + 1
+                END IF
+                IF GdVgpu.Get(x, y - 1) < 16 THEN
+                    n = n + 1
+                END IF
+                IF GdVgpu.Get(x, y + 1) < 16 THEN
+                    n = n + 1
+                END IF
+                v = GdVgpu.Get(x, y) - n * 4
+                IF v < 0 THEN
+                    v = 0
+                END IF
+                GdVgpu.Put(x, y, v)
+                x = x + 1
+            END WHILE
+            y = y + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        GdVgpu.WipeFb(40)
+        GdVgpu.Put(0, 10, 4)
+        ApplyFb()
+        a = GdVgpu.Get(1, 10)
+        IF a < 40 THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

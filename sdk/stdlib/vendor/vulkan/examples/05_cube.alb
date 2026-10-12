@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_vulkan.albi"
+
+LET rc = alb_vulkan_test_cube(90)
+IF rc = 0 THEN
+  PRINT "vulkan cube PASS"
+ELSE
+  PRINT "vulkan cube FAIL " | rc
+END IF
+END

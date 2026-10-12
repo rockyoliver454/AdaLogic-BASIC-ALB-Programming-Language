@@ -1,0 +1,166 @@
+-- ============================================================================
+-- ALBHevc — Annex-B HEVC / H.265 start codes
+-- ============================================================================
+-- Same 00 00 01 / 00 00 00 01 scan as H.264. nal_unit_type is bits 1–6
+-- of the first header byte: (byte / 2) AND 63. SawVps() is 1 if type 32
+-- (VPS) appears.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_hevc.albi"
+--
+-- ProbeBuf()  0 if at least one NAL was seen. Reconstruct is ALBSkip
+-- kind 5 (host). HVCC in MP4 is not Annex-B.
+-- Window 4096. Feed with ALBWin.LoadPath.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBHevc
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION NalN() AS S32
+    FUNCTION SawVps() AS S32
+    FUNCTION SawSps() AS S32
+    FUNCTION SawPps() AS S32
+    FUNCTION SawIdr() AS S32
+    FUNCTION FirstType() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBHevc
+
+    -- 1-based window. nnAL = start-code count. vpsn = saw type 32.
+    STRICT src[4096] AS U8
+    LET srclen AS S32 = 0
+    LET nnAL AS S32 = 0
+    LET vpsn AS S32 = 0
+    LET spsn AS S32 = 0
+    LET ppsn AS S32 = 0
+    LET idrn AS S32 = 0
+    LET firstn AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        nnAL = 0
+        vpsn = 0
+        spsn = 0
+        ppsn = 0
+        idrn = 0
+        firstn = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 4096 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    -- 3 = 00 00 01, 4 = 00 00 00 01, 0 = not a start code.
+    FUNCTION StartAt(i AS S32) AS S32
+        IF i + 3 > srclen THEN
+            RETURN 0
+        END IF
+        IF src[i] <> 0 THEN
+            RETURN 0
+        END IF
+        IF src[i + 1] <> 0 THEN
+            RETURN 0
+        END IF
+        IF src[i + 2] = 1 THEN
+            RETURN 3
+        END IF
+        IF src[i + 2] <> 0 THEN
+            RETURN 0
+        END IF
+        IF i + 4 > srclen THEN
+            RETURN 0
+        END IF
+        IF src[i + 3] = 1 THEN
+            RETURN 4
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        LET i AS S32 = 1
+        LET sc AS S32 = 0
+        LET ntyp AS S32 = 0
+        nnAL = 0
+        vpsn = 0
+        spsn = 0
+        ppsn = 0
+        idrn = 0
+        firstn = 0
+        IF srclen < 6 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        WHILE i <= srclen
+            sc = StartAt(i)
+            IF sc > 0 THEN
+                IF i + sc + 1 > srclen THEN
+                    lastst = 4
+                    RETURN lastst
+                END IF
+                IF (CAST(src[i + sc] AS S32) AND 128) <> 0 THEN
+                    lastst = 5
+                    RETURN lastst
+                END IF
+                IF (CAST(src[i + sc + 1] AS S32) AND 7) = 0 THEN
+                    lastst = 5
+                    RETURN lastst
+                END IF
+                nnAL = nnAL + 1
+                ntyp = (CAST(src[i + sc] AS S32) / 2) AND 63
+                IF nnAL = 1 THEN firstn = ntyp END IF
+                IF ntyp = 32 THEN vpsn = 1 END IF
+                IF ntyp = 33 THEN spsn = 1 END IF
+                IF ntyp = 34 THEN ppsn = 1 END IF
+                IF ntyp = 19 OR ntyp = 20 THEN idrn = 1 END IF
+                i = i + sc + 2
+            ELSE
+                i = i + 1
+            END IF
+        END WHILE
+        IF nnAL < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION NalN() AS S32
+        RETURN nnAL
+    END FUNCTION
+
+    FUNCTION SawVps() AS S32
+        RETURN vpsn
+    END FUNCTION
+
+    FUNCTION SawSps() AS S32
+        RETURN spsn
+    END FUNCTION
+
+    FUNCTION SawPps() AS S32
+        RETURN ppsn
+    END FUNCTION
+
+    FUNCTION SawIdr() AS S32
+        RETURN idrn
+    END FUNCTION
+
+    FUNCTION FirstType() AS S32
+        RETURN firstn
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

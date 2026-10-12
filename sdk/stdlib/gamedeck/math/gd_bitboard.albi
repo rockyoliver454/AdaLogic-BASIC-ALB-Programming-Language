@@ -1,0 +1,62 @@
+-- Twin of Ada Bitboard. U64 chess-style occupancy.
+VERSION 1.0
+
+DECLARE MODULE GdBitboard
+    FUNCTION PopCount(b AS U64) AS S32
+    FUNCTION IsSet(b AS U64, idx AS S32) AS U64
+    FUNCTION SetBit(b AS U64, idx AS S32) AS U64
+    FUNCTION Intersects(a AS U64, b AS U64) AS U64
+END DECLARE MODULE
+
+MODULE GdBitboard
+
+    FUNCTION PopCount(b AS U64) AS S32
+        LET i AS S32 = 0
+        LET n AS S32 = 0
+        LET v AS U64 = b
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i < 64
+            IF (v AND 1) = 1 THEN
+                n = n + 1
+            END IF
+            v = v / 2
+            i = i + 1
+        END WHILE
+        RETURN n
+    END FUNCTION
+
+    FUNCTION IsSet(b AS U64, idx AS S32) AS U64 REQUIRE idx >= 0
+        LET i AS S32 = 0
+        LET v AS U64 = b
+        ASSERT(idx >= 0)
+        ASSERT(idx <= 63)
+        WHILE i < idx
+            v = v / 2
+            i = i + 1
+        END WHILE
+        RETURN v AND 1
+    END FUNCTION
+
+    FUNCTION SetBit(b AS U64, idx AS S32) AS U64 REQUIRE idx >= 0
+        LET i AS S32 = 0
+        LET p AS U64 = 1
+        ASSERT(idx >= 0)
+        ASSERT(idx <= 63)
+        WHILE i < idx
+            p = p * 2
+            i = i + 1
+        END WHILE
+        RETURN b OR p
+    END FUNCTION
+
+    FUNCTION Intersects(a AS U64, b AS U64) AS U64
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF (a AND b) = 0 THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,58 @@
+-- Twin of Ada Shaders_Combat. Window overlays plus VGPU flash/wave.
+VERSION 1.0
+
+DECLARE MODULE GdHitFx
+    PROCEDURE PresentFlash(n AS S32)
+    PROCEDURE PresentWave(cx AS S32, cy AS S32, r AS S32)
+    PROCEDURE PresentFreeze()
+    PROCEDURE PresentCrit()
+    PROCEDURE ApplyFlash()
+    PROCEDURE ApplyWave(cx AS S32, cy AS S32, r AS S32)
+END DECLARE MODULE
+
+MODULE GdHitFx
+
+    PROCEDURE PresentFlash(n AS S32)
+        ASSERT(n >= 0)
+        ASSERT(n <= 255)
+        IF n > 180 THEN
+            COLOR $F8FAFC
+            FILL RECT 0, 0, 640, 8
+        END IF
+    END PROCEDURE
+
+    PROCEDURE PresentWave(cx AS S32, cy AS S32, r AS S32)
+        ASSERT(r >= 4)
+        ASSERT(r <= 120)
+        COLOR $F8FAFC
+        FILL RECT cx - r, cy, r * 2, 2
+        FILL RECT cx, cy - r, 2, r * 2
+    END PROCEDURE
+
+    PROCEDURE PresentFreeze()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $E2E8F0
+        FILL RECT 0, 176, 640, 2
+    END PROCEDURE
+
+    PROCEDURE PresentCrit()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        GdChroma.PresentFringe()
+    END PROCEDURE
+
+    PROCEDURE ApplyFlash()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        GdVgpu.RectFill(0, 0, GdVgpu.FbW(), 6, 200)
+    END PROCEDURE
+
+    PROCEDURE ApplyWave(cx AS S32, cy AS S32, r AS S32)
+        ASSERT(r >= 2)
+        ASSERT(r <= 80)
+        GdVgpu.HLine(cx - r, cx + r, cy, 220)
+        GdVgpu.VLine(cx, cy - r, cy + r, 220)
+    END PROCEDURE
+
+END MODULE

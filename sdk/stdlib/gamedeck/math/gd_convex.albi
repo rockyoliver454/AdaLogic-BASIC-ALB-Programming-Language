@@ -1,0 +1,48 @@
+-- Twin of Ada geo_convex. Integer same-side triangle test.
+VERSION 1.0
+
+DECLARE MODULE GdConvex
+    FUNCTION InsideTri(ax AS S32, ay AS S32, bx AS S32, by AS S32, cx AS S32, cy AS S32, px AS S32, py AS S32) AS U64
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdConvex
+
+    FUNCTION InsideTri(ax AS S32, ay AS S32, bx AS S32, by AS S32, cx AS S32, cy AS S32, px AS S32, py AS S32) AS U64
+        LET ab AS S32 = 0
+        LET bc AS S32 = 0
+        LET ca AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        ab = GdVoronoi.Orient2(ax, ay, bx, by, px, py)
+        bc = GdVoronoi.Orient2(bx, by, cx, cy, px, py)
+        ca = GdVoronoi.Orient2(cx, cy, ax, ay, px, py)
+        IF ab >= 0 THEN
+            IF bc >= 0 THEN
+                IF ca >= 0 THEN
+                    RETURN 1
+                END IF
+            END IF
+        END IF
+        IF ab <= 0 THEN
+            IF bc <= 0 THEN
+                IF ca <= 0 THEN
+                    RETURN 1
+                END IF
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF InsideTri(0, 0, 8, 0, 0, 8, 2, 2) = 1 THEN
+            IF InsideTri(0, 0, 8, 0, 0, 8, 9, 9) = 0 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

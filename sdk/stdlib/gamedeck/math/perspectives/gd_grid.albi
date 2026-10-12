@@ -1,0 +1,23 @@
+-- Twin of Ada perspective_grid.
+VERSION 1.0
+
+DECLARE MODULE GdGrid
+    FUNCTION CellX(x AS S32, cell AS S32) AS S32
+    FUNCTION CellY(y AS S32, cell AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdGrid
+
+    FUNCTION CellX(x AS S32, cell AS S32) AS S32 REQUIRE cell > 0
+        ASSERT(cell > 0)
+        ASSERT(1 = 1)
+        RETURN x / cell
+    END FUNCTION
+
+    FUNCTION CellY(y AS S32, cell AS S32) AS S32 REQUIRE cell > 0
+        ASSERT(cell > 0)
+        ASSERT(1 = 1)
+        RETURN y / cell
+    END FUNCTION
+
+END MODULE

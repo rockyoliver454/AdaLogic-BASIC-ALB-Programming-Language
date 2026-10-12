@@ -1,0 +1,60 @@
+-- ============================================================================
+-- alb_d3d8.albi — thin ALB binding for vendor/d3d8 (C ABI, Win32/x86)
+-- ============================================================================
+-- IMPORTANT: alb_d3d8.dll is 32-bit. Host process must be Win32.
+-- Place alb_d3d8.dll beside the program (uses SysWOW64\d3d8.dll).
+-- ABI 0.2: depth_texture / msaa_query_scissor / all_shapes / run_all_features
+-- ============================================================================
+
+VERSION 0.2
+
+#ALB_D3D8_TOPOLOGY_POINTLIST = 1
+#ALB_D3D8_TOPOLOGY_LINELIST = 2
+#ALB_D3D8_TOPOLOGY_TRIANGLELIST = 4
+#ALB_D3D8_SHAPE_TRIANGLE = 0
+#ALB_D3D8_SHAPE_QUAD = 1
+#ALB_D3D8_SHAPE_STAR = 2
+#ALB_D3D8_SHAPE_NGON = 3
+#ALB_D3D8_SHAPE_GRID = 4
+#ALB_D3D8_SHAPE_POINTS = 5
+#ALB_D3D8_SHAPE_CUBE = 6
+#ALB_D3D8_SHAPE_COUNT = 7
+
+IMPORT_DLL FUNCTION alb_d3d8_version() AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_loader_init() AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL PROCEDURE alb_d3d8_loader_shutdown() FROM ("alb_d3d8.dll")
+
+IMPORT_DLL FUNCTION alb_d3d8_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL PROCEDURE alb_d3d8_device_destroy(device AS S64) FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_device_native(device AS S64) AS S64 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_device_d3d(device AS S64) AS S64 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_device_hwnd(device AS S64) AS S64 FROM ("alb_d3d8.dll")
+
+IMPORT_DLL FUNCTION alb_d3d8_context_create(desc AS S64, out_ctx AS S64) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_context_create_simple(width AS S32, height AS S32) AS S64 FROM ("alb_d3d8.dll")
+IMPORT_DLL PROCEDURE alb_d3d8_context_destroy(ctx AS S64) FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_context_begin_frame(ctx AS S64) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_context_clear(ctx AS S64, r AS F64, g AS F64, b AS F64, a AS F64) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_context_draw_prism_tetra(ctx AS S64, yaw AS F64, pitch AS F64, scale AS F64) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_context_draw_hello_triangle(ctx AS S64, yaw AS F64, pitch AS F64, scale AS F64) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_context_end_frame(ctx AS S64, vsync AS S32) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_context_device(ctx AS S64) AS S64 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_test_clear_cycle(frames AS S32) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_test_hello_triangle(frames AS S32) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_test_prism_tetra(frames AS S32) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_context_draw_colored_quad(ctx AS S64, yaw AS F64, pitch AS F64, scale AS F64) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_context_draw_cube(ctx AS S64, yaw AS F64, pitch AS F64, scale AS F64) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_context_draw_geometry(ctx AS S64, t AS F64) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_context_draw_lines(ctx AS S64, t AS F64) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_context_draw_points(ctx AS S64, t AS F64) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_context_draw_rectangles(ctx AS S64, t AS F64) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_test_colored_quad(frames AS S32) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_test_cube(frames AS S32) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_test_geometry(frames AS S32) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_test_lines(frames AS S32) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_test_points(frames AS S32) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_test_rectangles(frames AS S32) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_test_depth_texture(frames AS S32) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_test_msaa_query_scissor(frames AS S32) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_test_all_shapes(frames AS S32) AS S32 FROM ("alb_d3d8.dll")
+IMPORT_DLL FUNCTION alb_d3d8_run_all_features() AS S32 FROM ("alb_d3d8.dll")

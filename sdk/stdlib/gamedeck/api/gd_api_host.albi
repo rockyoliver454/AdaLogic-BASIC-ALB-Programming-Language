@@ -1,0 +1,23 @@
+-- Host bridge exports for letterbox / VGPU metrics.
+-- GdApi_Vgpu_Get / GdApi_Vgpu_Put come from codegen (GdVgpu.Get / Put).
+
+EXPORT_DLL FUNCTION GdApi_Host_ScreenToVgpuX(sx AS S32) AS S32
+EXPORT_DLL FUNCTION GdApi_Host_ScreenToVgpuY(sy AS S32) AS S32
+EXPORT_DLL FUNCTION GdApi_Host_VgpuW() AS S32
+EXPORT_DLL FUNCTION GdApi_Host_VgpuH() AS S32
+
+FUNCTION GdApi_Host_ScreenToVgpuX(sx AS S32) AS S32
+    RETURN GdVgpuBr.ScreenToVgpuX(sx)
+END FUNCTION
+
+FUNCTION GdApi_Host_ScreenToVgpuY(sy AS S32) AS S32
+    RETURN GdVgpuBr.ScreenToVgpuY(sy)
+END FUNCTION
+
+FUNCTION GdApi_Host_VgpuW() AS S32
+    RETURN #GD_VGPU_W
+END FUNCTION
+
+FUNCTION GdApi_Host_VgpuH() AS S32
+    RETURN #GD_VGPU_H
+END FUNCTION

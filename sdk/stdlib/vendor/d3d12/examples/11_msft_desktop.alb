@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_d3d12.albi"
+
+LET rc = alb_d3d12_sample_run_desktop()
+IF rc = 0 THEN
+  PRINT "msft desktop PASS"
+ELSE
+  PRINT "msft desktop FAIL " | rc
+END IF
+END

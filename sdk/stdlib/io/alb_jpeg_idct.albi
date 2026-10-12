@@ -1,0 +1,317 @@
+-- Purpose: zig-zag table + AAN 8x8 inverse DCT (ALB twin of JayPeg_Idct)
+-- Safety: personal / educational tooling only - not a certified media pipeline
+-- Note: Ada Inverse uses I64 temporaries; ALB S32 covers the DC goldens and
+-- modest AC. Hostile Coef_Cap (2^20) values are Ada-only headroom.
+DECLARE MODULE JayPeg_Idct BEGIN
+    PROCEDURE Fill_Zz
+    END PROCEDURE
+    FUNCTION Zig_Zag(k AS S32) AS S32
+    FUNCTION Clamp_Sample(v AS S32) AS U8
+    FUNCTION Dc_Only_Sample(dc AS S32) AS U8
+    FUNCTION Inverse_Dc0() AS U8
+    FUNCTION Inverse_Dc8() AS U8
+    FUNCTION Sample(i AS S32) AS U8
+END DECLARE MODULE
+MODULE JayPeg_Idct BEGIN
+    STRICT zz[64] AS S32
+    STRICT coefs[64] AS S32
+    STRICT ws[64] AS S32
+    STRICT samples[64] AS U8
+    LET zz_ready AS S32 = 0
+
+    FUNCTION Pow2(n AS S32) AS S32
+        LET r AS S32 = 1
+        LET i AS S32 = 0
+        WHILE i < n
+            LET r = r * 2
+            LET i = i + 1
+        END WHILE
+        RETURN r
+    END FUNCTION
+
+    FUNCTION Descale(v AS S32, n AS S32) AS S32
+        LET scale AS S32 = 1
+        LET q AS S32 = 0
+        IF n = 0 THEN
+            RETURN v
+        END IF
+        LET scale = JayPeg_Idct.Pow2(n)
+        LET q = v + (scale / 2)
+        IF q >= 0 THEN
+            RETURN q / scale
+        END IF
+        RETURN 0 - (((0 - q) + scale - 1) / scale)
+    END FUNCTION
+
+    PROCEDURE Fill_Zz
+        LET zz[1] = 0
+        LET zz[2] = 1
+        LET zz[3] = 8
+        LET zz[4] = 16
+        LET zz[5] = 9
+        LET zz[6] = 2
+        LET zz[7] = 3
+        LET zz[8] = 10
+        LET zz[9] = 17
+        LET zz[10] = 24
+        LET zz[11] = 32
+        LET zz[12] = 25
+        LET zz[13] = 18
+        LET zz[14] = 11
+        LET zz[15] = 4
+        LET zz[16] = 5
+        LET zz[17] = 12
+        LET zz[18] = 19
+        LET zz[19] = 26
+        LET zz[20] = 33
+        LET zz[21] = 40
+        LET zz[22] = 48
+        LET zz[23] = 41
+        LET zz[24] = 34
+        LET zz[25] = 27
+        LET zz[26] = 20
+        LET zz[27] = 13
+        LET zz[28] = 6
+        LET zz[29] = 7
+        LET zz[30] = 14
+        LET zz[31] = 21
+        LET zz[32] = 28
+        LET zz[33] = 35
+        LET zz[34] = 42
+        LET zz[35] = 49
+        LET zz[36] = 56
+        LET zz[37] = 57
+        LET zz[38] = 50
+        LET zz[39] = 43
+        LET zz[40] = 36
+        LET zz[41] = 29
+        LET zz[42] = 22
+        LET zz[43] = 15
+        LET zz[44] = 23
+        LET zz[45] = 30
+        LET zz[46] = 37
+        LET zz[47] = 44
+        LET zz[48] = 51
+        LET zz[49] = 58
+        LET zz[50] = 59
+        LET zz[51] = 52
+        LET zz[52] = 45
+        LET zz[53] = 38
+        LET zz[54] = 31
+        LET zz[55] = 39
+        LET zz[56] = 46
+        LET zz[57] = 53
+        LET zz[58] = 60
+        LET zz[59] = 61
+        LET zz[60] = 54
+        LET zz[61] = 47
+        LET zz[62] = 55
+        LET zz[63] = 62
+        LET zz[64] = 63
+        LET zz_ready = 1
+    END PROCEDURE
+
+    FUNCTION Zig_Zag(k AS S32) AS S32
+        IF zz_ready = 0 THEN
+            JayPeg_Idct.Fill_Zz()
+        END IF
+        IF k < 0 THEN
+            RETURN 0
+        END IF
+        IF k > 63 THEN
+            RETURN 0
+        END IF
+        RETURN zz[k + 1]
+    END FUNCTION
+
+    FUNCTION Clamp_Sample(v AS S32) AS U8
+        IF v < 0 THEN
+            RETURN 0
+        END IF
+        IF v > 255 THEN
+            RETURN 255
+        END IF
+        RETURN CAST(v AS U8)
+    END FUNCTION
+
+    FUNCTION Dc_Only_Sample(dc AS S32) AS U8
+        RETURN JayPeg_Idct.Clamp_Sample(JayPeg_Idct.Descale(dc, 3) + 128)
+    END FUNCTION
+
+    PROCEDURE Clear_Coefs
+        LET i AS S32 = 1
+        WHILE i <= 64
+            LET coefs[i] = 0
+            LET i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE Inverse
+        LET c AS S32 = 0
+        LET r AS S32 = 0
+        LET ac_free AS S32 = 0
+        LET d AS S32 = 0
+        LET z1 AS S32 = 0
+        LET z2 AS S32 = 0
+        LET z3 AS S32 = 0
+        LET z4 AS S32 = 0
+        LET z5 AS S32 = 0
+        LET t0 AS S32 = 0
+        LET t1 AS S32 = 0
+        LET t2 AS S32 = 0
+        LET t3 AS S32 = 0
+        LET t10 AS S32 = 0
+        LET t11 AS S32 = 0
+        LET t12 AS S32 = 0
+        LET t13 AS S32 = 0
+        LET cb13 AS S32 = 8192
+        LET f0298 AS S32 = 2446
+        LET f0390 AS S32 = 3196
+        LET f0541 AS S32 = 4433
+        LET f0765 AS S32 = 6270
+        LET f0899 AS S32 = 7373
+        LET f1175 AS S32 = 9633
+        LET f1501 AS S32 = 12299
+        LET f1847 AS S32 = 15137
+        LET f1961 AS S32 = 16069
+        LET f2053 AS S32 = 16819
+        LET f2562 AS S32 = 20995
+        LET f3072 AS S32 = 25172
+        LET c = 0
+        WHILE c <= 7
+            LET ac_free = 1
+            LET r = 1
+            WHILE r <= 7
+                IF coefs[r * 8 + c + 1] <> 0 THEN
+                    LET ac_free = 0
+                END IF
+                LET r = r + 1
+            END WHILE
+            IF ac_free = 1 THEN
+                LET d = coefs[c + 1] * 4
+                LET r = 0
+                WHILE r <= 7
+                    LET ws[r * 8 + c + 1] = d
+                    LET r = r + 1
+                END WHILE
+            ELSE
+                LET z2 = coefs[16 + c + 1]
+                LET z3 = coefs[48 + c + 1]
+                LET z1 = (z2 + z3) * f0541
+                LET t2 = z1 + z3 * (0 - f1847)
+                LET t3 = z1 + z2 * f0765
+                LET z2 = coefs[c + 1]
+                LET z3 = coefs[32 + c + 1]
+                LET t0 = (z2 + z3) * cb13
+                LET t1 = (z2 - z3) * cb13
+                LET t10 = t0 + t3
+                LET t13 = t0 - t3
+                LET t11 = t1 + t2
+                LET t12 = t1 - t2
+                LET t0 = coefs[56 + c + 1]
+                LET t1 = coefs[40 + c + 1]
+                LET t2 = coefs[24 + c + 1]
+                LET t3 = coefs[8 + c + 1]
+                LET z1 = t0 + t3
+                LET z2 = t1 + t2
+                LET z3 = t0 + t2
+                LET z4 = t1 + t3
+                LET z5 = (z3 + z4) * f1175
+                LET t0 = t0 * f0298
+                LET t1 = t1 * f2053
+                LET t2 = t2 * f3072
+                LET t3 = t3 * f1501
+                LET z1 = z1 * (0 - f0899)
+                LET z2 = z2 * (0 - f2562)
+                LET z3 = z3 * (0 - f1961)
+                LET z4 = z4 * (0 - f0390)
+                LET z3 = z3 + z5
+                LET z4 = z4 + z5
+                LET t0 = t0 + z1 + z3
+                LET t1 = t1 + z2 + z4
+                LET t2 = t2 + z2 + z3
+                LET t3 = t3 + z1 + z4
+                LET ws[c + 1] = JayPeg_Idct.Descale(t10 + t3, 11)
+                LET ws[56 + c + 1] = JayPeg_Idct.Descale(t10 - t3, 11)
+                LET ws[8 + c + 1] = JayPeg_Idct.Descale(t11 + t2, 11)
+                LET ws[48 + c + 1] = JayPeg_Idct.Descale(t11 - t2, 11)
+                LET ws[16 + c + 1] = JayPeg_Idct.Descale(t12 + t1, 11)
+                LET ws[40 + c + 1] = JayPeg_Idct.Descale(t12 - t1, 11)
+                LET ws[24 + c + 1] = JayPeg_Idct.Descale(t13 + t0, 11)
+                LET ws[32 + c + 1] = JayPeg_Idct.Descale(t13 - t0, 11)
+            END IF
+            LET c = c + 1
+        END WHILE
+        LET r = 0
+        WHILE r <= 7
+            LET z2 = ws[r * 8 + 3]
+            LET z3 = ws[r * 8 + 7]
+            LET z1 = (z2 + z3) * f0541
+            LET t2 = z1 + z3 * (0 - f1847)
+            LET t3 = z1 + z2 * f0765
+            LET z2 = ws[r * 8 + 1]
+            LET z3 = ws[r * 8 + 5]
+            LET t0 = (z2 + z3) * cb13
+            LET t1 = (z2 - z3) * cb13
+            LET t10 = t0 + t3
+            LET t13 = t0 - t3
+            LET t11 = t1 + t2
+            LET t12 = t1 - t2
+            LET t0 = ws[r * 8 + 8]
+            LET t1 = ws[r * 8 + 6]
+            LET t2 = ws[r * 8 + 4]
+            LET t3 = ws[r * 8 + 2]
+            LET z1 = t0 + t3
+            LET z2 = t1 + t2
+            LET z3 = t0 + t2
+            LET z4 = t1 + t3
+            LET z5 = (z3 + z4) * f1175
+            LET t0 = t0 * f0298
+            LET t1 = t1 * f2053
+            LET t2 = t2 * f3072
+            LET t3 = t3 * f1501
+            LET z1 = z1 * (0 - f0899)
+            LET z2 = z2 * (0 - f2562)
+            LET z3 = z3 * (0 - f1961)
+            LET z4 = z4 * (0 - f0390)
+            LET z3 = z3 + z5
+            LET z4 = z4 + z5
+            LET t0 = t0 + z1 + z3
+            LET t1 = t1 + z2 + z4
+            LET t2 = t2 + z2 + z3
+            LET t3 = t3 + z1 + z4
+            LET samples[r * 8 + 1] = JayPeg_Idct.Clamp_Sample(JayPeg_Idct.Descale(t10 + t3, 18) + 128)
+            LET samples[r * 8 + 8] = JayPeg_Idct.Clamp_Sample(JayPeg_Idct.Descale(t10 - t3, 18) + 128)
+            LET samples[r * 8 + 2] = JayPeg_Idct.Clamp_Sample(JayPeg_Idct.Descale(t11 + t2, 18) + 128)
+            LET samples[r * 8 + 7] = JayPeg_Idct.Clamp_Sample(JayPeg_Idct.Descale(t11 - t2, 18) + 128)
+            LET samples[r * 8 + 3] = JayPeg_Idct.Clamp_Sample(JayPeg_Idct.Descale(t12 + t1, 18) + 128)
+            LET samples[r * 8 + 6] = JayPeg_Idct.Clamp_Sample(JayPeg_Idct.Descale(t12 - t1, 18) + 128)
+            LET samples[r * 8 + 4] = JayPeg_Idct.Clamp_Sample(JayPeg_Idct.Descale(t13 + t0, 18) + 128)
+            LET samples[r * 8 + 5] = JayPeg_Idct.Clamp_Sample(JayPeg_Idct.Descale(t13 - t0, 18) + 128)
+            LET r = r + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION Sample(i AS S32) AS U8
+        IF i < 0 THEN
+            RETURN 0
+        END IF
+        IF i > 63 THEN
+            RETURN 0
+        END IF
+        RETURN samples[i + 1]
+    END FUNCTION
+
+    FUNCTION Inverse_Dc0() AS U8
+        JayPeg_Idct.Clear_Coefs()
+        JayPeg_Idct.Inverse()
+        RETURN samples[1]
+    END FUNCTION
+
+    FUNCTION Inverse_Dc8() AS U8
+        JayPeg_Idct.Clear_Coefs()
+        LET coefs[1] = 8
+        JayPeg_Idct.Inverse()
+        RETURN samples[1]
+    END FUNCTION
+END MODULE

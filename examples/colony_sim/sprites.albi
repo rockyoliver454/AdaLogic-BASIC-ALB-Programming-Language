@@ -1,0 +1,7 @@
+DECLARE MODULE Sprites
+    PROCEDURE Setup()
+    PROCEDURE DrawColonist(sx AS S32, sy AS S32, body_col AS S32, clothes_col AS S32, skin_col AS S32, hair_col AS S32, mood_col AS S32, priority AS S32)
+    PROCEDURE DrawBerry(sx AS S32, sy AS S32, priority AS S32)
+    PROCEDURE DrawBuilding(sx AS S32, sy AS S32, kind AS U8, col AS S32, priority AS S32)
+    PROCEDURE DrawTerrainTile(sx AS S32, sy AS S32, kind AS U8, col AS S32, priority AS S32)
+END DECLARE MODULE

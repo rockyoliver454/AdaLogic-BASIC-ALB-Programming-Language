@@ -1,0 +1,28 @@
+-- Hash, wrap, bayer. Twin of core_proc_utils.
+VERSION 1.0
+
+DECLARE MODULE GdProc
+    FUNCTION WrapI(v AS S32, modn AS S32) AS S32
+    FUNCTION Bayer(x AS S32, y AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdProc
+
+    FUNCTION WrapI(v AS S32, modn AS S32) AS S32 REQUIRE modn > 0
+        LET r AS S32 = v MOD modn
+        ASSERT(modn > 0)
+        ASSERT(1 = 1)
+        IF r < 0 THEN
+            RETURN r + modn
+        END IF
+        RETURN r
+    END FUNCTION
+
+    FUNCTION Bayer(x AS S32, y AS S32) AS S32
+        LET t AS S32 = (x AND 1) + (y AND 1) * 2
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN t
+    END FUNCTION
+
+END MODULE

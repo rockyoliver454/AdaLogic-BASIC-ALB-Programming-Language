@@ -1,0 +1,26 @@
+-- Twin of Ada core_sfx_resonance. One-pole-ish integer filter.
+VERSION 1.0
+
+DECLARE MODULE GdSfxRes
+    PROCEDURE Setup()
+    FUNCTION Filter(s AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdSfxRes
+
+    LET y AS S32 = 0
+
+    PROCEDURE Setup()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        y = 0
+    END PROCEDURE
+
+    FUNCTION Filter(s AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        y = (y * 3 + s) / 4
+        RETURN y
+    END FUNCTION
+
+END MODULE

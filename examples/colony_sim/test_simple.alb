@@ -1,0 +1,2 @@
+INCLUDE "../SCREEN.ALBI"
+PRINT "test"

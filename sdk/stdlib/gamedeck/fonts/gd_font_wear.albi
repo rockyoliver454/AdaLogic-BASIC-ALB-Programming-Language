@@ -1,0 +1,51 @@
+-- Twin of Ada fonts_attrition. Wear digits + noisy strike.
+VERSION 1.0
+
+DECLARE MODULE GdFontWear
+    PROCEDURE PresentSupply(n AS S32)
+    PROCEDURE PresentWorn(n AS S32, seed AS S32)
+    FUNCTION WearPix(x AS S32, y AS S32, seed AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdFontWear
+
+    PROCEDURE PresentSupply(n AS S32)
+        ASSERT(n >= 0)
+        ASSERT(n <= 999)
+        GdArmyFont.PresentNum(n, 560, 8)
+    END PROCEDURE
+
+    PROCEDURE PresentWorn(n AS S32, seed AS S32)
+        LET k AS S32 = 0
+        ASSERT(n >= 0)
+        ASSERT(n <= 999)
+        GdArmyFont.PresentNum(n, 560, 8)
+        COLOR $020617
+        WHILE k < 6
+            FILL RECT 560 + (GdHash.ByteOf(k, n, seed) AND 31), 8 + (k AND 7), 2, 1
+            k = k + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION WearPix(x AS S32, y AS S32, seed AS S32) AS S32
+        ASSERT(x >= 0)
+        ASSERT(y >= 0)
+        IF (GdHash.ByteOf(x, y, seed) AND 7) = 0 THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF WearPix(0, 0, 1) >= 0 THEN
+            IF WearPix(1, 2, 9) >= 0 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,1214 @@
+-- Twin of Ada Core_Texture_Registry + every procedural Load() raster at 16x16.
+-- PixelRgb is the CPU canvas Ada Plot() used before Register_Procedural.
+VERSION 1.0
+
+DECLARE MODULE GdAdaTex
+    PROCEDURE ArmAll()
+    PROCEDURE BakeTile(idn AS S32)
+    FUNCTION IdN() AS S32
+    FUNCTION PixelRgb(idn AS S32, lx AS S32, ly AS S32) AS S32
+    FUNCTION BakeAt(i AS S32) AS S32
+    FUNCTION BakeId() AS S32
+    PROCEDURE Present(idn AS S32, x AS S32, y AS S32)
+    PROCEDURE PresentGrid(ox AS S32, oy AS S32, cols AS S32, start AS S32, n AS S32)
+    FUNCTION Rgb0(idn AS S32) AS S32
+    FUNCTION PatOf(idn AS S32) AS S32
+    FUNCTION TilePx() AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdAdaTex
+
+    STRICT c0[128] AS S32
+    STRICT c1[128] AS S32
+    STRICT c2[128] AS S32
+    STRICT pat[128] AS S32
+    STRICT bake[256] AS S32
+    LET armed AS S32 = 0
+    LET bake_id AS S32 = 0 - 1
+
+    FUNCTION Clip8(v AS S32) AS S32
+        LET n AS S32 = v
+        ASSERT(1 = 1)
+        IF n < 0 THEN
+            RETURN 0
+        END IF
+        IF n > 255 THEN
+            RETURN 255
+        END IF
+        RETURN n
+    END FUNCTION
+
+    FUNCTION PackRgb(r AS S32, g AS S32, b AS S32) AS S32
+        ASSERT(1 = 1)
+        RETURN Clip8(r) * 65536 + Clip8(g) * 256 + Clip8(b)
+    END FUNCTION
+
+    PROCEDURE ArmAll()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 128
+            c0[i] = 16711935
+            c1[i] = 0
+            c2[i] = 8421504
+            pat[i] = 0
+            i = i + 1
+        END WHILE
+        c0[1] = 16711935
+        c1[1] = 0
+        c2[1] = 8421504
+        pat[1] = 0
+        c0[2] = 2263842
+        c1[2] = 3329330
+        c2[2] = 1331220
+        pat[2] = 1
+        c0[3] = 4493598
+        c1[3] = 7783483
+        c2[3] = 2314260
+        pat[3] = 1
+        c0[4] = 4493598
+        c1[4] = 7783483
+        c2[4] = 2314260
+        pat[4] = 1
+        c0[5] = 4493598
+        c1[5] = 7783483
+        c2[5] = 2314260
+        pat[5] = 1
+        c0[6] = 4493598
+        c1[6] = 7783483
+        c2[6] = 2314260
+        pat[6] = 1
+        c0[7] = 4493598
+        c1[7] = 7783483
+        c2[7] = 2314260
+        pat[7] = 1
+        c0[8] = 4493598
+        c1[8] = 7783483
+        c2[8] = 2314260
+        pat[8] = 1
+        c0[9] = 4493598
+        c1[9] = 7783483
+        c2[9] = 2314260
+        pat[9] = 1
+        c0[10] = 4493598
+        c1[10] = 7783483
+        c2[10] = 2314260
+        pat[10] = 1
+        c0[11] = 4493598
+        c1[11] = 7783483
+        c2[11] = 2314260
+        pat[11] = 1
+        c0[12] = 668170
+        c1[12] = 2001950
+        c2[12] = 5299280
+        pat[12] = 43
+        c0[13] = 1323540
+        c1[13] = 2974765
+        c2[13] = 4620860
+        pat[13] = 11
+        c0[14] = 11811900
+        c1[14] = 13158600
+        c2[14] = 9185320
+        pat[14] = 3
+        c0[15] = 13163775
+        c1[15] = 16777215
+        c2[15] = 6579350
+        pat[15] = 10
+        c0[16] = 670730
+        c1[16] = 2263842
+        c2[16] = 5289040
+        pat[16] = 42
+        c0[17] = 9211020
+        c1[17] = 7882290
+        c2[17] = 10503730
+        pat[17] = 12
+        c0[18] = 12980
+        c1[18] = 9881855
+        c2[18] = 10503730
+        pat[18] = 8
+        c0[19] = 15456130
+        c1[19] = 13811310
+        c2[19] = 13153380
+        pat[19] = 2
+        c0[20] = 10511410
+        c1[20] = 7882270
+        c2[20] = 11827260
+        pat[20] = 9
+        c0[21] = 15791615
+        c1[21] = 14477050
+        c2[21] = 16777215
+        pat[21] = 13
+        c0[22] = 4994856
+        c1[22] = 5914925
+        c2[22] = 3285785
+        pat[22] = 2
+        c0[23] = 3285785
+        c1[23] = 5916210
+        c2[23] = 3973160
+        pat[23] = 32
+        c0[24] = 15453585
+        c1[24] = 14137725
+        c2[24] = 16443060
+        pat[24] = 2
+        c0[25] = 14466690
+        c1[25] = 10524300
+        c2[25] = 6576725
+        pat[25] = 2
+        c0[26] = 14466690
+        c1[26] = 10524300
+        c2[26] = 6576725
+        pat[26] = 33
+        c0[27] = 13802340
+        c1[27] = 15453595
+        c2[27] = 9198140
+        pat[27] = 12
+        c0[28] = 5926460
+        c1[28] = 8558170
+        c2[28] = 3952680
+        pat[28] = 28
+        c0[29] = 2629140
+        c1[29] = 1981470
+        c2[29] = 4600350
+        pat[29] = 26
+        c0[30] = 3945000
+        c1[30] = 2263842
+        c2[30] = 13153330
+        pat[30] = 26
+        c0[31] = 1315865
+        c1[31] = 25600
+        c2[31] = 3322930
+        pat[31] = 26
+        c0[32] = 10511420
+        c1[32] = 6581840
+        c2[32] = 9195570
+        pat[32] = 26
+        c0[33] = 5260850
+        c1[33] = 7882290
+        c2[33] = 10503730
+        pat[33] = 27
+        c0[34] = 15124620
+        c1[34] = 13150830
+        c2[34] = 10503730
+        pat[34] = 51
+        c0[35] = 3287070
+        c1[35] = 3957820
+        c2[35] = 2640680
+        pat[35] = 14
+        c0[36] = 6571560
+        c1[36] = 3942420
+        c2[36] = 7783483
+        pat[36] = 14
+        c0[37] = 15132385
+        c1[37] = 2630430
+        c2[37] = 10539600
+        pat[37] = 14
+        c0[38] = 4929320
+        c1[38] = 8573490
+        c2[38] = 3968030
+        pat[38] = 14
+        c0[39] = 5918790
+        c1[39] = 6599720
+        c2[39] = 2973465
+        pat[39] = 14
+        c0[40] = 10521710
+        c1[40] = 6576710
+        c2[40] = 10537040
+        pat[40] = 14
+        c0[41] = 5258285
+        c1[41] = 7915600
+        c2[41] = 3968050
+        pat[41] = 14
+        c0[42] = 5587245
+        c1[42] = 9886780
+        c2[42] = 5283880
+        pat[42] = 14
+        c0[43] = 15098900
+        c1[43] = 11811850
+        c2[43] = 3322930
+        pat[43] = 15
+        c0[44] = 15785010
+        c1[44] = 13153300
+        c2[44] = 5283900
+        pat[44] = 15
+        c0[45] = 11817140
+        c1[45] = 15790310
+        c2[45] = 3968060
+        pat[45] = 15
+        c0[46] = 1986610
+        c1[46] = 5283940
+        c2[46] = 10503730
+        pat[46] = 15
+        c0[47] = 14329120
+        c1[47] = 16766720
+        c2[47] = 10503730
+        pat[47] = 15
+        c0[48] = 16747520
+        c1[48] = 13132800
+        c2[48] = 3302440
+        pat[48] = 15
+        c0[49] = 6571560
+        c1[49] = 3973180
+        c2[49] = 14428200
+        pat[49] = 15
+        c0[50] = 3307570
+        c1[50] = 10513980
+        c2[50] = 10503730
+        pat[50] = 15
+        c0[51] = 13172580
+        c1[51] = 16777215
+        c2[51] = 10503730
+        pat[51] = 52
+        c0[52] = 13163775
+        c1[52] = 7882290
+        c2[52] = 10503730
+        pat[52] = 53
+        c0[53] = 13793310
+        c1[53] = 10506260
+        c2[53] = 10503730
+        pat[53] = 42
+        c0[54] = 11834930
+        c1[54] = 7887390
+        c2[54] = 13808720
+        pat[54] = 18
+        c0[55] = 6568990
+        c1[55] = 10513980
+        c2[55] = 3945000
+        pat[55] = 4
+        c0[56] = 9200690
+        c1[56] = 6571550
+        c2[56] = 10503730
+        pat[56] = 19
+        c0[57] = 9198120
+        c1[57] = 5912345
+        c2[57] = 3284495
+        pat[57] = 19
+        c0[58] = 3942420
+        c1[58] = 5913630
+        c2[58] = 2631725
+        pat[58] = 9
+        c0[59] = 4600350
+        c1[59] = 1973795
+        c2[59] = 16762930
+        pat[59] = 17
+        c0[60] = 6571560
+        c1[60] = 2631800
+        c2[60] = 13153330
+        pat[60] = 21
+        c0[61] = 8554380
+        c1[61] = 10528170
+        c2[61] = 5922660
+        pat[61] = 5
+        c0[62] = 6580590
+        c1[62] = 8535070
+        c2[62] = 4596500
+        pat[62] = 5
+        c0[63] = 7896450
+        c1[63] = 9870240
+        c2[63] = 5264730
+        pat[63] = 5
+        c0[64] = 6580590
+        c1[64] = 4597785
+        c2[64] = 8536355
+        pat[64] = 5
+        c0[65] = 8554380
+        c1[65] = 11186100
+        c2[65] = 5922660
+        pat[65] = 5
+        c0[66] = 7238520
+        c1[66] = 9212310
+        c2[66] = 4606800
+        pat[66] = 5
+        c0[67] = 10529460
+        c1[67] = 7897740
+        c2[67] = 5264730
+        pat[67] = 29
+        c0[68] = 10508840
+        c1[68] = 7879710
+        c2[68] = 5253140
+        pat[68] = 29
+        c0[69] = 9203280
+        c1[69] = 7887420
+        c2[69] = 10524300
+        pat[69] = 2
+        c0[70] = 3289655
+        c1[70] = 5921375
+        c2[70] = 1973795
+        pat[70] = 6
+        c0[71] = 11842745
+        c1[71] = 6579305
+        c2[71] = 5263445
+        pat[71] = 6
+        c0[72] = 2631725
+        c1[72] = 6579310
+        c2[72] = 8553100
+        pat[72] = 7
+        c0[73] = 1314570
+        c1[73] = 3945000
+        c2[73] = 10503730
+        pat[73] = 35
+        c0[74] = 4605515
+        c1[74] = 6566440
+        c2[74] = 2631725
+        pat[74] = 34
+        c0[75] = 12500675
+        c1[75] = 11184815
+        c2[75] = 13158605
+        pat[75] = 6
+        c0[76] = 3289655
+        c1[76] = 5263445
+        c2[76] = 14474460
+        pat[76] = 6
+        c0[77] = 11842745
+        c1[77] = 9868955
+        c2[77] = 3289655
+        pat[77] = 25
+        c0[78] = 3315420
+        c1[78] = 6605050
+        c2[78] = 2652360
+        pat[78] = 25
+        c0[79] = 3952690
+        c1[79] = 5268540
+        c2[79] = 10503730
+        pat[79] = 2
+        c0[80] = 13158605
+        c1[80] = 6579305
+        c2[80] = 1088
+        pat[80] = 20
+        c0[81] = 13158605
+        c1[81] = 6579305
+        c2[81] = 10503730
+        pat[81] = 20
+        c0[82] = 6579305
+        c1[82] = 9868955
+        c2[82] = 10503730
+        pat[82] = 20
+        c0[83] = 13811350
+        c1[83] = 11837560
+        c2[83] = 14456470
+        pat[83] = 31
+        c0[84] = 13801110
+        c1[84] = 12485250
+        c2[84] = 10511460
+        pat[84] = 31
+        c0[85] = 15132385
+        c1[85] = 13816525
+        c2[85] = 11842735
+        pat[85] = 31
+        c0[86] = 9843400
+        c1[86] = 3328150
+        c2[86] = 10503730
+        pat[86] = 48
+        c0[87] = 15132390
+        c1[87] = 7882290
+        c2[87] = 10503730
+        pat[87] = 50
+        c0[88] = 11840175
+        c1[88] = 7882290
+        c2[88] = 10503730
+        pat[88] = 49
+        c0[89] = 9881855
+        c1[89] = 16777215
+        c2[89] = 2631725
+        pat[89] = 10
+        c0[90] = 6580590
+        c1[90] = 3947585
+        c2[90] = 10503730
+        pat[90] = 16
+        c0[91] = 10526885
+        c1[91] = 5263445
+        c2[91] = 10503730
+        pat[91] = 6
+        c0[92] = 8553095
+        c1[92] = 5921375
+        c2[92] = 10503730
+        pat[92] = 5
+        c0[93] = 16724530
+        c1[93] = 3342130
+        c2[93] = 3289855
+        pat[93] = 45
+        c0[94] = 4600350
+        c1[94] = 7882290
+        c2[94] = 10503730
+        pat[94] = 9
+        c0[95] = 9211025
+        c1[95] = 6579305
+        c2[95] = 10503730
+        pat[95] = 50
+        c0[96] = 13112340
+        c1[96] = 7882290
+        c2[96] = 10503730
+        pat[96] = 36
+        c0[97] = 6581890
+        c1[97] = 6574140
+        c2[97] = 4600350
+        pat[97] = 47
+        c0[98] = 13808780
+        c1[98] = 7882290
+        c2[98] = 10503730
+        pat[98] = 2
+        c0[99] = 11842745
+        c1[99] = 3947585
+        c2[99] = 10503730
+        pat[99] = 53
+        c0[100] = 13158605
+        c1[100] = 6579305
+        c2[100] = 14474465
+        pat[100] = 21
+        c0[101] = 2639400
+        c1[101] = 16750260
+        c2[101] = 10503730
+        pat[101] = 42
+        c0[102] = 9863780
+        c1[102] = 7882290
+        c2[102] = 10503730
+        pat[102] = 42
+        c0[103] = 16711935
+        c1[103] = 0
+        c2[103] = 8421504
+        pat[103] = 0
+        c0[104] = 16711935
+        c1[104] = 0
+        c2[104] = 8421504
+        pat[104] = 0
+        c0[105] = 16711935
+        c1[105] = 0
+        c2[105] = 8421504
+        pat[105] = 0
+        c0[106] = 2631720
+        c1[106] = 7237230
+        c2[106] = 10526880
+        pat[106] = 6
+        c0[107] = 7257670
+        c1[107] = 3960360
+        c2[107] = 15132340
+        pat[107] = 28
+        c0[108] = 10519130
+        c1[108] = 7230780
+        c2[108] = 13811360
+        pat[108] = 22
+        c0[109] = 16769213
+        c1[109] = 0
+        c2[109] = 10503730
+        pat[109] = 22
+        c0[110] = 15790320
+        c1[110] = 1315860
+        c2[110] = 3957980
+        pat[110] = 40
+        c0[111] = 2629140
+        c1[111] = 2629140
+        c2[111] = 10503730
+        pat[111] = 40
+        c0[112] = 657930
+        c1[112] = 2956820
+        c2[112] = 10503730
+        pat[112] = 40
+        c0[113] = 15780020
+        c1[113] = 7882290
+        c2[113] = 10503730
+        pat[113] = 40
+        c0[114] = 3943710
+        c1[114] = 1971215
+        c2[114] = 10503730
+        pat[114] = 41
+        c0[115] = 3952800
+        c1[115] = 13153380
+        c2[115] = 13158600
+        pat[115] = 41
+        c0[116] = 5255700
+        c1[116] = 1315860
+        c2[116] = 7889980
+        pat[116] = 41
+        c0[117] = 3952800
+        c1[117] = 13153380
+        c2[117] = 2634340
+        pat[117] = 41
+        c0[118] = 13158610
+        c1[118] = 3947585
+        c2[118] = 1973790
+        pat[118] = 23
+        c0[119] = 1973790
+        c1[119] = 11842750
+        c2[119] = 10503730
+        pat[119] = 23
+        c0[120] = 13816540
+        c1[120] = 3289655
+        c2[120] = 10503730
+        pat[120] = 23
+        c0[121] = 5260850
+        c1[121] = 7882290
+        c2[121] = 10503730
+        pat[121] = 2
+        c0[122] = 5260850
+        c1[122] = 7882290
+        c2[122] = 10503730
+        pat[122] = 54
+        c0[123] = 11801620
+        c1[123] = 12500680
+        c2[123] = 2631725
+        pat[123] = 38
+        c0[124] = 5263450
+        c1[124] = 3983440
+        c2[124] = 9228860
+        pat[124] = 39
+        c0[125] = 5260850
+        c1[125] = 7882290
+        c2[125] = 10503730
+        pat[125] = 54
+        c0[126] = 5260850
+        c1[126] = 7882290
+        c2[126] = 10503730
+        pat[126] = 54
+        c0[127] = 16711935
+        c1[127] = 0
+        c2[127] = 8421504
+        pat[127] = 0
+        c0[128] = 16711935
+        c1[128] = 0
+        c2[128] = 8421504
+        pat[128] = 0
+        armed = 1
+    END PROCEDURE
+
+    PROCEDURE BakeTile(idn AS S32)
+        LET lx AS S32 = 0
+        LET ly AS S32 = 0
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF armed = 0 THEN
+            ArmAll()
+        END IF
+        bake_id = idn
+        ly = 0
+        WHILE ly < 16
+            lx = 0
+            WHILE lx < 16
+                bake[i] = PixelRgb(idn, lx, ly)
+                i = i + 1
+                lx = lx + 1
+            END WHILE
+            ly = ly + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION BakeAt(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 256)
+        RETURN bake[i]
+    END FUNCTION
+
+    FUNCTION BakeId() AS S32
+        ASSERT(1 = 1)
+        RETURN bake_id
+    END FUNCTION
+
+    FUNCTION Slot(idn AS S32) AS S32
+        LET s AS S32 = idn + 1
+        ASSERT(1 = 1)
+        IF armed = 0 THEN
+            ArmAll()
+        END IF
+        IF s < 1 THEN
+            s = 1
+        END IF
+        IF s > 128 THEN
+            s = 128
+        END IF
+        RETURN s
+    END FUNCTION
+
+    FUNCTION PixelRgb(idn AS S32, lx AS S32, ly AS S32) AS S32
+        LET s AS S32 = 0
+        LET p AS S32 = 0
+        LET n AS S32 = 0
+        LET a0 AS S32 = 0
+        LET a1 AS S32 = 0
+        LET a2 AS S32 = 0
+        LET r AS S32 = 0
+        LET g AS S32 = 0
+        LET b AS S32 = 0
+        LET mx AS S32 = lx
+        LET my AS S32 = ly
+        LET row AS S32 = 0
+        LET col AS S32 = 0
+        ASSERT(1 = 1)
+        IF mx < 0 THEN mx = 0 END IF
+        IF my < 0 THEN my = 0 END IF
+        IF mx > 15 THEN mx = 15 END IF
+        IF my > 15 THEN my = 15 END IF
+        s = Slot(idn)
+        p = pat[s]
+        a0 = c0[s]
+        a1 = c1[s]
+        a2 = c2[s]
+        n = GdHash.ByteOf(mx, my, idn)
+        r = (a0 / 65536) AND 255
+        g = (a0 / 256) AND 255
+        b = a0 AND 255
+        IF p = 0 THEN
+            IF ((mx / 8) + (my / 8)) AND 1 THEN
+                RETURN 16711935
+            END IF
+            RETURN 0
+        END IF
+        IF p = 1 THEN
+            IF n > 180 THEN
+                RETURN a1
+            END IF
+            IF (mx + my * 3) AND 2 THEN
+                RETURN a2
+            END IF
+            RETURN a0
+        END IF
+        IF p = 2 THEN
+            IF n > 220 THEN
+                RETURN a2
+            END IF
+            IF n > 140 THEN
+                RETURN a1
+            END IF
+            RETURN a0
+        END IF
+        IF p = 3 THEN
+            row = my / 2
+            col = mx
+            IF (row AND 1) = 1 THEN
+                col = mx + 4
+            END IF
+            IF (my AND 1) = 0 THEN
+                RETURN a1
+            END IF
+            IF (col AND 7) = 0 THEN
+                RETURN a1
+            END IF
+            IF n > 178 THEN
+                RETURN a2
+            END IF
+            RETURN a0
+        END IF
+        IF p = 4 THEN
+            row = my AND 3
+            IF row = 3 THEN
+                RETURN a2
+            END IF
+            IF row = 0 THEN
+                RETURN a0
+            END IF
+            IF row = 1 THEN
+                RETURN a1
+            END IF
+            IF n > 230 THEN
+                RETURN a0
+            END IF
+            RETURN a1
+        END IF
+        IF p = 5 THEN
+            IF (mx AND 3) = 0 THEN
+                RETURN a2
+            END IF
+            IF n > 200 THEN
+                RETURN a1
+            END IF
+            RETURN a0
+        END IF
+        IF p = 6 THEN
+            IF my = 7 THEN
+                IF (mx AND 4) = 0 THEN
+                    RETURN a1
+                END IF
+            END IF
+            IF n > 200 THEN
+                RETURN a2
+            END IF
+            RETURN a0
+        END IF
+        IF p = 7 THEN
+            IF (mx AND 3) = 0 THEN
+                RETURN a2
+            END IF
+            IF (my AND 3) = 0 THEN
+                RETURN a2
+            END IF
+            IF n > 160 THEN
+                RETURN a1
+            END IF
+            RETURN a0
+        END IF
+        IF p = 8 THEN
+            IF ((my + (mx / 2)) AND 3) = 0 THEN
+                RETURN a1
+            END IF
+            RETURN a0
+        END IF
+        IF p = 9 THEN
+            IF (my + n / 64) AND 2 THEN
+                RETURN a1
+            END IF
+            RETURN a0
+        END IF
+        IF p = 10 THEN
+            IF mx = 0 THEN
+                RETURN a2
+            END IF
+            IF my = 0 THEN
+                RETURN a2
+            END IF
+            IF mx = 8 THEN
+                RETURN a2
+            END IF
+            IF n > 210 THEN
+                RETURN a1
+            END IF
+            RETURN a0
+        END IF
+        IF p = 11 THEN
+            IF n > 120 THEN
+                RETURN a1
+            END IF
+            RETURN a0
+        END IF
+        IF p = 12 THEN
+            IF (mx AND 7) = 0 THEN
+                RETURN a2
+            END IF
+            IF (my AND 7) = 0 THEN
+                RETURN a2
+            END IF
+            IF n > 170 THEN
+                RETURN a1
+            END IF
+            RETURN a0
+        END IF
+        IF p = 13 THEN
+            IF n > 200 THEN
+                RETURN a1
+            END IF
+            RETURN a0
+        END IF
+        IF p = 14 THEN
+            IF my > 11 THEN
+                IF mx > 5 THEN
+                    IF mx < 10 THEN
+                        RETURN a2
+                    END IF
+                END IF
+                RETURN 0
+            END IF
+            col = mx - 8
+            row = 8 - my
+            IF col < 0 THEN col = 0 - col END IF
+            IF col + row / 2 < 7 THEN
+                IF n > 200 THEN
+                    RETURN a1
+                END IF
+                RETURN a0
+            END IF
+            RETURN 0
+        END IF
+        IF p = 15 THEN
+            IF (mx AND 3) = 1 THEN
+                IF my > 6 THEN
+                    RETURN a0
+                END IF
+                RETURN a1
+            END IF
+            RETURN a2
+        END IF
+        IF p = 16 THEN
+            IF mx = 0 THEN RETURN a2 END IF
+            IF mx = 15 THEN RETURN a2 END IF
+            IF my = 0 THEN RETURN a2 END IF
+            IF my = 15 THEN RETURN a2 END IF
+            IF mx = 11 THEN
+                IF my > 7 THEN
+                    IF my < 10 THEN
+                        RETURN a1
+                    END IF
+                END IF
+            END IF
+            RETURN a0
+        END IF
+        IF p = 17 THEN
+            IF (mx AND 7) = 0 THEN RETURN a2 END IF
+            IF (my AND 7) = 0 THEN RETURN a2 END IF
+            RETURN a0
+        END IF
+        IF p = 18 THEN
+            IF ((mx + my) AND 1) = 0 THEN
+                RETURN a1
+            END IF
+            RETURN a0
+        END IF
+        IF p = 19 THEN
+            IF (my AND 3) = 1 THEN RETURN a0 END IF
+            IF (mx AND 7) = 2 THEN RETURN a1 END IF
+            RETURN 0
+        END IF
+        IF p = 20 THEN
+            IF ((mx + my) AND 3) = 0 THEN RETURN a0 END IF
+            IF ((mx - my) AND 3) = 0 THEN RETURN a0 END IF
+            RETURN 0
+        END IF
+        IF p = 21 THEN
+            IF mx > 3 THEN
+                IF mx < 12 THEN
+                    IF my > 2 THEN
+                        RETURN a0
+                    END IF
+                END IF
+            END IF
+            RETURN 0
+        END IF
+        IF p = 22 THEN
+            IF my < 4 THEN
+                IF mx > 5 THEN
+                    IF mx < 11 THEN
+                        RETURN a1
+                    END IF
+                END IF
+                RETURN 0
+            END IF
+            IF mx > 4 THEN
+                IF mx < 12 THEN
+                    RETURN a0
+                END IF
+            END IF
+            RETURN 0
+        END IF
+        IF p = 23 THEN
+            IF my > 6 THEN
+                IF my < 10 THEN
+                    IF mx > 2 THEN
+                        RETURN a0
+                    END IF
+                END IF
+            END IF
+            IF mx > 11 THEN
+                IF my > 4 THEN
+                    IF my < 12 THEN
+                        RETURN a1
+                    END IF
+                END IF
+            END IF
+            RETURN 0
+        END IF
+        IF p = 24 THEN
+            IF n > 200 THEN RETURN a0 END IF
+            RETURN 0
+        END IF
+        IF p = 25 THEN
+            IF mx = 0 THEN RETURN a2 END IF
+            IF my = 0 THEN RETURN a2 END IF
+            IF mx = 15 THEN RETURN a2 END IF
+            IF my = 15 THEN RETURN a2 END IF
+            RETURN a0
+        END IF
+        IF p = 26 THEN
+            IF n > 160 THEN RETURN a1 END IF
+            RETURN a0
+        END IF
+        IF p = 27 THEN
+            r = r + n / 8
+            g = g + n / 8
+            b = b + n / 8
+            RETURN PackRgb(r, g, b)
+        END IF
+        IF p = 28 THEN
+            IF mx > 6 THEN
+                IF mx < 10 THEN
+                    RETURN a0
+                END IF
+            END IF
+            IF my > 4 THEN
+                IF my < 8 THEN
+                    IF mx > 3 THEN
+                        IF mx < 13 THEN
+                            RETURN a0
+                        END IF
+                    END IF
+                END IF
+            END IF
+            RETURN 0
+        END IF
+        IF p = 29 THEN
+            IF my < mx / 2 THEN RETURN 0 END IF
+            IF (mx AND 2) = 0 THEN RETURN a1 END IF
+            RETURN a0
+        END IF
+        IF p = 30 THEN
+            IF (mx AND 7) = 0 THEN RETURN a2 END IF
+            IF (my AND 3) = 0 THEN RETURN a2 END IF
+            IF n > 190 THEN RETURN a1 END IF
+            RETURN a0
+        END IF
+        IF p = 31 THEN
+            IF n > 210 THEN RETURN a1 END IF
+            RETURN a0
+        END IF
+        IF p = 32 THEN
+            IF (my AND 3) = 0 THEN RETURN a2 END IF
+            RETURN a0
+        END IF
+        IF p = 33 THEN
+            IF mx = my THEN RETURN a2 END IF
+            IF n > 180 THEN RETURN a1 END IF
+            RETURN a0
+        END IF
+        IF p = 34 THEN
+            col = mx - 8
+            row = my - 8
+            IF col < 0 THEN col = 0 - col END IF
+            IF row < 0 THEN row = 0 - row END IF
+            IF col + row < 7 THEN RETURN a1 END IF
+            RETURN a0
+        END IF
+        IF p = 35 THEN
+            col = mx - 8
+            row = my - 9
+            IF col < 0 THEN col = 0 - col END IF
+            IF row < 0 THEN row = 0 - row END IF
+            IF col + row < 5 THEN RETURN a2 END IF
+            RETURN a0
+        END IF
+        IF p = 36 THEN
+            IF mx > 6 THEN
+                IF mx < 10 THEN
+                    IF my > 4 THEN RETURN a0 END IF
+                END IF
+            END IF
+            IF my > 6 THEN
+                IF my < 9 THEN
+                    IF mx > 4 THEN
+                        IF mx < 12 THEN RETURN a1 END IF
+                    END IF
+                END IF
+            END IF
+            RETURN 0
+        END IF
+        IF p = 37 THEN
+            IF mx = 8 THEN RETURN a0 END IF
+            IF mx = 7 THEN RETURN a0 END IF
+            IF my < 4 THEN
+                IF mx > 4 THEN
+                    IF mx < 12 THEN RETURN a1 END IF
+                END IF
+            END IF
+            RETURN 0
+        END IF
+        IF p = 38 THEN
+            IF mx = 2 THEN RETURN a2 END IF
+            IF mx = 13 THEN RETURN a2 END IF
+            IF my = 1 THEN RETURN a2 END IF
+            IF my = 15 THEN RETURN a2 END IF
+            IF mx > 4 THEN
+                IF mx < 11 THEN
+                    IF my > 3 THEN
+                        IF my < 10 THEN RETURN a1 END IF
+                    END IF
+                END IF
+            END IF
+            RETURN a0
+        END IF
+        IF p = 39 THEN
+            IF mx > 5 THEN
+                IF mx < 11 THEN
+                    IF my > 1 THEN RETURN a0 END IF
+                END IF
+            END IF
+            RETURN 0
+        END IF
+        IF p = 40 THEN
+            col = mx - 8
+            row = my - 7
+            IF col < 0 THEN col = 0 - col END IF
+            IF row < 0 THEN row = 0 - row END IF
+            IF col + row < 6 THEN RETURN a0 END IF
+            RETURN 0
+        END IF
+        IF p = 41 THEN
+            IF my > 8 THEN
+                IF mx > 3 THEN
+                    IF mx < 13 THEN RETURN a0 END IF
+                END IF
+            END IF
+            RETURN 0
+        END IF
+        IF p = 42 THEN
+            IF n > 90 THEN RETURN a0 END IF
+            IF n > 40 THEN RETURN a1 END IF
+            RETURN 0
+        END IF
+        IF p = 43 THEN
+            IF (mx AND 1) = 0 THEN
+                IF my > n / 32 THEN RETURN a0 END IF
+            END IF
+            RETURN 0
+        END IF
+        IF p = 44 THEN
+            IF mx = 8 THEN RETURN a2 END IF
+            IF my < 8 THEN
+                col = mx - 8
+                IF col < 0 THEN col = 0 - col END IF
+                IF col < 4 THEN RETURN a0 END IF
+            END IF
+            RETURN 0
+        END IF
+        IF p = 45 THEN
+            IF n > 200 THEN RETURN a1 END IF
+            RETURN a0
+        END IF
+        IF p = 46 THEN
+            IF my > 10 THEN RETURN a1 END IF
+            IF my > 6 THEN RETURN a0 END IF
+            RETURN a2
+        END IF
+        IF p = 47 THEN
+            IF (my AND 3) = 0 THEN RETURN a2 END IF
+            RETURN a0
+        END IF
+        IF p = 48 THEN
+            IF n > 128 THEN RETURN a1 END IF
+            RETURN a0
+        END IF
+        IF p = 49 THEN
+            col = mx - 8
+            row = my - 8
+            IF col < 0 THEN col = 0 - col END IF
+            IF row < 0 THEN row = 0 - row END IF
+            IF col + row < 3 THEN RETURN a0 END IF
+            RETURN a1
+        END IF
+        IF p = 50 THEN
+            IF n > 200 THEN RETURN a0 END IF
+            IF n > 170 THEN RETURN a1 END IF
+            RETURN a2
+        END IF
+        IF p = 51 THEN
+            IF n > 210 THEN RETURN a0 END IF
+            RETURN 0
+        END IF
+        IF p = 52 THEN
+            IF n > 240 THEN RETURN a0 END IF
+            RETURN 0
+        END IF
+        IF p = 53 THEN
+            IF ((my + mx / 2) AND 3) = 0 THEN RETURN a0 END IF
+            RETURN 0
+        END IF
+        IF p = 54 THEN
+            IF mx = 8 THEN RETURN a0 END IF
+            IF my = 8 THEN RETURN a0 END IF
+            RETURN 0
+        END IF
+        RETURN a0
+    END FUNCTION
+
+    PROCEDURE Present(idn AS S32, x AS S32, y AS S32)
+        LET lx AS S32 = 0
+        LET ly AS S32 = 0
+        LET rgb AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        ly = 0
+        WHILE ly < 16
+            lx = 0
+            WHILE lx < 16
+                rgb = PixelRgb(idn, lx, ly)
+                IF rgb <> 0 THEN
+                    COLOR rgb
+                    FILL RECT x + lx, y + ly, 1, 1
+                END IF
+                lx = lx + 1
+            END WHILE
+            ly = ly + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PresentGrid(ox AS S32, oy AS S32, cols AS S32, start AS S32, n AS S32)
+        LET i AS S32 = 0
+        LET idn AS S32 = 0
+        LET cap AS S32 = 0
+        LET c AS S32 = cols
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF c < 1 THEN
+            c = 1
+        END IF
+        cap = IdN()
+        WHILE i < n
+            idn = start + i
+            IF idn >= 0 THEN
+                IF idn < cap THEN
+                    Present(idn, ox + (i MOD c) * 18, oy + (i / c) * 18)
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION Rgb0(idn AS S32) AS S32
+        LET s AS S32 = Slot(idn)
+        ASSERT(1 = 1)
+        RETURN c0[s]
+    END FUNCTION
+
+    FUNCTION PatOf(idn AS S32) AS S32
+        LET s AS S32 = Slot(idn)
+        ASSERT(1 = 1)
+        RETURN pat[s]
+    END FUNCTION
+
+    FUNCTION IdN() AS S32
+        ASSERT(1 = 1)
+        RETURN 126
+    END FUNCTION
+
+    FUNCTION TilePx() AS S32
+        ASSERT(1 = 1)
+        RETURN 16
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        LET c AS S32 = 0
+        LET i AS S32 = 1
+        LET nz AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        BakeTile(13)
+        a = BakeAt(1)
+        BakeTile(12)
+        b = BakeAt(1)
+        IF BakeId() <> 12 THEN
+            RETURN 0
+        END IF
+        IF a = b THEN
+            RETURN 0
+        END IF
+        BakeTile(13)
+        i = 1
+        WHILE i <= 256
+            c = BakeAt(i)
+            IF c <> 0 THEN
+                nz = nz + 1
+            END IF
+            i = i + 1
+        END WHILE
+        IF nz < 8 THEN
+            RETURN 0
+        END IF
+        IF TilePx() <> 16 THEN
+            RETURN 0
+        END IF
+        IF PatOf(13) <> PatOf(3) THEN
+            IF PixelRgb(13, 2, 2) <> PixelRgb(3, 2, 2) THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 1
+    END FUNCTION
+
+END MODULE
+

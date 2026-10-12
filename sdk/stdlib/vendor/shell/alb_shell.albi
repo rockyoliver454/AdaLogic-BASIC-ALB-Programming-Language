@@ -1,0 +1,19 @@
+-- ============================================================================
+-- alb_shell.albi — thin ALB binding for vendor/shell (shell32 + dwmapi)
+-- ============================================================================
+VERSION 0.1
+
+IMPORT_DLL FUNCTION alb_shell_version() AS S32 FROM ("alb_shell.dll")
+IMPORT_DLL FUNCTION alb_shell_loader_init() AS S32 FROM ("alb_shell.dll")
+IMPORT_DLL PROCEDURE alb_shell_loader_shutdown() FROM ("alb_shell.dll")
+IMPORT_DLL FUNCTION alb_shell_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_shell.dll")
+IMPORT_DLL PROCEDURE alb_shell_device_destroy(device AS S64) FROM ("alb_shell.dll")
+IMPORT_DLL FUNCTION alb_shell_get_known_folder(folder_id AS S32, buf AS S64, buflen AS S32) AS S32 FROM ("alb_shell.dll")
+IMPORT_DLL FUNCTION alb_shell_execute(op AS S64, file AS S64, params AS S64, show AS S32) AS S32 FROM ("alb_shell.dll")
+IMPORT_DLL FUNCTION alb_shell_open_url(url AS S64) AS S32 FROM ("alb_shell.dll")
+IMPORT_DLL FUNCTION alb_shell_dwm_is_composition_enabled(out_enabled AS S64) AS S32 FROM ("alb_shell.dll")
+IMPORT_DLL FUNCTION alb_shell_dwm_get_colorization_color(out_argb AS S64, out_opaque AS S64) AS S32 FROM ("alb_shell.dll")
+IMPORT_DLL FUNCTION alb_shell_dwm_extend_frame(hwnd AS S64, left AS S32, right AS S32, top AS S32, bottom AS S32) AS S32 FROM ("alb_shell.dll")
+IMPORT_DLL FUNCTION alb_shell_dwm_set_immersive_dark_mode(hwnd AS S64, enabled AS S32) AS S32 FROM ("alb_shell.dll")
+IMPORT_DLL FUNCTION alb_shell_last_win32_error() AS S32 FROM ("alb_shell.dll")
+IMPORT_DLL FUNCTION alb_shell_test_probe() AS S32 FROM ("alb_shell.dll")

@@ -1,0 +1,821 @@
+INCLUDE "..\INPUT.ALBI"
+
+BEGIN
+    VERSION 0.0.0.1
+
+    #BBS_WIN_W = 960
+    #BBS_WIN_H = 720
+    #BBS_LOG_X = 24
+    #BBS_LOG_Y = 72
+    #BBS_LOG_W = 620
+    #BBS_LOG_H = 544
+    #BBS_SIDE_X = 664
+    #BBS_SIDE_Y = 72
+    #BBS_SIDE_W = 272
+    #BBS_SIDE_H = 544
+    #BBS_INPUT_X = 24
+    #BBS_INPUT_Y = 632
+    #BBS_INPUT_W = 912
+    #BBS_INPUT_H = 54
+    #BBS_STATUS_X = 24
+    #BBS_STATUS_Y = 692
+    #BBS_STATUS_W = 912
+    #BBS_STATUS_H = 16
+
+    #BBS_VISIBLE_LINES = 22
+    #BBS_LINE_INDEX_MAX = 96
+    #BBS_INPUT_MAX = 48
+    #BBS_KEY_CAP = 256
+    #BBS_NAME_MAX = 12
+    #BBS_PACKET_SIZE = 96
+    #BBS_PACKET_PAYLOAD = 48
+    #BBS_PACKET_HELLO = 1
+    #BBS_PACKET_CHAT = 2
+    #BBS_PACKET_NOTICE = 3
+    #BBS_PACKET_PART = 4
+    #BBS_PACKET_PING = 5
+    #BBS_PACKET_NAME = 6
+
+    #BBS_STATUS_READY = 1
+    #BBS_STATUS_SAVED = 2
+    #BBS_STATUS_LOADED = 3
+    #BBS_STATUS_CLEARED = 4
+    #BBS_STATUS_HELP = 5
+    #BBS_STATUS_RENAMED = 6
+    #BBS_STATUS_ROOM = 7
+    #BBS_STATUS_UNKNOWN = 8
+    #BBS_STATUS_EXIT = 9
+    #BBS_STATUS_WHO = 10
+
+    NETWORK_SOCKET BBSLink
+        PROTOCOL UDP
+        PORT 9119
+        BUFFER_SIZE 96
+    END_SOCKET
+
+    MEMORY_FIREWALL BBSNetGate
+        PERMIT_READ BBSLink
+        PERMIT_WRITE BBSLink
+        PERMIT_READ BBS_Rx
+        PERMIT_WRITE BBS_Rx
+        PERMIT_READ BBS_Tx
+        PERMIT_WRITE BBS_Tx
+        PERMIT_READ BBS_NetLive
+        PERMIT_WRITE BBS_NetLive
+        PERMIT_READ BBS_PacketsOut
+        PERMIT_WRITE BBS_PacketsOut
+        PERMIT_READ BBS_RoomId
+        PERMIT_READ BBS_UserId
+        PERMIT_READ BBS_NextSeq
+        PERMIT_WRITE BBS_NextSeq
+        PERMIT_READ BBS_LastPacketType
+        PERMIT_WRITE BBS_LastPacketType
+        PERMIT_READ BBS_TxPacketType
+        PERMIT_WRITE BBS_TxPacketType
+        PERMIT_READ BBS_TxPayload
+        PERMIT_WRITE BBS_TxPayload
+        DENY_ALL
+    END_FIREWALL
+
+    LET BBS_StatusCode AS U8 = #BBS_STATUS_READY
+    LET BBS_StatusValue AS U16 = 0
+    LET BBS_Frame AS U16 = 0
+    LET BBS_MessageCount AS U16 = 0
+    LET BBS_RoomId AS U16 = 1
+    LET BBS_ScrollOffset AS U8 = 0
+    LET BBS_LineCount AS U8 = 0
+    LET BBS_QuitRequested AS U8 = 0
+    LET BBS_DirtyIndex AS U8 = 1
+    LET BBS_NetLive AS U8 = 0
+    LET BBS_LastPacketType AS U8 = 0
+    LET BBS_PacketsOut AS U16 = 0
+    LET BBS_UserId AS U16 = 257
+    LET BBS_NextSeq AS U16 = 1
+    LET BBS_TxPacketType AS U8 = 0
+
+    LET BBS_Handle AS STRING = "SYSOP"
+    LET BBS_RoomLabel AS STRING = "LOBBY-01"
+    LET BBS_Input AS STRING = ""
+    LET BBS_Transcript AS STRING = ""
+    LET BBS_SavePath AS STRING = "albBBS_log.txt"
+    LET BBS_TxPayload AS STRING = ""
+
+    STRICT BBS_KeyPrev[#BBS_KEY_CAP] AS U8
+    STRICT BBS_LineStart[#BBS_LINE_INDEX_MAX] AS U16
+    STRICT BBS_LineLen[#BBS_LINE_INDEX_MAX] AS U16
+    STRICT BBS_Rx[#BBS_PACKET_SIZE] AS U8
+    STRICT BBS_Tx[#BBS_PACKET_SIZE] AS U8
+
+    FUNCTION BBS_NewLine() AS STRING
+        RETURN CHR(13) | CHR(10)
+    END FUNCTION
+
+    FUNCTION BBS_KeyIndex(scancode AS U16) AS U16
+        RETURN scancode + 1
+    END FUNCTION
+
+    FUNCTION BBS_KeyEdge(scancode AS U16) AS U8
+        LET slot_id AS U16 = BBS_KeyIndex(scancode)
+        LET key_now AS U8 = U8(KEY(scancode))
+
+        IF key_now > 0 THEN
+            IF BBS_KeyPrev[slot_id] = 0 THEN
+                LET BBS_KeyPrev[slot_id] = 1
+                RETURN 1
+            END IF
+        ELSE
+            LET BBS_KeyPrev[slot_id] = 0
+        END IF
+
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION BBS_KeyToAscii(scancode AS U16) AS U8
+        IF scancode = #K_A THEN RETURN 65 END IF
+        IF scancode = #K_B THEN RETURN 66 END IF
+        IF scancode = #K_C THEN RETURN 67 END IF
+        IF scancode = #K_D THEN RETURN 68 END IF
+        IF scancode = #K_E THEN RETURN 69 END IF
+        IF scancode = #K_F THEN RETURN 70 END IF
+        IF scancode = #K_G THEN RETURN 71 END IF
+        IF scancode = #K_H THEN RETURN 72 END IF
+        IF scancode = #K_I THEN RETURN 73 END IF
+        IF scancode = #K_J THEN RETURN 74 END IF
+        IF scancode = #K_K THEN RETURN 75 END IF
+        IF scancode = #K_L THEN RETURN 76 END IF
+        IF scancode = #K_M THEN RETURN 77 END IF
+        IF scancode = #K_N THEN RETURN 78 END IF
+        IF scancode = #K_O THEN RETURN 79 END IF
+        IF scancode = #K_P THEN RETURN 80 END IF
+        IF scancode = #K_Q THEN RETURN 81 END IF
+        IF scancode = #K_R THEN RETURN 82 END IF
+        IF scancode = #K_S THEN RETURN 83 END IF
+        IF scancode = #K_T THEN RETURN 84 END IF
+        IF scancode = #K_U THEN RETURN 85 END IF
+        IF scancode = #K_V THEN RETURN 86 END IF
+        IF scancode = #K_W THEN RETURN 87 END IF
+        IF scancode = #K_X THEN RETURN 88 END IF
+        IF scancode = #K_Y THEN RETURN 89 END IF
+        IF scancode = #K_Z THEN RETURN 90 END IF
+
+        IF scancode = #K_1 THEN RETURN 49 END IF
+        IF scancode = #K_2 THEN RETURN 50 END IF
+        IF scancode = #K_3 THEN RETURN 51 END IF
+        IF scancode = #K_4 THEN RETURN 52 END IF
+        IF scancode = #K_5 THEN RETURN 53 END IF
+        IF scancode = #K_6 THEN RETURN 54 END IF
+        IF scancode = #K_7 THEN RETURN 55 END IF
+        IF scancode = #K_8 THEN RETURN 56 END IF
+        IF scancode = #K_9 THEN RETURN 57 END IF
+        IF scancode = #K_0 THEN RETURN 48 END IF
+
+        IF scancode = #K_SPACE THEN RETURN 32 END IF
+        IF scancode = #K_MINUS THEN RETURN 45 END IF
+        IF scancode = #K_COMMA THEN RETURN 44 END IF
+        IF scancode = #K_PERIOD THEN RETURN 46 END IF
+        IF scancode = #K_SLASH THEN RETURN 47 END IF
+
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION BBS_DigitValue(ch AS STRING) AS U8
+        IF ch = "0" THEN RETURN 0 END IF
+        IF ch = "1" THEN RETURN 1 END IF
+        IF ch = "2" THEN RETURN 2 END IF
+        IF ch = "3" THEN RETURN 3 END IF
+        IF ch = "4" THEN RETURN 4 END IF
+        IF ch = "5" THEN RETURN 5 END IF
+        IF ch = "6" THEN RETURN 6 END IF
+        IF ch = "7" THEN RETURN 7 END IF
+        IF ch = "8" THEN RETURN 8 END IF
+        IF ch = "9" THEN RETURN 9 END IF
+        RETURN 255
+    END FUNCTION
+
+    FUNCTION BBS_StatusText() AS STRING
+        IF BBS_StatusCode = #BBS_STATUS_READY THEN RETURN "STATUS=READY" END IF
+        IF BBS_StatusCode = #BBS_STATUS_SAVED THEN RETURN "STATUS=SAVED" END IF
+        IF BBS_StatusCode = #BBS_STATUS_LOADED THEN RETURN "STATUS=LOADED" END IF
+        IF BBS_StatusCode = #BBS_STATUS_CLEARED THEN RETURN "STATUS=CLEARED" END IF
+        IF BBS_StatusCode = #BBS_STATUS_HELP THEN RETURN "STATUS=HELP" END IF
+        IF BBS_StatusCode = #BBS_STATUS_RENAMED THEN RETURN "STATUS=RENAMED" END IF
+        IF BBS_StatusCode = #BBS_STATUS_ROOM THEN RETURN "STATUS=ROOM " | BBS_StatusValue END IF
+        IF BBS_StatusCode = #BBS_STATUS_UNKNOWN THEN RETURN "STATUS=UNKNOWN COMMAND" END IF
+        IF BBS_StatusCode = #BBS_STATUS_EXIT THEN RETURN "STATUS=EXIT" END IF
+        IF BBS_StatusCode = #BBS_STATUS_WHO THEN RETURN "STATUS=WHO" END IF
+        RETURN "STATUS=READY"
+    END FUNCTION
+
+    PROCEDURE BBS_SetStatus(code_value AS U8, value_word AS U16)
+        BBS_StatusCode = code_value
+        BBS_StatusValue = value_word
+    END PROCEDURE
+
+    PROCEDURE BBS_SetRoomLabel()
+        BBS_RoomLabel = "LOBBY-" | BBS_RoomId
+    END PROCEDURE
+
+    FUNCTION BBS_LowByte(word_value AS U16) AS U8
+        LET low_word AS U16 = word_value MOD 256
+        RETURN U8(low_word)
+    END FUNCTION
+
+    FUNCTION BBS_HighByte(word_value AS U16) AS U8
+        LET hi_word AS U16 = word_value / 256
+        RETURN U8(hi_word AND 255)
+    END FUNCTION
+
+    FUNCTION BBS_PacketName(packet_type AS U8) AS STRING
+        IF packet_type = #BBS_PACKET_HELLO THEN RETURN "HELLO" END IF
+        IF packet_type = #BBS_PACKET_CHAT THEN RETURN "CHAT" END IF
+        IF packet_type = #BBS_PACKET_NOTICE THEN RETURN "NOTICE" END IF
+        IF packet_type = #BBS_PACKET_PART THEN RETURN "PART" END IF
+        IF packet_type = #BBS_PACKET_PING THEN RETURN "PING" END IF
+        IF packet_type = #BBS_PACKET_NAME THEN RETURN "NAME" END IF
+        RETURN "NONE"
+    END FUNCTION
+
+    FUNCTION BBS_CharCode(ch AS STRING) AS U8
+        LET alphabet AS STRING = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        LET digits AS STRING = "1234567890"
+        LET pos AS U16 = 1
+
+        WHILE pos <= 26
+            IF ch = MID(alphabet, pos, 1) THEN
+                RETURN U8(64 + pos)
+            END IF
+            pos = pos + 1
+        END WHILE
+
+        pos = 1
+        WHILE pos <= 10
+            IF ch = MID(digits, pos, 1) THEN
+                IF pos = 10 THEN RETURN 48 END IF
+                RETURN U8(48 + pos)
+            END IF
+            pos = pos + 1
+        END WHILE
+
+        IF ch = " " THEN RETURN 32 END IF
+        IF ch = "-" THEN RETURN 45 END IF
+        IF ch = "," THEN RETURN 44 END IF
+        IF ch = "." THEN RETURN 46 END IF
+        IF ch = "/" THEN RETURN 47 END IF
+        RETURN 95
+    END FUNCTION
+
+    PROCEDURE BBS_ClearTxPacket()
+        LET slot_id AS U16 = 0
+
+        FOR slot_id = 1 TO #BBS_PACKET_SIZE THEN
+            LET BBS_Tx[slot_id] = 0
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE BBS_PackTx()
+        LET text_len AS U16 = U16(LEN(BBS_TxPayload))
+        LET slot_id AS U16 = 0
+
+        IF text_len > #BBS_PACKET_PAYLOAD THEN
+            text_len = #BBS_PACKET_PAYLOAD
+        END IF
+
+        CALL BBS_ClearTxPacket()
+
+        BBS_Tx[1] = 1
+        BBS_Tx[2] = BBS_TxPacketType
+        BBS_Tx[3] = BBS_LowByte(BBS_RoomId)
+        BBS_Tx[4] = BBS_HighByte(BBS_RoomId)
+        BBS_Tx[5] = BBS_LowByte(BBS_UserId)
+        BBS_Tx[6] = BBS_HighByte(BBS_UserId)
+        BBS_Tx[7] = BBS_LowByte(BBS_NextSeq)
+        BBS_Tx[8] = BBS_HighByte(BBS_NextSeq)
+        BBS_Tx[9] = U8(text_len)
+
+        FOR slot_id = 1 TO text_len THEN
+            BBS_Tx[slot_id + 9] = BBS_CharCode(MID(BBS_TxPayload, slot_id, 1))
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE BBS_NetBootstrap() BOUND_TO BBSNetGate
+        IF BBS_NetLive > 0 THEN
+            RETURN
+        END IF
+
+        CALL BBS_ClearTxPacket()
+        NETWORK_LISTEN BBSLink
+        BBS_NetLive = 1
+    END PROCEDURE
+
+    PROCEDURE BBS_NetFlushPending() BOUND_TO BBSNetGate
+        IF BBS_NetLive = 0 THEN
+            RETURN
+        END IF
+
+        CALL BBS_PackTx()
+        NETWORK_SEND BBSLink FROM BBS_Tx
+        BBS_PacketsOut = BBS_PacketsOut + 1
+        BBS_LastPacketType = BBS_TxPacketType
+        BBS_NextSeq = BBS_NextSeq + 1
+
+        IF BBS_NextSeq = 0 THEN
+            BBS_NextSeq = 1
+        END IF
+    END PROCEDURE
+
+    PROCEDURE BBS_NetSendPacket(packet_type AS U8, payload_text AS STRING)
+        BBS_TxPacketType = packet_type
+        BBS_TxPayload = payload_text
+        CALL BBS_NetFlushPending()
+    END PROCEDURE
+
+    PROCEDURE BBS_NetShutdown() BOUND_TO BBSNetGate
+        IF BBS_NetLive = 0 THEN
+            RETURN
+        END IF
+
+        NETWORK_CLOSE BBSLink
+        BBS_NetLive = 0
+    END PROCEDURE
+
+    PROCEDURE BBS_PushLineIndex(line_start AS U16, line_len AS U16)
+        LET slot_id AS U16 = 0
+
+        IF BBS_LineCount < #BBS_LINE_INDEX_MAX THEN
+            BBS_LineCount = BBS_LineCount + 1
+            slot_id = U16(BBS_LineCount)
+        ELSE
+            FOR slot_id = 1 TO (#BBS_LINE_INDEX_MAX - 1) THEN
+                LET BBS_LineStart[slot_id] = BBS_LineStart[slot_id + 1]
+                LET BBS_LineLen[slot_id] = BBS_LineLen[slot_id + 1]
+            END FOR
+            slot_id = #BBS_LINE_INDEX_MAX
+        END IF
+
+        LET BBS_LineStart[slot_id] = line_start
+        LET BBS_LineLen[slot_id] = line_len
+    END PROCEDURE
+
+    PROCEDURE BBS_RebuildLineIndex()
+        LET text_len AS U16 = 0
+        LET pos AS U16 = 1
+        LET line_start AS U16 = 1
+        LET line_len AS U16 = 0
+        LET ch AS STRING = ""
+        LET next_ch AS STRING = ""
+
+        BBS_LineCount = 0
+        text_len = U16(LEN(BBS_Transcript))
+
+        IF text_len = 0 THEN
+            BBS_DirtyIndex = 0
+            RETURN
+        END IF
+
+        WHILE pos <= text_len
+            ch = MID(BBS_Transcript, pos, 1)
+
+            IF ch = CHR(13) THEN
+                IF pos < text_len THEN
+                    next_ch = MID(BBS_Transcript, pos + 1, 1)
+                    IF next_ch = CHR(10) THEN
+                        CALL BBS_PushLineIndex(line_start, line_len)
+                        pos = pos + 1
+                        line_start = pos + 1
+                        line_len = 0
+                    ELSE
+                        CALL BBS_PushLineIndex(line_start, line_len)
+                        line_start = pos + 1
+                        line_len = 0
+                    END IF
+                ELSE
+                    CALL BBS_PushLineIndex(line_start, line_len)
+                    line_start = pos + 1
+                    line_len = 0
+                END IF
+            ELSE
+                IF ch = CHR(10) THEN
+                    CALL BBS_PushLineIndex(line_start, line_len)
+                    line_start = pos + 1
+                    line_len = 0
+                ELSE
+                    line_len = line_len + 1
+                END IF
+            END IF
+
+            pos = pos + 1
+        END WHILE
+
+        IF line_len > 0 THEN
+            CALL BBS_PushLineIndex(line_start, line_len)
+        END IF
+
+        BBS_DirtyIndex = 0
+    END PROCEDURE
+
+    FUNCTION BBS_LineText(slot_id AS U8) AS STRING
+        IF slot_id = 0 THEN RETURN "" END IF
+        IF slot_id > BBS_LineCount THEN RETURN "" END IF
+        RETURN MID(BBS_Transcript, BBS_LineStart[slot_id], BBS_LineLen[slot_id])
+    END FUNCTION
+
+    PROCEDURE BBS_AppendTranscriptLine(line_text AS STRING)
+        IF LEN(BBS_Transcript) = 0 THEN
+            BBS_Transcript = line_text | BBS_NewLine()
+        ELSE
+            BBS_Transcript = BBS_Transcript | line_text | BBS_NewLine()
+        END IF
+
+        BBS_MessageCount = BBS_MessageCount + 1
+        BBS_ScrollOffset = 0
+        BBS_DirtyIndex = 1
+        CALL BBS_RebuildLineIndex()
+    END PROCEDURE
+
+    PROCEDURE BBS_AddSystemLine(line_text AS STRING)
+        CALL BBS_AppendTranscriptLine("* " | line_text)
+    END PROCEDURE
+
+    PROCEDURE BBS_AddChatLine(chat_text AS STRING)
+        CALL BBS_AppendTranscriptLine(BBS_Handle | "> " | chat_text)
+    END PROCEDURE
+
+    PROCEDURE BBS_ClearTranscript()
+        BBS_Transcript = ""
+        BBS_LineCount = 0
+        BBS_ScrollOffset = 0
+        BBS_DirtyIndex = 0
+        CALL BBS_SetStatus(#BBS_STATUS_CLEARED, 0)
+    END PROCEDURE
+
+    FUNCTION BBS_ParseRoomValue(text_value AS STRING) AS U16
+        LET text_len AS U16 = U16(LEN(text_value))
+        LET pos AS U16 = 1
+        LET digit_text AS STRING = ""
+        LET digit_value AS U8 = 0
+        LET result_value AS U16 = 0
+
+        WHILE pos <= text_len
+            digit_text = MID(text_value, pos, 1)
+            digit_value = BBS_DigitValue(digit_text)
+
+            IF digit_value <> 255 THEN
+                result_value = (result_value * 10) + U16(digit_value)
+            END IF
+
+            pos = pos + 1
+        END WHILE
+
+        IF result_value = 0 THEN RETURN 1 END IF
+        RETURN result_value
+    END FUNCTION
+
+    PROCEDURE BBS_ShowHelp()
+        CALL BBS_AddSystemLine("COMMANDS:")
+        CALL BBS_AddSystemLine("/HELP  /CLEAR  /SAVE  /LOAD")
+        CALL BBS_AddSystemLine("/NAME NEWNAME")
+        CALL BBS_AddSystemLine("/ROOM 7  /PING")
+        CALL BBS_AddSystemLine("/WHO   /QUIT")
+        CALL BBS_SetStatus(#BBS_STATUS_HELP, 0)
+    END PROCEDURE
+
+    PROCEDURE BBS_HandleCommand(command_text AS STRING)
+        LET arg_text AS STRING = ""
+
+        IF command_text = "/HELP" THEN
+            CALL BBS_ShowHelp()
+            RETURN
+        END IF
+
+        IF command_text = "/CLEAR" THEN
+            CALL BBS_ClearTranscript()
+            RETURN
+        END IF
+
+        IF command_text = "/SAVE" THEN
+            FLUSH BBS_Transcript INTO BBS_SavePath
+            CALL BBS_SetStatus(#BBS_STATUS_SAVED, 0)
+            CALL BBS_AddSystemLine("TRANSCRIPT SAVED")
+            RETURN
+        END IF
+
+        IF command_text = "/LOAD" THEN
+            LOAD BBS_SavePath INTO BBS_Transcript
+            BBS_ScrollOffset = 0
+            BBS_DirtyIndex = 1
+            CALL BBS_RebuildLineIndex()
+            CALL BBS_SetStatus(#BBS_STATUS_LOADED, 0)
+            CALL BBS_AddSystemLine("TRANSCRIPT LOADED")
+            RETURN
+        END IF
+
+        IF command_text = "/WHO" THEN
+            CALL BBS_AddSystemLine("1 ONLINE: " | BBS_Handle)
+            CALL BBS_SetStatus(#BBS_STATUS_WHO, 1)
+            RETURN
+        END IF
+
+        IF command_text = "/PING" THEN
+            CALL BBS_AddSystemLine("PING EMITTED")
+            IF BBS_NetLive > 0 THEN
+                CALL BBS_NetSendPacket(#BBS_PACKET_PING, "PING")
+            END IF
+            CALL BBS_SetStatus(#BBS_STATUS_READY, 0)
+            RETURN
+        END IF
+
+        IF command_text = "/QUIT" THEN
+            BBS_QuitRequested = 1
+            CALL BBS_SetStatus(#BBS_STATUS_EXIT, 0)
+            RETURN
+        END IF
+
+        IF LEN(command_text) > 6 THEN
+            IF LEFT(command_text, 6) = "/NAME " THEN
+                arg_text = MID(command_text, 7, LEN(command_text) - 6)
+                IF LEN(arg_text) > 0 THEN
+                    BBS_Handle = LEFT(arg_text, #BBS_NAME_MAX)
+                    CALL BBS_AddSystemLine("HANDLE NOW " | BBS_Handle)
+                    IF BBS_NetLive > 0 THEN
+                        CALL BBS_NetSendPacket(#BBS_PACKET_NAME, BBS_Handle)
+                    END IF
+                    CALL BBS_SetStatus(#BBS_STATUS_RENAMED, 0)
+                    RETURN
+                END IF
+            END IF
+
+            IF LEFT(command_text, 6) = "/ROOM " THEN
+                arg_text = MID(command_text, 7, LEN(command_text) - 6)
+                BBS_RoomId = BBS_ParseRoomValue(arg_text)
+                CALL BBS_SetRoomLabel()
+                CALL BBS_AddSystemLine("ROOM SET " | BBS_RoomLabel)
+                IF BBS_NetLive > 0 THEN
+                    CALL BBS_NetSendPacket(#BBS_PACKET_NOTICE, BBS_RoomLabel)
+                END IF
+                CALL BBS_SetStatus(#BBS_STATUS_ROOM, BBS_RoomId)
+                RETURN
+            END IF
+        END IF
+
+        CALL BBS_AddSystemLine("UNKNOWN COMMAND")
+        CALL BBS_SetStatus(#BBS_STATUS_UNKNOWN, 0)
+    END PROCEDURE
+
+    PROCEDURE BBS_SubmitInput()
+        LET line_text AS STRING = BBS_Input
+
+        IF LEN(line_text) = 0 THEN
+            RETURN
+        END IF
+
+        IF LEFT(line_text, 1) = "/" THEN
+            CALL BBS_HandleCommand(line_text)
+        ELSE
+            CALL BBS_AddChatLine(line_text)
+            IF BBS_NetLive > 0 THEN
+                CALL BBS_NetSendPacket(#BBS_PACKET_CHAT, line_text)
+            END IF
+            CALL BBS_SetStatus(#BBS_STATUS_READY, 0)
+        END IF
+
+        BBS_Input = ""
+    END PROCEDURE
+
+    PROCEDURE BBS_AppendAscii(ascii_code AS U8)
+        IF ascii_code = 0 THEN RETURN END IF
+        IF LEN(BBS_Input) >= #BBS_INPUT_MAX THEN RETURN END IF
+        BBS_Input = BBS_Input | CHR(ascii_code)
+    END PROCEDURE
+
+    PROCEDURE BBS_ProcessTextKey(scancode AS U16)
+        LET ascii_code AS U8 = 0
+
+        IF BBS_KeyEdge(scancode) = 0 THEN
+            RETURN
+        END IF
+
+        ascii_code = BBS_KeyToAscii(scancode)
+        CALL BBS_AppendAscii(ascii_code)
+    END PROCEDURE
+
+    PROCEDURE BBS_ProcessTyping()
+        CALL BBS_ProcessTextKey(#K_A)
+        CALL BBS_ProcessTextKey(#K_B)
+        CALL BBS_ProcessTextKey(#K_C)
+        CALL BBS_ProcessTextKey(#K_D)
+        CALL BBS_ProcessTextKey(#K_E)
+        CALL BBS_ProcessTextKey(#K_F)
+        CALL BBS_ProcessTextKey(#K_G)
+        CALL BBS_ProcessTextKey(#K_H)
+        CALL BBS_ProcessTextKey(#K_I)
+        CALL BBS_ProcessTextKey(#K_J)
+        CALL BBS_ProcessTextKey(#K_K)
+        CALL BBS_ProcessTextKey(#K_L)
+        CALL BBS_ProcessTextKey(#K_M)
+        CALL BBS_ProcessTextKey(#K_N)
+        CALL BBS_ProcessTextKey(#K_O)
+        CALL BBS_ProcessTextKey(#K_P)
+        CALL BBS_ProcessTextKey(#K_Q)
+        CALL BBS_ProcessTextKey(#K_R)
+        CALL BBS_ProcessTextKey(#K_S)
+        CALL BBS_ProcessTextKey(#K_T)
+        CALL BBS_ProcessTextKey(#K_U)
+        CALL BBS_ProcessTextKey(#K_V)
+        CALL BBS_ProcessTextKey(#K_W)
+        CALL BBS_ProcessTextKey(#K_X)
+        CALL BBS_ProcessTextKey(#K_Y)
+        CALL BBS_ProcessTextKey(#K_Z)
+
+        CALL BBS_ProcessTextKey(#K_1)
+        CALL BBS_ProcessTextKey(#K_2)
+        CALL BBS_ProcessTextKey(#K_3)
+        CALL BBS_ProcessTextKey(#K_4)
+        CALL BBS_ProcessTextKey(#K_5)
+        CALL BBS_ProcessTextKey(#K_6)
+        CALL BBS_ProcessTextKey(#K_7)
+        CALL BBS_ProcessTextKey(#K_8)
+        CALL BBS_ProcessTextKey(#K_9)
+        CALL BBS_ProcessTextKey(#K_0)
+
+        CALL BBS_ProcessTextKey(#K_SPACE)
+        CALL BBS_ProcessTextKey(#K_MINUS)
+        CALL BBS_ProcessTextKey(#K_COMMA)
+        CALL BBS_ProcessTextKey(#K_PERIOD)
+        CALL BBS_ProcessTextKey(#K_SLASH)
+    END PROCEDURE
+
+    PROCEDURE BBS_ProcessControlKeys()
+        IF BBS_KeyEdge(#K_BACKSPACE) = 1 THEN
+            IF LEN(BBS_Input) > 0 THEN
+                BBS_Input = LEFT(BBS_Input, LEN(BBS_Input) - 1)
+            END IF
+        END IF
+
+        IF BBS_KeyEdge(#K_ENTER) = 1 THEN
+            CALL BBS_SubmitInput()
+        END IF
+
+        IF BBS_KeyEdge(#K_UP) = 1 THEN
+            IF BBS_LineCount > #BBS_VISIBLE_LINES THEN
+                IF BBS_ScrollOffset < (BBS_LineCount - #BBS_VISIBLE_LINES) THEN
+                    BBS_ScrollOffset = BBS_ScrollOffset + 1
+                END IF
+            END IF
+        END IF
+
+        IF BBS_KeyEdge(#K_DOWN) = 1 THEN
+            IF BBS_ScrollOffset > 0 THEN
+                BBS_ScrollOffset = BBS_ScrollOffset - 1
+            END IF
+        END IF
+
+        IF BBS_KeyEdge(#K_ESCAPE) = 1 THEN
+            BBS_QuitRequested = 1
+            CALL BBS_SetStatus(#BBS_STATUS_EXIT, 0)
+        END IF
+    END PROCEDURE
+
+    PROCEDURE BBS_Init()
+        CALL BBS_SetRoomLabel()
+        CALL BBS_AddSystemLine("WELCOME TO ALBBBS")
+        CALL BBS_AddSystemLine("DARK TERMINAL READY")
+        CALL BBS_AddSystemLine("TYPE /HELP FOR COMMANDS")
+        CALL BBS_NetBootstrap()
+        IF BBS_NetLive > 0 THEN
+            CALL BBS_AddSystemLine("NET GATE OPEN UDP 9119")
+            CALL BBS_NetSendPacket(#BBS_PACKET_HELLO, BBS_Handle)
+        END IF
+        CALL BBS_SetStatus(#BBS_STATUS_READY, 0)
+    END PROCEDURE
+
+    PROCEDURE BBS_DrawTranscript()
+        LET start_slot AS I16 = 1
+        LET end_slot AS I16 = 0
+        LET max_back AS I16 = 0
+        LET slot_id AS I16 = 0
+        LET draw_y AS I16 = #BBS_LOG_Y + 14
+        LET line_text AS STRING = ""
+
+        IF BBS_DirtyIndex = 1 THEN
+            CALL BBS_RebuildLineIndex()
+        END IF
+
+        IF BBS_LineCount > #BBS_VISIBLE_LINES THEN
+            max_back = I16(BBS_LineCount) - #BBS_VISIBLE_LINES
+            start_slot = I16(BBS_LineCount) - #BBS_VISIBLE_LINES - I16(BBS_ScrollOffset) + 1
+            IF start_slot < 1 THEN start_slot = 1 END IF
+            IF BBS_ScrollOffset > U8(max_back) THEN BBS_ScrollOffset = U8(max_back) END IF
+        END IF
+
+        end_slot = start_slot + #BBS_VISIBLE_LINES - 1
+        IF end_slot > I16(BBS_LineCount) THEN end_slot = I16(BBS_LineCount) END IF
+
+        COLOR $A7F3D0
+        FOR slot_id = start_slot TO end_slot THEN
+            line_text = BBS_LineText(U8(slot_id))
+            DRAW TEXT #BBS_LOG_X + 14, draw_y, line_text
+            draw_y = draw_y + 24
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE BBS_DrawSidePane()
+        COLOR $9CA3AF
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 18, "ALBBBS"
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 46, "HANDLE=" | BBS_Handle
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 70, "ROOM=" | BBS_RoomLabel
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 94, "MSGS=" | BBS_MessageCount
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 118, "SCROLL=" | BBS_ScrollOffset
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 142, "NET=" | BBS_NetLive | " OUT=" | BBS_PacketsOut
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 166, "LASTPKT=" | BBS_PacketName(BBS_LastPacketType)
+
+        COLOR $93C5FD
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 214, "USERS"
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 240, BBS_Handle
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 264, "GATEWAY SHELL"
+
+        COLOR $FDE68A
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 308, "COMMANDS"
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 334, "/HELP"
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 358, "/CLEAR"
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 382, "/SAVE"
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 406, "/LOAD"
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 430, "/NAME ADA"
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 454, "/ROOM 7"
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 478, "/PING"
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 502, "/WHO"
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 526, "/QUIT"
+
+        COLOR $FCA5A5
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 572, "KEYS"
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 596, "ENTER SEND"
+        DRAW TEXT #BBS_SIDE_X + 16, #BBS_SIDE_Y + 620, "UP/DOWN SCROLL"
+    END PROCEDURE
+
+    PROCEDURE BBS_DrawInputPane()
+        COLOR $22C55E
+        DRAW TEXT #BBS_INPUT_X + 14, #BBS_INPUT_Y + 18, "PROMPT>"
+        COLOR $E2E8F0
+        DRAW TEXT #BBS_INPUT_X + 108, #BBS_INPUT_Y + 18, BBS_Input | "_"
+    END PROCEDURE
+
+    PROCEDURE BBS_DrawStatusPane()
+        COLOR $CBD5E1
+        DRAW TEXT #BBS_STATUS_X + 2, #BBS_STATUS_Y, BBS_StatusText() | "  FILE=" | BBS_SavePath | "  FRAME=" | BBS_Frame
+    END PROCEDURE
+
+    PROCEDURE BBS_DrawFrame()
+        CLEAR $030712
+
+        COLOR $08111F
+        FILL RECT 0, 0, #BBS_WIN_W, #BBS_WIN_H
+
+        COLOR $0B1220
+        FILL RECT #BBS_LOG_X, #BBS_LOG_Y, #BBS_LOG_W, #BBS_LOG_H
+        FILL RECT #BBS_SIDE_X, #BBS_SIDE_Y, #BBS_SIDE_W, #BBS_SIDE_H
+        FILL RECT #BBS_INPUT_X, #BBS_INPUT_Y, #BBS_INPUT_W, #BBS_INPUT_H
+
+        COLOR $334155
+        DRAW RECT #BBS_LOG_X, #BBS_LOG_Y, #BBS_LOG_W, #BBS_LOG_H
+        DRAW RECT #BBS_SIDE_X, #BBS_SIDE_Y, #BBS_SIDE_W, #BBS_SIDE_H
+        DRAW RECT #BBS_INPUT_X, #BBS_INPUT_Y, #BBS_INPUT_W, #BBS_INPUT_H
+
+        COLOR $67E8F9
+        DRAW TEXT 24, 18, "albBBS"
+        COLOR $94A3B8
+        DRAW TEXT 24, 42, "BBS STYLE CHAT TERMINAL"
+
+        CALL BBS_DrawTranscript()
+        CALL BBS_DrawSidePane()
+        CALL BBS_DrawInputPane()
+        CALL BBS_DrawStatusPane()
+    END PROCEDURE
+
+    SETFULLSCREEN FALSE
+    SETRESIZABLE TRUE
+    SETSTRETCHY TRUE
+    CREATE_WINDOW "albBBS", #BBS_WIN_W, #BBS_WIN_H
+
+    CALL BBS_Init()
+
+    ON TICK
+        TICK 16
+        BBS_Frame = BBS_Frame + 1
+
+        CALL BBS_ProcessTyping()
+        CALL BBS_ProcessControlKeys()
+
+        IF BBS_QuitRequested = 1 THEN
+            IF BBS_NetLive > 0 THEN
+                CALL BBS_NetSendPacket(#BBS_PACKET_PART, BBS_Handle)
+                CALL BBS_NetShutdown()
+            END IF
+            CEASE
+        END IF
+    END
+
+    ON PAINT
+        CALL BBS_DrawFrame()
+    END
+
+    LISTEN
+END

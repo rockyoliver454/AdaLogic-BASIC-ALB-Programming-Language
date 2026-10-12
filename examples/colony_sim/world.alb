@@ -1,0 +1,132 @@
+INCLUDE "world.albi"
+INCLUDE "../ALBHASH.ALBI"
+IMPORT World
+IMPORT ALBHash
+
+MODULE World
+    LET WORLD_CHUNK_SIZE AS U8 = 16
+    LET WORLD_CHUNKS_X AS U8 = 4
+    LET WORLD_CHUNKS_Y AS U8 = 4
+    LET WORLD_Z_LEVELS AS U8 = 4
+    LET MAX_TILES AS U32 = 4096
+
+    STRICT chunk_data[4096] AS U8
+    STRICT chunk_height[4096] AS U8
+    STRICT chunk_flags[4096] AS U8
+
+    LET world_time AS U32 = 0
+    LET tick_count AS U32 = 0
+    LET initialized AS U8 = 0
+    LET DAY_LENGTH AS U32 = 1440
+    LET SEASON_LENGTH AS U32 = 43200
+
+    PROCEDURE Setup()
+        IF initialized = 1 THEN RETURN END IF
+        Reset()
+    END PROCEDURE
+
+    PROCEDURE Reset()
+        LET i AS U32 = 0
+        world_time = 0
+        tick_count = 0
+        DAY_LENGTH = 1440
+        FOR i = 1 TO MAX_TILES THEN
+            chunk_data[i] = 0
+            chunk_height[i] = 0
+            chunk_flags[i] = 0
+        END FOR
+        initialized = 1
+    END PROCEDURE
+
+    PROCEDURE Process()
+        world_time = world_time + 1
+        IF world_time > SEASON_LENGTH * 4 THEN world_time = 0 END IF
+        tick_count = tick_count + 1
+    END PROCEDURE
+
+    FUNCTION GetChunk(cx AS S32, cy AS S32, cz AS S32) AS S32
+        LET idx AS S32 = 0
+        LET ux AS U32 = 0
+        LET uy AS U32 = 0
+        LET uz AS U32 = 0
+        IF cx < 0 THEN ux = 0 ELSE ux = U32(cx) END IF
+        IF cy < 0 THEN uy = 0 ELSE uy = U32(cy) END IF
+        IF cz < 0 THEN uz = 0 ELSE uz = U32(cz) END IF
+        idx = S32(uz * U32(WORLD_CHUNKS_X) * U32(WORLD_CHUNKS_Y) + uy * U32(WORLD_CHUNKS_X) + ux + 1)
+        IF idx > S32(MAX_TILES) THEN idx = S32(MAX_TILES) END IF
+        IF idx < 1 THEN idx = 1 END IF
+        RETURN idx
+    END FUNCTION
+
+    PROCEDURE SetTile(cx AS S32, cy AS S32, cz AS S32, tile_kind AS U8)
+        LET idx AS S32 = GetChunk(cx, cy, cz)
+        chunk_data[idx] = tile_kind
+    END PROCEDURE
+
+    PROCEDURE RestoreChunk(idx AS U32, tile_kind AS U8, tile_height AS U8, tile_flags AS U8)
+        IF idx < 1 OR idx > MAX_TILES THEN RETURN END IF
+        chunk_data[idx] = tile_kind
+        chunk_height[idx] = tile_height
+        chunk_flags[idx] = tile_flags
+    END PROCEDURE
+
+    FUNCTION GetTile(cx AS S32, cy AS S32, cz AS S32) AS U8
+        LET idx AS S32 = GetChunk(cx, cy, cz)
+        RETURN chunk_data[idx]
+    END FUNCTION
+
+    FUNCTION GetWorldTime() AS U32
+        RETURN world_time
+    END FUNCTION
+
+    FUNCTION GetTickCount() AS U32
+        RETURN tick_count
+    END FUNCTION
+
+    FUNCTION GetDayLength() AS U32
+        RETURN DAY_LENGTH
+    END FUNCTION
+
+    FUNCTION GetSeasonLength() AS U32
+        RETURN SEASON_LENGTH
+    END FUNCTION
+
+    PROCEDURE SetWorldTime(value AS U32)
+        world_time = value
+        IF world_time > SEASON_LENGTH * 4 THEN
+            world_time = world_time MOD (SEASON_LENGTH * 4)
+        END IF
+    END PROCEDURE
+
+    PROCEDURE SetTickCount(value AS U32)
+        tick_count = value
+    END PROCEDURE
+
+    PROCEDURE SetDayLength(value AS U32)
+        IF value < 360 THEN
+            DAY_LENGTH = 360
+        ELSE
+            DAY_LENGTH = value
+        END IF
+    END PROCEDURE
+
+    FUNCTION GetSeason() AS U8
+        LET season AS U8 = U8(world_time / SEASON_LENGTH)
+        IF season > 3 THEN season = 3 END IF
+        RETURN season
+    END FUNCTION
+
+    FUNCTION MixChecksum(hash_value AS U64) AS U64
+        LET i AS U32 = 0
+        hash_value = ALBHash.MixU32(hash_value, world_time)
+        hash_value = ALBHash.MixU32(hash_value, tick_count)
+        hash_value = ALBHash.MixU8(hash_value, initialized)
+        hash_value = ALBHash.MixU32(hash_value, DAY_LENGTH)
+        FOR i = 1 TO MAX_TILES THEN
+            hash_value = ALBHash.MixU8(hash_value, chunk_data[i])
+            hash_value = ALBHash.MixU8(hash_value, chunk_height[i])
+            hash_value = ALBHash.MixU8(hash_value, chunk_flags[i])
+        END FOR
+        RETURN hash_value
+    END FUNCTION
+END MODULE

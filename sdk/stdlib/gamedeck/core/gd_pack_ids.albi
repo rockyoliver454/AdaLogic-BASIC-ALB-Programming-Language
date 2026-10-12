@@ -1,0 +1,36 @@
+-- Integer ids for C kyuohaye / septerra loaders. No Raylib image IO.
+VERSION 1.0
+
+DECLARE MODULE GdPackIds
+    FUNCTION KuoId() AS S32
+    FUNCTION SepId() AS S32
+    FUNCTION SlotOf(kind AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdPackIds
+
+    FUNCTION KuoId() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION SepId() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 2
+    END FUNCTION
+
+    FUNCTION SlotOf(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 8)
+        IF kind = 0 THEN
+            RETURN KuoId()
+        END IF
+        IF kind = 1 THEN
+            RETURN SepId()
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

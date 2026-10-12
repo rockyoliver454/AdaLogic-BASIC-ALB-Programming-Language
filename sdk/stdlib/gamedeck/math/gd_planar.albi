@@ -1,0 +1,57 @@
+-- Twin of Ada geo_planar_mesh. 8-vertex ring.
+VERSION 1.0
+
+DECLARE MODULE GdPlanar
+    PROCEDURE Bake(cx AS S32, cy AS S32, rad AS S32)
+    FUNCTION VX(i AS S32) AS S32
+    FUNCTION VY(i AS S32) AS S32
+    PROCEDURE PresentRing()
+END DECLARE MODULE
+
+MODULE GdPlanar
+
+    STRICT vx[8] AS S32
+    STRICT vy[8] AS S32
+
+    PROCEDURE Bake(cx AS S32, cy AS S32, rad AS S32)
+        LET i AS S32 = 1
+        LET a AS S32 = 0
+        ASSERT(rad > 0)
+        ASSERT(rad <= 120)
+        WHILE i <= 8
+            a = (i - 1) * 32
+            vx[i] = cx + (GdCordic.Cos8(a) * rad) / 127
+            vy[i] = cy + (GdCordic.Sin8(a) * rad) / 127
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION VX(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 8)
+        RETURN vx[i]
+    END FUNCTION
+
+    FUNCTION VY(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 8)
+        RETURN vy[i]
+    END FUNCTION
+
+    PROCEDURE PresentRing()
+        LET i AS S32 = 1
+        LET j AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $38BDF8
+        WHILE i <= 8
+            j = i + 1
+            IF j > 8 THEN
+                j = 1
+            END IF
+            FILL RECT vx[i], vy[i], 3, 3
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

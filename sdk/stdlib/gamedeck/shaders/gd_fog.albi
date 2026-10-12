@@ -1,0 +1,52 @@
+-- Software fog band + Ada fog texture kind samples.
+VERSION 1.0
+
+DECLARE MODULE GdFog
+    PROCEDURE PresentBand(y AS S32, h AS S32)
+    FUNCTION RgbOf(kind AS S32) AS S32
+    FUNCTION SampleAt(x AS S32, y AS S32, t AS S32) AS S32
+    PROCEDURE PresentMist(kind AS S32, y AS S32)
+END DECLARE MODULE
+
+MODULE GdFog
+
+    PROCEDURE PresentBand(y AS S32, h AS S32)
+        ASSERT(h > 0)
+        ASSERT(y >= 0)
+        COLOR $64748B
+        FILL RECT 0, y, 640, h
+    END PROCEDURE
+
+    FUNCTION RgbOf(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 3)
+        IF kind = 0 THEN RETURN $64748B END IF
+        IF kind = 1 THEN RETURN $94A3B8 END IF
+        IF kind = 2 THEN RETURN $334155 END IF
+        RETURN $CBD5E1
+    END FUNCTION
+
+    FUNCTION SampleAt(x AS S32, y AS S32, t AS S32) AS S32
+        LET h AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        h = ((x * 13) XOR (y * 7) XOR t) AND 31
+        RETURN 80 + h
+    END FUNCTION
+
+    PROCEDURE PresentMist(kind AS S32, y AS S32)
+        LET i AS S32 = 0
+        LET rgb AS S32 = 0
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 3)
+        rgb = RgbOf(kind)
+        COLOR rgb
+        FILL RECT 0, y, 640, 12
+        COLOR $CBD5E1
+        WHILE i < 10
+            FILL RECT i * 64 + (kind * 4), y + 2, 24, 4
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

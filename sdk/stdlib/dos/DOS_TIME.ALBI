@@ -1,0 +1,165 @@
+-- ====================================================================
+-- DOS_TIME.ALBI
+-- Frame-timer and calendar helpers for DOS-oriented programs.
+-- ====================================================================
+
+LET DOSTIME_FRAMES_PER_SECOND AS U16 = 60
+LET DOSTIME_TICK_COUNT AS U32 = 0
+
+FUNCTION DOSTIME_Digit_Text(value AS U16) AS STRING
+    SELECT value
+        CASE 0 => RETURN "0"
+        CASE 1 => RETURN "1"
+        CASE 2 => RETURN "2"
+        CASE 3 => RETURN "3"
+        CASE 4 => RETURN "4"
+        CASE 5 => RETURN "5"
+        CASE 6 => RETURN "6"
+        CASE 7 => RETURN "7"
+        CASE 8 => RETURN "8"
+        CASE ELSE => RETURN "9"
+    END SELECT
+END FUNCTION
+
+FUNCTION DOSTIME_Two_Digit_Text(value AS U16) AS STRING
+    LET safe_value AS U16 = value MOD 100
+    LET tens_value AS U16 = safe_value / 10
+    LET ones_value AS U16 = safe_value MOD 10
+    LET out_text AS STRING = DOSTIME_Digit_Text(tens_value)
+
+    out_text = CONCAT(out_text, DOSTIME_Digit_Text(ones_value))
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSTIME_U16_Text(value AS U16) AS STRING
+    LET out_text AS STRING = ""
+    LET digit_value AS U16 = 0
+    LET started AS BOOL = FALSE
+
+    digit_value = value / 10000
+    IF digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSTIME_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = (value / 1000) MOD 10
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSTIME_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = (value / 100) MOD 10
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSTIME_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = (value / 10) MOD 10
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSTIME_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    out_text = CONCAT(out_text, DOSTIME_Digit_Text(value MOD 10))
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+PROCEDURE DOSTIME_Reset()
+    DOSTIME_TICK_COUNT = 0
+END PROCEDURE
+
+PROCEDURE DOSTIME_Set_FPS(fps_value AS U16)
+    IF fps_value = 0 THEN
+        DOSTIME_FRAMES_PER_SECOND = 60
+    ELSE
+        DOSTIME_FRAMES_PER_SECOND = fps_value
+    END IF
+END PROCEDURE
+
+PROCEDURE DOSTIME_Tick()
+    DOSTIME_TICK_COUNT = DOSTIME_TICK_COUNT + 1
+END PROCEDURE
+
+FUNCTION DOSTIME_Seconds_From_Ticks(tick_value AS U32) AS U32
+    IF DOSTIME_FRAMES_PER_SECOND = 0 THEN RETURN tick_value END IF
+    RETURN tick_value / DOSTIME_FRAMES_PER_SECOND
+END FUNCTION
+
+FUNCTION DOSTIME_Minutes_From_Ticks(tick_value AS U32) AS U32
+    RETURN DOSTIME_Seconds_From_Ticks(tick_value) / 60
+END FUNCTION
+
+FUNCTION DOSTIME_Format_MMSS(total_seconds AS U32) AS STRING
+    LET minutes_value AS U16 = CAST((total_seconds / 60) MOD 100 AS U16)
+    LET seconds_value AS U16 = CAST(total_seconds MOD 60 AS U16)
+    LET out_text AS STRING = DOSTIME_Two_Digit_Text(minutes_value)
+
+    out_text = CONCAT(out_text, ":")
+    out_text = CONCAT(out_text, DOSTIME_Two_Digit_Text(seconds_value))
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSTIME_Is_Leap_Year(year_value AS U16) AS BOOL
+    IF year_value MOD 400 = 0 THEN RETURN TRUE END IF
+    IF year_value MOD 100 = 0 THEN RETURN FALSE END IF
+    IF year_value MOD 4 = 0 THEN RETURN TRUE END IF
+    RETURN FALSE
+END FUNCTION
+
+FUNCTION DOSTIME_Days_In_Month(month_value AS U16, year_value AS U16) AS U16
+    IF month_value = 1 THEN RETURN 31 END IF
+    IF month_value = 2 THEN
+        IF DOSTIME_Is_Leap_Year(year_value) THEN RETURN 29 END IF
+        RETURN 28
+    END IF
+    IF month_value = 3 THEN RETURN 31 END IF
+    IF month_value = 4 THEN RETURN 30 END IF
+    IF month_value = 5 THEN RETURN 31 END IF
+    IF month_value = 6 THEN RETURN 30 END IF
+    IF month_value = 7 THEN RETURN 31 END IF
+    IF month_value = 8 THEN RETURN 31 END IF
+    IF month_value = 9 THEN RETURN 30 END IF
+    IF month_value = 10 THEN RETURN 31 END IF
+    IF month_value = 11 THEN RETURN 30 END IF
+    IF month_value = 12 THEN RETURN 31 END IF
+    RETURN 0
+END FUNCTION
+
+FUNCTION DOSTIME_Month_Name(month_value AS U16) AS STRING
+    SELECT month_value
+        CASE 1 => RETURN "JANUARY"
+        CASE 2 => RETURN "FEBRUARY"
+        CASE 3 => RETURN "MARCH"
+        CASE 4 => RETURN "APRIL"
+        CASE 5 => RETURN "MAY"
+        CASE 6 => RETURN "JUNE"
+        CASE 7 => RETURN "JULY"
+        CASE 8 => RETURN "AUGUST"
+        CASE 9 => RETURN "SEPTEMBER"
+        CASE 10 => RETURN "OCTOBER"
+        CASE 11 => RETURN "NOVEMBER"
+        CASE ELSE => RETURN "DECEMBER"
+    END SELECT
+END FUNCTION
+
+FUNCTION DOSTIME_Weekday_Name(day_value AS U16) AS STRING
+    SELECT day_value MOD 7
+        CASE 0 => RETURN "SUNDAY"
+        CASE 1 => RETURN "MONDAY"
+        CASE 2 => RETURN "TUESDAY"
+        CASE 3 => RETURN "WEDNESDAY"
+        CASE 4 => RETURN "THURSDAY"
+        CASE 5 => RETURN "FRIDAY"
+        CASE ELSE => RETURN "SATURDAY"
+    END SELECT
+END FUNCTION
+
+FUNCTION DOSTIME_Format_Date(year_value AS U16, month_value AS U16, day_value AS U16) AS STRING
+    LET out_text AS STRING = DOSTIME_Two_Digit_Text(month_value)
+
+    out_text = CONCAT(out_text, "/")
+    out_text = CONCAT(out_text, DOSTIME_Two_Digit_Text(day_value))
+    out_text = CONCAT(out_text, "/")
+    out_text = CONCAT(out_text, DOSTIME_U16_Text(year_value))
+    RETURN CONCAT(out_text, "")
+END FUNCTION

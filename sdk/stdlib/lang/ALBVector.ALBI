@@ -1,0 +1,750 @@
+-- ============================================================================
+-- ALBVector.ALBI — Vec2/3/4 helpers + bounded PARALLEL pools
+-- ============================================================================
+-- From release\examples\:
+--   INCLUDE "../stdlib/lang/ALBVector.ALBI"
+--
+-- Raise #ALBV_MAX_HANDLES / #ALBV_CAPACITY / #ALBV_TOTAL before INCLUDE
+-- if you need larger pools (defaults 32 handles, 32 capacity, 1024 cells).
+--
+-- Geometry functions take scalar components, not STRUCT arguments, so
+-- they work on albt / alba / albn / albw. Vec2Len / Vec2Dist return U64
+-- integer length (not PURE). #ALBV_LERP_SCALE (1000) is the fixed-point
+-- denominator for integer lerp.
+--
+-- Sequence pools: create a handle, push values, swap-pop to remove in
+-- O(1) unordered. Prefer IndexValid before VecU32Get on a hot path, or
+-- use VecU32At(..., OUT ok). Indexes are 1-based.
+--
+-- AND / OR / XOR are bitwise. | concatenates strings (not used for
+-- vector math). No heap allocation after init.
+-- ============================================================================
+
+VERSION 0.0.0.2
+
+#ALBV_MAX_HANDLES = 32
+#ALBV_CAPACITY   = 32
+#ALBV_TOTAL      = 1024
+#ALBV_LERP_SCALE = 1000
+
+STRUCT Vec2S32
+    x AS S32
+    y AS S32
+END STRUCT
+
+STRUCT Vec3S32
+    x AS S32
+    y AS S32
+    z AS S32
+END STRUCT
+
+STRUCT Vec4S32
+    x AS S32
+    y AS S32
+    z AS S32
+    w AS S32
+END STRUCT
+
+DECLARE MODULE ALBVector
+    -- ----------------------------------------------------------------
+    -- Vec2S32 geometry
+    -- ----------------------------------------------------------------
+    -- Struct types (Vec2S32, Vec3S32, Vec4S32) are for consumer-side data.
+    -- Module exports use scalar components for cross-backend safety.
+    FUNCTION Vec2Eq(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS U8
+    FUNCTION Vec2Dot(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+    FUNCTION Vec2PerpDot(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+    FUNCTION Vec2LenSq(vx AS S32, vy AS S32) AS U64
+    FUNCTION Vec2Len(vx AS S32, vy AS S32) AS U64
+    FUNCTION Vec2DistSq(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS U64
+    FUNCTION Vec2Dist(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS U64
+    PROCEDURE Vec2Add(ax AS S32, ay AS S32, bx AS S32, by AS S32, OUT ox AS S32, OUT oy AS S32)
+    PROCEDURE Vec2Sub(ax AS S32, ay AS S32, bx AS S32, by AS S32, OUT ox AS S32, OUT oy AS S32)
+    PROCEDURE Vec2Scale(vx AS S32, vy AS S32, factor AS S32, OUT ox AS S32, OUT oy AS S32)
+    PROCEDURE Vec2Normalize(vx AS S32, vy AS S32, OUT ox AS S32, OUT oy AS S32)
+    PROCEDURE Vec2Lerp(ax AS S32, ay AS S32, bx AS S32, by AS S32, t_num AS U32, t_den AS U32, OUT ox AS S32, OUT oy AS S32)
+
+    -- ----------------------------------------------------------------
+    -- Vec3S32 geometry (scalars)
+    -- ----------------------------------------------------------------
+    FUNCTION Vec3Dot(ax AS S32, ay AS S32, az AS S32, bx AS S32, by AS S32, bz AS S32) AS S32
+    FUNCTION Vec3LenSq(vx AS S32, vy AS S32, vz AS S32) AS U64
+    FUNCTION Vec3Len(vx AS S32, vy AS S32, vz AS S32) AS U64
+    PROCEDURE Vec3Add(ax AS S32, ay AS S32, az AS S32, bx AS S32, by AS S32, bz AS S32, OUT ox AS S32, OUT oy AS S32, OUT oz AS S32)
+    PROCEDURE Vec3Sub(ax AS S32, ay AS S32, az AS S32, bx AS S32, by AS S32, bz AS S32, OUT ox AS S32, OUT oy AS S32, OUT oz AS S32)
+    PROCEDURE Vec3Normalize(vx AS S32, vy AS S32, vz AS S32, OUT ox AS S32, OUT oy AS S32, OUT oz AS S32)
+    PROCEDURE Vec3Lerp(ax AS S32, ay AS S32, az AS S32, bx AS S32, by AS S32, bz AS S32, t_num AS U32, t_den AS U32, OUT ox AS S32, OUT oy AS S32, OUT oz AS S32)
+
+    -- ----------------------------------------------------------------
+    -- U32 sequence vectors (PARALLEL + SWAPPOP)
+    -- ----------------------------------------------------------------
+    FUNCTION VecU32Create() AS U32
+    PROCEDURE VecU32Destroy(handle AS U32)
+    PROCEDURE VecU32Clear(handle AS U32)
+    FUNCTION VecU32Len(handle AS U32) AS U32
+    FUNCTION VecU32Cap(handle AS U32) AS U32
+    FUNCTION VecU32Empty(handle AS U32) AS U8
+    FUNCTION VecU32IndexValid(handle AS U32, index AS U32) AS U8
+    PROCEDURE VecU32PushBack(handle AS U32, value AS U32)
+    FUNCTION VecU32PopBack(handle AS U32) AS U32
+    FUNCTION VecU32Back(handle AS U32) AS U32
+    FUNCTION VecU32Get(handle AS U32, index AS U32) AS U32
+    FUNCTION VecU32At(handle AS U32, index AS U32, OUT result_ok AS U8) AS U32
+    PROCEDURE VecU32Set(handle AS U32, index AS U32, value AS U32)
+    PROCEDURE VecU32Insert(handle AS U32, index AS U32, value AS U32)
+    PROCEDURE VecU32RemoveAt(handle AS U32, index AS U32)
+    FUNCTION VecU32Copy(dst AS U32, src AS U32) AS U8
+    PROCEDURE VecU32Sort(handle AS U32)
+    FUNCTION VecU32SwapPop(handle AS U32, index AS U32) AS U8
+    FUNCTION VecU32Find(handle AS U32, value AS U32) AS U32
+    FUNCTION VecU32Contains(handle AS U32, value AS U32) AS U8
+    PROCEDURE VecU32Reverse(handle AS U32)
+
+    -- ----------------------------------------------------------------
+    -- S32 sequence vectors
+    -- ----------------------------------------------------------------
+    FUNCTION VecS32Create() AS U32
+    PROCEDURE VecS32Destroy(handle AS U32)
+    PROCEDURE VecS32Clear(handle AS U32)
+    FUNCTION VecS32Len(handle AS U32) AS U32
+    FUNCTION VecS32IndexValid(handle AS U32, index AS U32) AS U8
+    PROCEDURE VecS32PushBack(handle AS U32, value AS S32)
+    FUNCTION VecS32Get(handle AS U32, index AS U32) AS S32
+    FUNCTION VecS32SwapPop(handle AS U32, index AS U32) AS U8
+    FUNCTION VecS32Find(handle AS U32, value AS S32) AS U32
+
+    -- ----------------------------------------------------------------
+    -- Vec2S32 sequence vectors (SoA PARALLEL pool)
+    -- ----------------------------------------------------------------
+    FUNCTION VecV2Create() AS U32
+    PROCEDURE VecV2Destroy(handle AS U32)
+    PROCEDURE VecV2Clear(handle AS U32)
+    FUNCTION VecV2Len(handle AS U32) AS U32
+    FUNCTION VecV2IndexValid(handle AS U32, index AS U32) AS U8
+    PROCEDURE VecV2PushBack(handle AS U32, px AS S32, py AS S32)
+    FUNCTION VecV2GetX(handle AS U32, index AS U32) AS S32
+    FUNCTION VecV2GetY(handle AS U32, index AS U32) AS S32
+    FUNCTION VecV2SwapPop(handle AS U32, index AS U32) AS U8
+END DECLARE MODULE
+
+MODULE ALBVector
+
+    PARALLEL PoolU32[#ALBV_TOTAL]
+        value AS U32
+    END PARALLEL
+
+    PARALLEL PoolS32[#ALBV_TOTAL]
+        value AS S32
+    END PARALLEL
+
+    PARALLEL PoolV2[#ALBV_TOTAL]
+        x AS S32
+        y AS S32
+    END PARALLEL
+
+    STRICT HandleLiveU32[#ALBV_MAX_HANDLES] AS U8
+    STRICT HandleLiveS32[#ALBV_MAX_HANDLES] AS U8
+    STRICT HandleLiveV2[#ALBV_MAX_HANDLES] AS U8
+    STRICT HandleLenU32[#ALBV_MAX_HANDLES] AS U64
+    STRICT HandleLenS32[#ALBV_MAX_HANDLES] AS U64
+    STRICT HandleLenV2[#ALBV_MAX_HANDLES] AS U64
+
+    FUNCTION HandleValidU32(handle AS U32) AS U8
+        IF handle < 1 THEN RETURN 0 END IF
+        IF handle > #ALBV_MAX_HANDLES THEN RETURN 0 END IF
+        IF HandleLiveU32[handle] = 0 THEN RETURN 0 END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION HandleValidS32(handle AS U32) AS U8
+        IF handle < 1 THEN RETURN 0 END IF
+        IF handle > #ALBV_MAX_HANDLES THEN RETURN 0 END IF
+        IF HandleLiveS32[handle] = 0 THEN RETURN 0 END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION HandleValidV2(handle AS U32) AS U8
+        IF handle < 1 THEN RETURN 0 END IF
+        IF handle > #ALBV_MAX_HANDLES THEN RETURN 0 END IF
+        IF HandleLiveV2[handle] = 0 THEN RETURN 0 END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION SlotOf(handle AS U32, index AS U32) AS U32
+        LET base AS U32 = (handle - 1) * #ALBV_CAPACITY
+        RETURN base + index
+    END FUNCTION
+
+    FUNCTION LiveLenU32(handle AS U32) AS U32
+        IF HandleValidU32(handle) = 0 THEN RETURN 0 END IF
+        RETURN CAST(HandleLenU32[handle] AS U32)
+    END FUNCTION
+
+    FUNCTION LiveLenS32(handle AS U32) AS U32
+        IF HandleValidS32(handle) = 0 THEN RETURN 0 END IF
+        RETURN CAST(HandleLenS32[handle] AS U32)
+    END FUNCTION
+
+    FUNCTION LiveLenV2(handle AS U32) AS U32
+        IF HandleValidV2(handle) = 0 THEN RETURN 0 END IF
+        RETURN CAST(HandleLenV2[handle] AS U32)
+    END FUNCTION
+
+    FUNCTION IsqrtU64(value AS U64) AS U64
+        -- Integer square root (binary search). Floor of sqrt(value).
+        LET low AS U64 = 0
+        LET high AS U64 = value
+        LET mid AS U64 = 0
+        LET probe AS U64 = 0
+        IF value = 0 THEN RETURN 0 END IF
+        WHILE low <= high
+            mid = (low + high) / 2
+            probe = mid * mid
+            IF probe = value THEN RETURN mid END IF
+            IF probe < value THEN
+                low = mid + 1
+            ELSE
+                IF mid = 0 THEN RETURN 0 END IF
+                high = mid - 1
+            END IF
+        END WHILE
+        RETURN high
+    END FUNCTION
+
+    PROCEDURE SwapPopU32(slot AS U32, handle AS U32)
+        LET live_count AS U64 = HandleLenU32[handle]
+        LET last_index AS U32 = CAST(live_count AS U32)
+        LET last_slot AS U32 = SlotOf(handle, last_index)
+        LET last_value AS U32 = PoolU32[last_slot].value
+        IF slot = last_slot THEN
+            HandleLenU32[handle] = live_count - 1
+            RETURN
+        END IF
+        PoolU32[slot].value = last_value
+        HandleLenU32[handle] = live_count - 1
+    END PROCEDURE
+
+    PROCEDURE SwapPopS32(slot AS U32, handle AS U32)
+        LET live_count AS U64 = HandleLenS32[handle]
+        LET last_index AS U32 = CAST(live_count AS U32)
+        LET last_slot AS U32 = SlotOf(handle, last_index)
+        LET last_value AS S32 = PoolS32[last_slot].value
+        IF slot = last_slot THEN
+            HandleLenS32[handle] = live_count - 1
+            RETURN
+        END IF
+        PoolS32[slot].value = last_value
+        HandleLenS32[handle] = live_count - 1
+    END PROCEDURE
+
+    PROCEDURE SwapPopV2(slot AS U32, handle AS U32)
+        LET live_count AS U64 = HandleLenV2[handle]
+        LET last_index AS U32 = CAST(live_count AS U32)
+        LET last_slot AS U32 = SlotOf(handle, last_index)
+        LET last_x AS S32 = PoolV2[last_slot].x
+        LET last_y AS S32 = PoolV2[last_slot].y
+        IF slot = last_slot THEN
+            HandleLenV2[handle] = live_count - 1
+            RETURN
+        END IF
+        PoolV2[slot].x = last_x
+        PoolV2[slot].y = last_y
+        HandleLenV2[handle] = live_count - 1
+    END PROCEDURE
+
+    FUNCTION Vec2Eq(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS U8
+        IF ax = bx AND ay = by THEN RETURN 1 END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION Vec2Dot(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+        RETURN (ax * bx) + (ay * by)
+    END FUNCTION
+
+    FUNCTION Vec2PerpDot(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS S32
+        RETURN (ax * by) - (ay * bx)
+    END FUNCTION
+
+    FUNCTION Vec2LenSq(vx AS S32, vy AS S32) AS U64
+        LET dx AS U64 = CAST(vx AS U64)
+        LET dy AS U64 = CAST(vy AS U64)
+        IF vx < 0 THEN dx = CAST((0 - vx) AS U64) END IF
+        IF vy < 0 THEN dy = CAST((0 - vy) AS U64) END IF
+        RETURN (dx * dx) + (dy * dy)
+    END FUNCTION
+
+    FUNCTION Vec2Len(vx AS S32, vy AS S32) AS U64
+        -- Integer length via IsqrtU64(x²+y²). Not a PURE rational.
+        RETURN IsqrtU64(Vec2LenSq(vx, vy))
+    END FUNCTION
+
+    FUNCTION Vec2DistSq(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS U64
+        RETURN Vec2LenSq(ax - bx, ay - by)
+    END FUNCTION
+
+    FUNCTION Vec2Dist(ax AS S32, ay AS S32, bx AS S32, by AS S32) AS U64
+        RETURN IsqrtU64(Vec2DistSq(ax, ay, bx, by))
+    END FUNCTION
+
+    FUNCTION Vec3Dot(ax AS S32, ay AS S32, az AS S32, bx AS S32, by AS S32, bz AS S32) AS S32
+        RETURN (ax * bx) + (ay * by) + (az * bz)
+    END FUNCTION
+
+    FUNCTION Vec3LenSq(vx AS S32, vy AS S32, vz AS S32) AS U64
+        LET ax AS U64 = CAST(vx AS U64)
+        LET ay AS U64 = CAST(vy AS U64)
+        LET az AS U64 = CAST(vz AS U64)
+        IF vx < 0 THEN ax = CAST((0 - vx) AS U64) END IF
+        IF vy < 0 THEN ay = CAST((0 - vy) AS U64) END IF
+        IF vz < 0 THEN az = CAST((0 - vz) AS U64) END IF
+        RETURN (ax * ax) + (ay * ay) + (az * az)
+    END FUNCTION
+
+    FUNCTION Vec3Len(vx AS S32, vy AS S32, vz AS S32) AS U64
+        RETURN IsqrtU64(Vec3LenSq(vx, vy, vz))
+    END FUNCTION
+
+    PROCEDURE Vec2Add(ax AS S32, ay AS S32, bx AS S32, by AS S32, OUT ox AS S32, OUT oy AS S32)
+        ox = ax + bx
+        oy = ay + by
+    END PROCEDURE
+
+    PROCEDURE Vec2Sub(ax AS S32, ay AS S32, bx AS S32, by AS S32, OUT ox AS S32, OUT oy AS S32)
+        ox = ax - bx
+        oy = ay - by
+    END PROCEDURE
+
+    PROCEDURE Vec2Scale(vx AS S32, vy AS S32, factor AS S32, OUT ox AS S32, OUT oy AS S32)
+        ox = vx * factor
+        oy = vy * factor
+    END PROCEDURE
+
+    PROCEDURE Vec2Normalize(vx AS S32, vy AS S32, OUT ox AS S32, OUT oy AS S32)
+        ox = 0
+        oy = 0
+        IF Vec2Len(vx, vy) = 0 THEN RETURN END IF
+        ox = CAST(CAST(vx AS U64) * #ALBV_LERP_SCALE / Vec2Len(vx, vy) AS S32)
+        oy = CAST(CAST(vy AS U64) * #ALBV_LERP_SCALE / Vec2Len(vx, vy) AS S32)
+    END PROCEDURE
+
+    PROCEDURE Vec2Lerp(ax AS S32, ay AS S32, bx AS S32, by AS S32, t_num AS U32, t_den AS U32, OUT ox AS S32, OUT oy AS S32)
+        ox = ax
+        oy = ay
+        IF t_den = 0 THEN RETURN END IF
+        IF t_num > t_den THEN
+            ox = bx
+            oy = by
+            RETURN
+        END IF
+        ox = CAST((CAST(ax AS U64) * (t_den - t_num) + CAST(bx AS U64) * t_num) / t_den AS S32)
+        oy = CAST((CAST(ay AS U64) * (t_den - t_num) + CAST(by AS U64) * t_num) / t_den AS S32)
+    END PROCEDURE
+
+    PROCEDURE Vec3Add(ax AS S32, ay AS S32, az AS S32, bx AS S32, by AS S32, bz AS S32, OUT ox AS S32, OUT oy AS S32, OUT oz AS S32)
+        ox = ax + bx
+        oy = ay + by
+        oz = az + bz
+    END PROCEDURE
+
+    PROCEDURE Vec3Sub(ax AS S32, ay AS S32, az AS S32, bx AS S32, by AS S32, bz AS S32, OUT ox AS S32, OUT oy AS S32, OUT oz AS S32)
+        ox = ax - bx
+        oy = ay - by
+        oz = az - bz
+    END PROCEDURE
+
+    PROCEDURE Vec3Normalize(vx AS S32, vy AS S32, vz AS S32, OUT ox AS S32, OUT oy AS S32, OUT oz AS S32)
+        ox = 0
+        oy = 0
+        oz = 0
+        IF Vec3Len(vx, vy, vz) = 0 THEN RETURN END IF
+        ox = CAST(CAST(vx AS U64) * #ALBV_LERP_SCALE / Vec3Len(vx, vy, vz) AS S32)
+        oy = CAST(CAST(vy AS U64) * #ALBV_LERP_SCALE / Vec3Len(vx, vy, vz) AS S32)
+        oz = CAST(CAST(vz AS U64) * #ALBV_LERP_SCALE / Vec3Len(vx, vy, vz) AS S32)
+    END PROCEDURE
+
+    PROCEDURE Vec3Lerp(ax AS S32, ay AS S32, az AS S32, bx AS S32, by AS S32, bz AS S32, t_num AS U32, t_den AS U32, OUT ox AS S32, OUT oy AS S32, OUT oz AS S32)
+        ox = ax
+        oy = ay
+        oz = az
+        IF t_den = 0 THEN RETURN END IF
+        IF t_num > t_den THEN
+            ox = bx
+            oy = by
+            oz = bz
+            RETURN
+        END IF
+        ox = CAST((CAST(ax AS U64) * (t_den - t_num) + CAST(bx AS U64) * t_num) / t_den AS S32)
+        oy = CAST((CAST(ay AS U64) * (t_den - t_num) + CAST(by AS U64) * t_num) / t_den AS S32)
+        oz = CAST((CAST(az AS U64) * (t_den - t_num) + CAST(bz AS U64) * t_num) / t_den AS S32)
+    END PROCEDURE
+
+    FUNCTION VecU32Create() AS U32
+        LET scan AS U32 = 1
+        WHILE scan <= #ALBV_MAX_HANDLES
+            IF HandleLiveU32[scan] = 0 THEN
+                HandleLiveU32[scan] = 1
+                HandleLenU32[scan] = 0
+                RETURN scan
+            END IF
+            scan = scan + 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    PROCEDURE VecU32Destroy(handle AS U32)
+        IF HandleValidU32(handle) = 0 THEN RETURN END IF
+        HandleLiveU32[handle] = 0
+        HandleLenU32[handle] = 0
+    END PROCEDURE
+
+    PROCEDURE VecU32Clear(handle AS U32)
+        IF HandleValidU32(handle) = 0 THEN RETURN END IF
+        HandleLenU32[handle] = 0
+    END PROCEDURE
+
+    FUNCTION VecU32Len(handle AS U32) AS U32
+        RETURN LiveLenU32(handle)
+    END FUNCTION
+
+    FUNCTION VecU32Cap(handle AS U32) AS U32
+        RETURN #ALBV_CAPACITY
+    END FUNCTION
+
+    FUNCTION VecU32Empty(handle AS U32) AS U8
+        IF LiveLenU32(handle) = 0 THEN RETURN 1 END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION VecU32IndexValid(handle AS U32, index AS U32) AS U8
+        IF HandleValidU32(handle) = 0 THEN RETURN 0 END IF
+        IF index < 1 THEN RETURN 0 END IF
+        IF index > LiveLenU32(handle) THEN RETURN 0 END IF
+        RETURN 1
+    END FUNCTION
+
+    PROCEDURE VecU32PushBack(handle AS U32, value AS U32)
+        LET slot AS U32 = 0
+        LET next_len AS U32 = 0
+        IF HandleValidU32(handle) = 0 THEN RETURN END IF
+        IF LiveLenU32(handle) >= #ALBV_CAPACITY THEN RETURN END IF
+        HandleLenU32[handle] = HandleLenU32[handle] + 1
+        next_len = CAST(HandleLenU32[handle] AS U32)
+        slot = SlotOf(handle, next_len)
+        PoolU32[slot].value = value
+    END PROCEDURE
+
+    FUNCTION VecU32PopBack(handle AS U32) AS U32
+        LET slot AS U32 = 0
+        LET cur_len AS U32 = 0
+        IF HandleValidU32(handle) = 0 THEN RETURN 0 END IF
+        cur_len = LiveLenU32(handle)
+        IF cur_len = 0 THEN RETURN 0 END IF
+        slot = SlotOf(handle, cur_len)
+        HandleLenU32[handle] = HandleLenU32[handle] - 1
+        RETURN PoolU32[slot].value
+    END FUNCTION
+
+    FUNCTION VecU32Back(handle AS U32) AS U32
+        LET slot AS U32 = 0
+        LET cur_len AS U32 = 0
+        IF HandleValidU32(handle) = 0 THEN RETURN 0 END IF
+        cur_len = LiveLenU32(handle)
+        IF cur_len = 0 THEN RETURN 0 END IF
+        slot = SlotOf(handle, cur_len)
+        RETURN PoolU32[slot].value
+    END FUNCTION
+
+    FUNCTION VecU32Get(handle AS U32, index AS U32) AS U32
+        LET slot AS U32 = 0
+        IF VecU32IndexValid(handle, index) = 0 THEN RETURN 0 END IF
+        slot = SlotOf(handle, index)
+        RETURN PoolU32[slot].value
+    END FUNCTION
+
+    FUNCTION VecU32At(handle AS U32, index AS U32, OUT result_ok AS U8) AS U32
+        LET slot AS U32 = 0
+        result_ok = 0
+        IF VecU32IndexValid(handle, index) = 0 THEN RETURN 0 END IF
+        slot = SlotOf(handle, index)
+        result_ok = 1
+        RETURN PoolU32[slot].value
+    END FUNCTION
+
+    PROCEDURE VecU32Set(handle AS U32, index AS U32, value AS U32)
+        LET slot AS U32 = 0
+        IF VecU32IndexValid(handle, index) = 0 THEN RETURN END IF
+        slot = SlotOf(handle, index)
+        PoolU32[slot].value = value
+    END PROCEDURE
+
+    PROCEDURE VecU32Insert(handle AS U32, index AS U32, value AS U32)
+        LET cur_len AS U32 = 0
+        LET shift AS U32 = 0
+        LET dst_slot AS U32 = 0
+        LET src_slot AS U32 = 0
+        IF HandleValidU32(handle) = 0 THEN RETURN END IF
+        IF index < 1 THEN RETURN END IF
+        cur_len = LiveLenU32(handle)
+        IF index > cur_len + 1 THEN RETURN END IF
+        IF cur_len >= #ALBV_CAPACITY THEN RETURN END IF
+        HandleLenU32[handle] = HandleLenU32[handle] + 1
+        shift = CAST(HandleLenU32[handle] AS U32)
+        WHILE shift > index
+            dst_slot = SlotOf(handle, shift)
+            src_slot = SlotOf(handle, shift - 1)
+            PoolU32[dst_slot].value = PoolU32[src_slot].value
+            shift = shift - 1
+        END WHILE
+        dst_slot = SlotOf(handle, index)
+        PoolU32[dst_slot].value = value
+    END PROCEDURE
+
+    PROCEDURE VecU32RemoveAt(handle AS U32, index AS U32)
+        LET cur_len AS U32 = 0
+        LET shift AS U32 = 0
+        LET dst_slot AS U32 = 0
+        LET src_slot AS U32 = 0
+        IF VecU32IndexValid(handle, index) = 0 THEN RETURN END IF
+        cur_len = LiveLenU32(handle)
+        shift = index
+        WHILE shift < cur_len
+            dst_slot = SlotOf(handle, shift)
+            src_slot = SlotOf(handle, shift + 1)
+            PoolU32[dst_slot].value = PoolU32[src_slot].value
+            shift = shift + 1
+        END WHILE
+        HandleLenU32[handle] = HandleLenU32[handle] - 1
+    END PROCEDURE
+
+    FUNCTION VecU32Copy(dst AS U32, src AS U32) AS U8
+        LET idx AS U32 = 1
+        LET slot AS U32 = 0
+        LET bound AS U32 = 0
+        IF HandleValidU32(dst) = 0 THEN RETURN 0 END IF
+        IF HandleValidU32(src) = 0 THEN RETURN 0 END IF
+        HandleLenU32[dst] = 0
+        bound = LiveLenU32(src)
+        WHILE idx <= bound
+            slot = SlotOf(src, idx)
+            CALL VecU32PushBack(dst, PoolU32[slot].value)
+            idx = idx + 1
+        END WHILE
+        RETURN 1
+    END FUNCTION
+
+    PROCEDURE VecU32Sort(handle AS U32)
+        LET cur_len AS U32 = 0
+        LET pass AS U32 = 1
+        LET idx AS U32 = 1
+        LET slot_a AS U32 = 0
+        LET slot_b AS U32 = 0
+        LET temp AS U32 = 0
+        IF HandleValidU32(handle) = 0 THEN RETURN END IF
+        cur_len = LiveLenU32(handle)
+        WHILE pass < cur_len
+            idx = 1
+            WHILE idx < cur_len
+                slot_a = SlotOf(handle, idx)
+                slot_b = SlotOf(handle, idx + 1)
+                IF PoolU32[slot_a].value > PoolU32[slot_b].value THEN
+                    temp = PoolU32[slot_a].value
+                    PoolU32[slot_a].value = PoolU32[slot_b].value
+                    PoolU32[slot_b].value = temp
+                END IF
+                idx = idx + 1
+            END WHILE
+            pass = pass + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION VecU32SwapPop(handle AS U32, index AS U32) AS U8
+        LET slot AS U32 = 0
+        IF VecU32IndexValid(handle, index) = 0 THEN RETURN 0 END IF
+        slot = SlotOf(handle, index)
+        CALL SwapPopU32(slot, handle)
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION VecU32Find(handle AS U32, value AS U32) AS U32
+        LET idx AS U32 = 1
+        LET slot AS U32 = 0
+        LET bound AS U32 = 0
+        IF HandleValidU32(handle) = 0 THEN RETURN 0 END IF
+        bound = LiveLenU32(handle)
+        WHILE idx <= bound
+            slot = SlotOf(handle, idx)
+            IF PoolU32[slot].value = value THEN RETURN idx END IF
+            idx = idx + 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION VecU32Contains(handle AS U32, value AS U32) AS U8
+        IF VecU32Find(handle, value) > 0 THEN RETURN 1 END IF
+        RETURN 0
+    END FUNCTION
+
+    PROCEDURE VecU32Reverse(handle AS U32)
+        LET left AS U32 = 1
+        LET right AS U32 = 0
+        LET slot_l AS U32 = 0
+        LET slot_r AS U32 = 0
+        LET temp AS U32 = 0
+        IF HandleValidU32(handle) = 0 THEN RETURN END IF
+        right = LiveLenU32(handle)
+        WHILE left < right
+            slot_l = SlotOf(handle, left)
+            slot_r = SlotOf(handle, right)
+            temp = PoolU32[slot_l].value
+            PoolU32[slot_l].value = PoolU32[slot_r].value
+            PoolU32[slot_r].value = temp
+            left = left + 1
+            right = right - 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION VecS32Create() AS U32
+        LET scan AS U32 = 1
+        WHILE scan <= #ALBV_MAX_HANDLES
+            IF HandleLiveS32[scan] = 0 THEN
+                HandleLiveS32[scan] = 1
+                HandleLenS32[scan] = 0
+                RETURN scan
+            END IF
+            scan = scan + 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    PROCEDURE VecS32Destroy(handle AS U32)
+        IF HandleValidS32(handle) = 0 THEN RETURN END IF
+        HandleLiveS32[handle] = 0
+        HandleLenS32[handle] = 0
+    END PROCEDURE
+
+    PROCEDURE VecS32Clear(handle AS U32)
+        IF HandleValidS32(handle) = 0 THEN RETURN END IF
+        HandleLenS32[handle] = 0
+    END PROCEDURE
+
+    FUNCTION VecS32Len(handle AS U32) AS U32
+        RETURN LiveLenS32(handle)
+    END FUNCTION
+
+    FUNCTION VecS32IndexValid(handle AS U32, index AS U32) AS U8
+        IF HandleValidS32(handle) = 0 THEN RETURN 0 END IF
+        IF index < 1 THEN RETURN 0 END IF
+        IF index > LiveLenS32(handle) THEN RETURN 0 END IF
+        RETURN 1
+    END FUNCTION
+
+    PROCEDURE VecS32PushBack(handle AS U32, value AS S32)
+        LET slot AS U32 = 0
+        LET next_len AS U32 = 0
+        IF HandleValidS32(handle) = 0 THEN RETURN END IF
+        IF LiveLenS32(handle) >= #ALBV_CAPACITY THEN RETURN END IF
+        HandleLenS32[handle] = HandleLenS32[handle] + 1
+        next_len = CAST(HandleLenS32[handle] AS U32)
+        slot = SlotOf(handle, next_len)
+        PoolS32[slot].value = value
+    END PROCEDURE
+
+    FUNCTION VecS32Get(handle AS U32, index AS U32) AS S32
+        LET slot AS U32 = 0
+        IF VecS32IndexValid(handle, index) = 0 THEN RETURN 0 END IF
+        slot = SlotOf(handle, index)
+        RETURN PoolS32[slot].value
+    END FUNCTION
+
+    FUNCTION VecS32SwapPop(handle AS U32, index AS U32) AS U8
+        LET slot AS U32 = 0
+        IF VecS32IndexValid(handle, index) = 0 THEN RETURN 0 END IF
+        slot = SlotOf(handle, index)
+        CALL SwapPopS32(slot, handle)
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION VecS32Find(handle AS U32, value AS S32) AS U32
+        LET idx AS U32 = 1
+        LET slot AS U32 = 0
+        LET bound AS U32 = 0
+        IF HandleValidS32(handle) = 0 THEN RETURN 0 END IF
+        bound = LiveLenS32(handle)
+        WHILE idx <= bound
+            slot = SlotOf(handle, idx)
+            IF PoolS32[slot].value = value THEN RETURN idx END IF
+            idx = idx + 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION VecV2Create() AS U32
+        LET scan AS U32 = 1
+        WHILE scan <= #ALBV_MAX_HANDLES
+            IF HandleLiveV2[scan] = 0 THEN
+                HandleLiveV2[scan] = 1
+                HandleLenV2[scan] = 0
+                RETURN scan
+            END IF
+            scan = scan + 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    PROCEDURE VecV2Destroy(handle AS U32)
+        IF HandleValidV2(handle) = 0 THEN RETURN END IF
+        HandleLiveV2[handle] = 0
+        HandleLenV2[handle] = 0
+    END PROCEDURE
+
+    PROCEDURE VecV2Clear(handle AS U32)
+        IF HandleValidV2(handle) = 0 THEN RETURN END IF
+        HandleLenV2[handle] = 0
+    END PROCEDURE
+
+    FUNCTION VecV2Len(handle AS U32) AS U32
+        RETURN LiveLenV2(handle)
+    END FUNCTION
+
+    FUNCTION VecV2IndexValid(handle AS U32, index AS U32) AS U8
+        IF HandleValidV2(handle) = 0 THEN RETURN 0 END IF
+        IF index < 1 THEN RETURN 0 END IF
+        IF index > LiveLenV2(handle) THEN RETURN 0 END IF
+        RETURN 1
+    END FUNCTION
+
+    PROCEDURE VecV2PushBack(handle AS U32, px AS S32, py AS S32)
+        LET slot AS U32 = 0
+        LET next_len AS U32 = 0
+        IF HandleValidV2(handle) = 0 THEN RETURN END IF
+        IF LiveLenV2(handle) >= #ALBV_CAPACITY THEN RETURN END IF
+        HandleLenV2[handle] = HandleLenV2[handle] + 1
+        next_len = CAST(HandleLenV2[handle] AS U32)
+        slot = SlotOf(handle, next_len)
+        PoolV2[slot].x = px
+        PoolV2[slot].y = py
+    END PROCEDURE
+
+    FUNCTION VecV2GetX(handle AS U32, index AS U32) AS S32
+        LET slot AS U32 = 0
+        IF VecV2IndexValid(handle, index) = 0 THEN RETURN 0 END IF
+        slot = SlotOf(handle, index)
+        RETURN PoolV2[slot].x
+    END FUNCTION
+
+    FUNCTION VecV2GetY(handle AS U32, index AS U32) AS S32
+        LET slot AS U32 = 0
+        IF VecV2IndexValid(handle, index) = 0 THEN RETURN 0 END IF
+        slot = SlotOf(handle, index)
+        RETURN PoolV2[slot].y
+    END FUNCTION
+
+    FUNCTION VecV2SwapPop(handle AS U32, index AS U32) AS U8
+        LET slot AS U32 = 0
+        IF VecV2IndexValid(handle, index) = 0 THEN RETURN 0 END IF
+        slot = SlotOf(handle, index)
+        CALL SwapPopV2(slot, handle)
+        RETURN 1
+    END FUNCTION
+
+END MODULE

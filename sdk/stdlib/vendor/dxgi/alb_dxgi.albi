@@ -1,0 +1,4 @@
+VERSION 0.1
+IMPORT_DLL FUNCTION alb_dxgi_version() AS S32 FROM ("alb_dxgi.dll")
+IMPORT_DLL FUNCTION alb_dxgi_test_probe() AS S32 FROM ("alb_dxgi.dll")
+

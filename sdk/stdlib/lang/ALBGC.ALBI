@@ -1,0 +1,823 @@
+-- ============================================================================
+-- ALBGC.ALBI — Real incremental garbage collector for AdaLogic BASIC
+-- ============================================================================
+-- INCLUDE "../stdlib/lang/ALBGC.ALBI"
+--
+-- Provides OS-backed dynamic memory with an incremental tri-color mark-sweep
+-- collector.  Objects are referenced by opaque handles, not raw pointers, so
+-- the collector can move or compact them later without invalidating ALB code.
+--
+-- The collector is intentionally simple in this first version:
+--   * one heap, up to 2 GiB (S32 size limit)
+--   * fixed 8-slot object header (enough for trees, linked lists, DAGs)
+--   * explicit root table (compiler stack scanning can be added later)
+--   * bounded GC_Step(work) calls for stutter-free game loops
+--   * cycles are collected correctly (mark-sweep, not pure ref-counting)
+--
+-- Backends supported by this .albi: native (FASM/C) through ENABLEC/ENABLEASM.
+-- Higher-level backends fall back to host memory if the GC is not wired.
+-- ============================================================================
+
+VERSION 0.0.0.1
+
+-- ---------------------------------------------------------------------------
+-- Core runtime: OS page allocation, object headers, free lists, tri-color
+-- mark-sweep, and root management.  Compiled to a DLL by the ENABLEC pass.
+-- ---------------------------------------------------------------------------
+ENABLEC
+#include <stdint.h>
+#include <windows.h>
+
+#define ALBGC_ALIGN         16
+#define ALBGC_HEADER_SIZE   48
+#define ALBGC_MAX_SLOTS     8
+#define ALBGC_NULL_HANDLE   0
+#define ALBGC_COLOR_WHITE   0
+#define ALBGC_COLOR_GREY    1
+#define ALBGC_COLOR_BLACK   2
+#define ALBGC_COLOR_FREE     3
+#define ALBGC_MAX_ROOTS      1024
+#define ALBGC_GREY_QUEUE     4096
+
+typedef struct ALBGC_Obj {
+    uint32_t size;        /* total block bytes, including header */
+    uint8_t  color;       /* white/grey/black/free */
+    uint8_t  slot_count;  /* active slots <= ALBGC_MAX_SLOTS */
+    uint8_t  flags;
+    uint8_t  pad;
+    uint32_t slots[ALBGC_MAX_SLOTS];
+} ALBGC_Obj;
+
+static uint8_t  *g_heap      = NULL;
+static int32_t   g_capacity  = 0;
+static int32_t   g_bump      = ALBGC_ALIGN;
+static int32_t   g_free      = ALBGC_NULL_HANDLE;
+static int32_t   g_used      = 0;
+
+static int32_t   g_roots[ALBGC_MAX_ROOTS];
+static int32_t   g_root_count = 0;
+
+static int32_t   g_grey[ALBGC_GREY_QUEUE];
+static int32_t   g_grey_head = 0;
+static int32_t   g_grey_tail = 0;
+
+static uint8_t   g_state     = 0; /* 0 idle, 1 mark, 2 sweep */
+static int32_t   g_sweep     = ALBGC_ALIGN;
+
+static int32_t albgc_round_up(int32_t n) {
+    return (n + (ALBGC_ALIGN - 1)) & ~(ALBGC_ALIGN - 1);
+}
+
+static ALBGC_Obj *albgc_ptr(int32_t h) {
+    return (ALBGC_Obj *)(g_heap + h);
+}
+
+static int32_t albgc_enqueue(int32_t h) {
+    int32_t next = (g_grey_tail + 1) % ALBGC_GREY_QUEUE;
+    if (next == g_grey_head) return 0; /* queue full */
+    g_grey[g_grey_tail] = h;
+    g_grey_tail = next;
+    return 1;
+}
+
+static int32_t albgc_dequeue(void) {
+    if (g_grey_head == g_grey_tail) return ALBGC_NULL_HANDLE;
+    int32_t h = g_grey[g_grey_head];
+    g_grey_head = (g_grey_head + 1) % ALBGC_GREY_QUEUE;
+    return h;
+}
+
+static void albgc_mark_grey(int32_t h) {
+    if (h == ALBGC_NULL_HANDLE) return;
+    ALBGC_Obj *o = albgc_ptr(h);
+    if (o->color == ALBGC_COLOR_WHITE) {
+        o->color = ALBGC_COLOR_GREY;
+        albgc_enqueue(h);
+    }
+}
+
+/* Public: initialize the heap with OS-backed pages.  Returns 1 on success. */
+int32_t ALBGC_Init(int32_t total_bytes) {
+    if (g_heap != NULL) return 0;
+    if (total_bytes <= ALBGC_ALIGN) return 0;
+    g_heap = (uint8_t *)VirtualAlloc(NULL, (size_t)total_bytes,
+                                     MEM_COMMIT | MEM_RESERVE,
+                                     PAGE_READWRITE);
+    if (g_heap == NULL) return 0;
+    g_capacity  = total_bytes;
+    g_bump        = ALBGC_ALIGN;
+    g_free        = ALBGC_NULL_HANDLE;
+    g_used        = 0;
+    g_root_count  = 0;
+    g_grey_head   = 0;
+    g_grey_tail   = 0;
+    g_state       = 0;
+    g_sweep       = ALBGC_ALIGN;
+    return 1;
+}
+
+/* Public: allocate a GC object.  slots is 0..8, payload size in bytes. */
+int32_t ALBGC_Alloc(int32_t payload_size, int32_t slots) {
+    if (g_heap == NULL) return ALBGC_NULL_HANDLE;
+    if (payload_size < 0) payload_size = 0;
+    if (slots < 0) slots = 0;
+    if (slots > ALBGC_MAX_SLOTS) slots = ALBGC_MAX_SLOTS;
+
+    int32_t total = albgc_round_up(ALBGC_HEADER_SIZE + payload_size);
+
+    /* First-fit from the free list. */
+    int32_t *plink = &g_free;
+    int32_t  h     = g_free;
+    while (h != ALBGC_NULL_HANDLE) {
+        ALBGC_Obj *o = albgc_ptr(h);
+        int32_t next = (int32_t)(o->slots[0]);
+        if ((int32_t)(o->size) >= total) {
+            *plink = next;
+            o->color      = ALBGC_COLOR_WHITE;
+            o->slot_count = (uint8_t)slots;
+            o->flags      = 0;
+            for (int i = 0; i < ALBGC_MAX_SLOTS; i++) o->slots[i] = 0;
+            g_used += (int32_t)(o->size);
+            return h;
+        }
+        plink = (int32_t *)(&(o->slots[0]));
+        h = next;
+    }
+
+    /* Bump allocate. */
+    if (g_bump + total > g_capacity) return ALBGC_NULL_HANDLE;
+    h = g_bump;
+    ALBGC_Obj *o = albgc_ptr(h);
+    o->size       = (uint32_t)total;
+    o->color      = ALBGC_COLOR_WHITE;
+    o->slot_count = (uint8_t)slots;
+    o->flags      = 0;
+    for (int i = 0; i < ALBGC_MAX_SLOTS; i++) o->slots[i] = 0;
+    g_bump += total;
+    g_used += total;
+    return h;
+}
+
+/* Public: add a handle to the root table.  Returns 1 if added/updated. */
+int32_t ALBGC_Root(int32_t h) {
+    if (g_heap == NULL || h == ALBGC_NULL_HANDLE) return 0;
+    if (g_root_count >= ALBGC_MAX_ROOTS) return 0;
+    for (int32_t i = 0; i < g_root_count; i++) {
+        if (g_roots[i] == h) return 1; /* already rooted */
+    }
+    g_roots[g_root_count++] = h;
+    if (g_state == 1) albgc_mark_grey(h);
+    return 1;
+}
+
+/* Public: remove one occurrence from the root table.  Returns 1 if removed. */
+int32_t ALBGC_Release(int32_t h) {
+    if (g_root_count <= 0) return 0;
+    for (int32_t i = 0; i < g_root_count; i++) {
+        if (g_roots[i] == h) {
+            g_root_count--;
+            for (int32_t j = i; j < g_root_count; j++) g_roots[j] = g_roots[j + 1];
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Public: read a child slot (index is 1-based). */
+int32_t ALBGC_GetSlot(int32_t parent, int32_t index) {
+    if (g_heap == NULL || parent == ALBGC_NULL_HANDLE) return ALBGC_NULL_HANDLE;
+    ALBGC_Obj *o = albgc_ptr(parent);
+    if (index < 1 || index > o->slot_count) return ALBGC_NULL_HANDLE;
+    return (int32_t)(o->slots[index - 1]);
+}
+
+/* Public: write a child slot (index is 1-based).  Includes write barrier. */
+int32_t ALBGC_SetSlot(int32_t parent, int32_t index, int32_t child) {
+    if (g_heap == NULL || parent == ALBGC_NULL_HANDLE) return 0;
+    ALBGC_Obj *o = albgc_ptr(parent);
+    if (index < 1 || index > o->slot_count) return 0;
+    if (g_state == 1 && child != ALBGC_NULL_HANDLE) albgc_mark_grey(child);
+    o->slots[index - 1] = (uint32_t)child;
+    return 1;
+}
+
+/* Internal: reset all live objects to white and enqueue roots. */
+static void albgc_begin_collection(void) {
+    int32_t cursor = ALBGC_ALIGN;
+    while (cursor < g_bump) {
+        ALBGC_Obj *o = albgc_ptr(cursor);
+        if (o->color != ALBGC_COLOR_FREE) o->color = ALBGC_COLOR_WHITE;
+        cursor += (int32_t)(o->size);
+    }
+    g_grey_head = 0;
+    g_grey_tail = 0;
+    for (int32_t i = 0; i < g_root_count; i++) albgc_mark_grey(g_roots[i]);
+    g_state = 1;
+}
+
+/* Public: do a bounded amount of collection work.  Returns 1 while busy,
+   0 when the collector is idle again. */
+int32_t ALBGC_Step(int32_t work) {
+    if (g_heap == NULL) return 0;
+    if (work <= 0) work = 1;
+
+    if (g_state == 0) albgc_begin_collection();
+
+    while (work > 0 && g_state == 1) {
+        int32_t h = albgc_dequeue();
+        if (h == ALBGC_NULL_HANDLE) {
+            g_state = 2;
+            g_sweep = ALBGC_ALIGN;
+            break;
+        }
+        ALBGC_Obj *o = albgc_ptr(h);
+        if (o->color == ALBGC_COLOR_GREY) {
+            for (int i = 0; i < o->slot_count; i++) {
+                albgc_mark_grey((int32_t)(o->slots[i]));
+            }
+            o->color = ALBGC_COLOR_BLACK;
+        }
+        work--;
+    }
+
+    while (work > 0 && g_state == 2) {
+        if (g_sweep >= g_bump) {
+            g_state = 0;
+            break;
+        }
+        ALBGC_Obj *o = albgc_ptr(g_sweep);
+        int32_t sz = (int32_t)(o->size);
+        if (o->color == ALBGC_COLOR_FREE) {
+            /* free-list node; just skip */
+        } else if (o->color == ALBGC_COLOR_WHITE) {
+            o->color = ALBGC_COLOR_FREE;
+            o->slots[0] = (uint32_t)g_free;
+            g_free = g_sweep;
+            g_used -= sz;
+        } else if (o->color == ALBGC_COLOR_BLACK) {
+            o->color = ALBGC_COLOR_WHITE; /* flip for next cycle */
+        }
+        g_sweep += sz;
+        work--;
+    }
+
+    return (g_state != 0) ? 1 : 0;
+}
+
+/* Public: run collection to completion (use during load screens, not frames). */
+int32_t ALBGC_Collect(void) {
+    while (ALBGC_Step(1024) != 0) {}
+    return 0;
+}
+
+/* Public: bytes currently allocated. */
+int32_t ALBGC_Used(void) { return g_used; }
+
+/* Public: bytes remaining in the heap arena (not free-list capacity). */
+int32_t ALBGC_Available(void) {
+    if (g_heap == NULL) return 0;
+    return g_capacity - g_used;
+}
+END ENABLE
+
+-- ---------------------------------------------------------------------------
+-- Full x86-64 FASM implementation of the same collector.  This block is
+-- assembled by flat assembler into a PE64 DLL and exports the same ABI as
+-- the C block above.  Only one of the two blocks is built for a given target:
+-- the C block for native C output, this block for native FASM output.
+-- ---------------------------------------------------------------------------
+ENABLEASM
+format PE64 DLL
+entry DllMain
+
+include 'win64a.inc'
+
+ALBGC_ALIGN       = 16
+ALBGC_HEADER_SIZE = 48
+ALBGC_MAX_SLOTS   = 8
+ALBGC_MAX_ROOTS   = 1024
+ALBGC_GREY_QUEUE  = 4096
+ALBGC_COLOR_WHITE = 0
+ALBGC_COLOR_GREY  = 1
+ALBGC_COLOR_BLACK = 2
+ALBGC_COLOR_FREE  = 3
+
+section '.text' code readable executable
+
+proc DllMain hinst, reason, reserved
+    mov rax, 1
+    ret
+endp
+
+proc mark_grey
+    ; ecx = handle
+    test ecx, ecx
+    jz .done
+    mov rax, [g_heap]
+    lea rax, [rax + rcx]
+    cmp byte [rax+4], ALBGC_COLOR_WHITE
+    jne .done
+    mov byte [rax+4], ALBGC_COLOR_GREY
+    mov r8d, [g_grey_tail]
+    mov r9d, r8d
+    inc r9d
+    cmp r9d, ALBGC_GREY_QUEUE
+    jne .nowrap
+    xor r9d, r9d
+.nowrap:
+    cmp r9d, [g_grey_head]
+    je .done
+    mov [g_grey + r8*4], ecx
+    mov [g_grey_tail], r9d
+.done:
+    ret
+endp
+
+proc dequeue
+    mov eax, [g_grey_head]
+    cmp eax, [g_grey_tail]
+    je .empty
+    mov ecx, [g_grey + rax*4]
+    inc eax
+    cmp eax, ALBGC_GREY_QUEUE
+    jne .nowrap
+    xor eax, eax
+.nowrap:
+    mov [g_grey_head], eax
+    mov eax, ecx
+    ret
+.empty:
+    xor eax, eax
+    ret
+endp
+
+; ALB_ARGS ALBGC_Init 1
+proc ALBGC_Init uses rbx
+    cmp qword [g_heap], 0
+    jne .fail
+    cmp ecx, ALBGC_ALIGN
+    jle .fail
+    mov ebx, ecx
+    invoke VirtualAlloc, 0, rbx, MEM_COMMIT or MEM_RESERVE, PAGE_READWRITE
+    test rax, rax
+    jz .fail
+    mov [g_heap], rax
+    mov [g_capacity], ebx
+    mov dword [g_bump], ALBGC_ALIGN
+    mov dword [g_free], 0
+    mov dword [g_used], 0
+    mov dword [g_root_count], 0
+    mov dword [g_grey_head], 0
+    mov dword [g_grey_tail], 0
+    mov byte [g_state], 0
+    mov dword [g_sweep], ALBGC_ALIGN
+    mov eax, 1
+    ret
+.fail:
+    xor eax, eax
+    ret
+endp
+
+; ALB_ARGS ALBGC_Alloc 2
+proc ALBGC_Alloc uses rbx rdi
+    cmp qword [g_heap], 0
+    je .fail
+    mov eax, ecx
+    test eax, eax
+    jns .pok
+    xor eax, eax
+.pok:
+    mov r10d, edx
+    test r10d, r10d
+    jns .sok
+    xor r10d, r10d
+.sok:
+    cmp r10d, ALBGC_MAX_SLOTS
+    jle .slotsok
+    mov r10d, ALBGC_MAX_SLOTS
+.slotsok:
+    add eax, ALBGC_HEADER_SIZE + 15
+    and eax, 0xFFFFFFF0
+    mov r11d, eax
+    mov ebx, [g_free]
+    lea rdi, [g_free]
+.search:
+    test ebx, ebx
+    jz .bump
+    mov rax, [g_heap]
+    lea rax, [rax + rbx]
+    mov r8d, [rax]
+    cmp r8d, r11d
+    jb .next
+    mov r9d, [rax + 8]
+    mov [rdi], r9d
+    mov [rax], r8d
+    mov byte [rax+4], ALBGC_COLOR_WHITE
+    mov byte [rax+5], r10b
+    mov byte [rax+6], 0
+    mov byte [rax+7], 0
+    mov qword [rax+8], 0
+    mov qword [rax+16], 0
+    mov qword [rax+24], 0
+    mov qword [rax+32], 0
+    add [g_used], r8d
+    mov eax, ebx
+    ret
+.next:
+    lea rdi, [rax + 8]
+    mov ebx, [rax + 8]
+    jmp .search
+.bump:
+    mov ebx, [g_bump]
+    mov eax, ebx
+    add eax, r11d
+    cmp eax, [g_capacity]
+    ja .fail
+    mov rax, [g_heap]
+    lea rax, [rax + rbx]
+    mov [rax], r11d
+    mov byte [rax+4], ALBGC_COLOR_WHITE
+    mov byte [rax+5], r10b
+    mov byte [rax+6], 0
+    mov byte [rax+7], 0
+    mov qword [rax+8], 0
+    mov qword [rax+16], 0
+    mov qword [rax+24], 0
+    mov qword [rax+32], 0
+    add [g_bump], r11d
+    add [g_used], r11d
+    mov eax, ebx
+    ret
+.fail:
+    xor eax, eax
+    ret
+endp
+
+; ALB_ARGS ALBGC_Root 1
+proc ALBGC_Root uses rbx rdi
+    cmp qword [g_heap], 0
+    je .fail
+    test ecx, ecx
+    jz .fail
+    mov r8d, [g_root_count]
+    cmp r8d, ALBGC_MAX_ROOTS
+    jae .fail
+    xor r9d, r9d
+.loop:
+    cmp r9d, r8d
+    jae .add
+    mov r10d, [g_roots + r9*4]
+    cmp r10d, ecx
+    je .ok
+    inc r9d
+    jmp .loop
+.add:
+    mov [g_roots + r8*4], ecx
+    inc dword [g_root_count]
+    cmp byte [g_state], 1
+    jne .ok
+    call mark_grey
+.ok:
+    mov eax, 1
+    ret
+.fail:
+    xor eax, eax
+    ret
+endp
+
+; ALB_ARGS ALBGC_Release 1
+proc ALBGC_Release uses rbx rdi
+    mov r8d, [g_root_count]
+    test r8d, r8d
+    jz .done
+    xor r9d, r9d
+.loop:
+    cmp r9d, r8d
+    jae .done
+    mov r10d, [g_roots + r9*4]
+    cmp r10d, ecx
+    je .found
+    inc r9d
+    jmp .loop
+.found:
+    dec dword [g_root_count]
+    mov r8d, [g_root_count]
+.shift:
+    cmp r9d, r8d
+    jae .ok
+    mov r10d, [g_roots + r9*4 + 4]
+    mov [g_roots + r9*4], r10d
+    inc r9d
+    jmp .shift
+.ok:
+    mov eax, 1
+    ret
+.done:
+    xor eax, eax
+    ret
+endp
+
+; ALB_ARGS ALBGC_GetSlot 2
+proc ALBGC_GetSlot
+    cmp qword [g_heap], 0
+    je .fail
+    test ecx, ecx
+    jz .fail
+    cmp edx, 1
+    jb .fail
+    cmp edx, ALBGC_MAX_SLOTS
+    ja .fail
+    mov rax, [g_heap]
+    lea rax, [rax + rcx]
+    movzx r8d, byte [rax+5]
+    cmp edx, r8d
+    ja .fail
+    mov eax, [rax + rdx*4 + 4]
+    ret
+.fail:
+    xor eax, eax
+    ret
+endp
+
+; ALB_ARGS ALBGC_SetSlot 3
+proc ALBGC_SetSlot uses rdi r11
+    cmp qword [g_heap], 0
+    je .fail
+    test ecx, ecx
+    jz .fail
+    cmp edx, 1
+    jb .fail
+    cmp edx, ALBGC_MAX_SLOTS
+    ja .fail
+    mov rax, [g_heap]
+    lea r10, [rax + rcx]
+    movzx r9d, byte [r10+5]
+    cmp edx, r9d
+    ja .fail
+    mov edi, edx
+    mov r11d, r8d
+    cmp byte [g_state], 1
+    jne .store
+    test r11d, r11d
+    jz .store
+    mov ecx, r11d
+    call mark_grey
+.store:
+    mov [r10 + rdi*4 + 4], r11d
+    mov eax, 1
+    ret
+.fail:
+    xor eax, eax
+    ret
+endp
+
+; ALB_ARGS ALBGC_Step 1
+proc ALBGC_Step uses rbx rbp rdi rsi
+    mov ebp, ecx
+    cmp qword [g_heap], 0
+    je .idle
+    test ebp, ebp
+    jg .workok
+    mov ebp, 1
+.workok:
+    cmp byte [g_state], 0
+    jne .check_mark
+    mov esi, ALBGC_ALIGN
+.begin_loop:
+    cmp esi, [g_bump]
+    jae .begin_done
+    mov rax, [g_heap]
+    lea rax, [rax + rsi]
+    cmp byte [rax+4], ALBGC_COLOR_FREE
+    je .begin_next
+    mov byte [rax+4], ALBGC_COLOR_WHITE
+.begin_next:
+    mov eax, [rax]
+    add esi, eax
+    jmp .begin_loop
+.begin_done:
+    mov dword [g_grey_head], 0
+    mov dword [g_grey_tail], 0
+    mov ebx, [g_root_count]
+    test ebx, ebx
+    jz .no_roots
+    xor edi, edi
+.root_loop:
+    cmp edi, ebx
+    jae .no_roots
+    mov ecx, [g_roots + rdi*4]
+    call mark_grey
+    inc edi
+    jmp .root_loop
+.no_roots:
+    mov byte [g_state], 1
+.check_mark:
+.mark_loop:
+    test ebp, ebp
+    jz .step_done
+    cmp byte [g_state], 1
+    jne .check_sweep
+    call dequeue
+    test eax, eax
+    jz .mark_to_sweep
+    mov esi, eax
+    mov rax, [g_heap]
+    lea rax, [rax + rsi]
+    cmp byte [rax+4], ALBGC_COLOR_GREY
+    jne .mark_skip
+    movzx ebx, byte [rax+5]
+    test ebx, ebx
+    jz .no_children
+    xor edi, edi
+.child_loop:
+    cmp edi, ebx
+    jae .child_done
+    mov ecx, [rax + 8 + rdi*4]
+    test ecx, ecx
+    jz .child_next
+    call mark_grey
+.child_next:
+    inc edi
+    jmp .child_loop
+.child_done:
+    mov rax, [g_heap]
+    lea rax, [rax + rsi]
+    mov byte [rax+4], ALBGC_COLOR_BLACK
+.no_children:
+.mark_skip:
+    dec ebp
+    jmp .mark_loop
+.mark_to_sweep:
+    mov byte [g_state], 2
+    mov dword [g_sweep], ALBGC_ALIGN
+.check_sweep:
+.sweep_loop:
+    test ebp, ebp
+    jz .step_done
+    cmp byte [g_state], 2
+    jne .idle_done
+    mov esi, [g_sweep]
+    cmp esi, [g_bump]
+    jae .sweep_done
+    mov rax, [g_heap]
+    lea rax, [rax + rsi]
+    mov ebx, [rax]
+    movzx r8d, byte [rax+4]
+    cmp r8d, ALBGC_COLOR_FREE
+    je .sweep_next
+    cmp r8d, ALBGC_COLOR_WHITE
+    je .reclaim
+    cmp r8d, ALBGC_COLOR_BLACK
+    jne .sweep_next
+    mov byte [rax+4], ALBGC_COLOR_WHITE
+    jmp .sweep_next
+.reclaim:
+    mov byte [rax+4], ALBGC_COLOR_FREE
+    mov r9d, [g_free]
+    mov [rax + 8], r9d
+    mov [g_free], esi
+    sub [g_used], ebx
+.sweep_next:
+    add esi, ebx
+    mov [g_sweep], esi
+    dec ebp
+    jmp .sweep_loop
+.sweep_done:
+    mov byte [g_state], 0
+.idle_done:
+.step_done:
+    mov al, [g_state]
+    test al, al
+    setnz al
+    movzx eax, al
+    ret
+.idle:
+    xor eax, eax
+    ret
+endp
+
+; ALB_ARGS ALBGC_Collect 0
+proc ALBGC_Collect
+.collect_loop:
+    mov ecx, 1024
+    call ALBGC_Step
+    test eax, eax
+    jnz .collect_loop
+    xor eax, eax
+    ret
+endp
+
+; ALB_ARGS ALBGC_Used 0
+proc ALBGC_Used
+    mov eax, [g_used]
+    ret
+endp
+
+; ALB_ARGS ALBGC_Available 0
+proc ALBGC_Available
+    cmp qword [g_heap], 0
+    je .zero
+    mov eax, [g_capacity]
+    sub eax, [g_used]
+    ret
+.zero:
+    xor eax, eax
+    ret
+endp
+
+section '.bss' data readable writeable
+align 16
+g_heap rq 1
+g_capacity rd 1
+g_bump rd 1
+g_free rd 1
+g_used rd 1
+g_root_count rd 1
+g_grey_head rd 1
+g_grey_tail rd 1
+g_state rb 1
+align 4
+g_sweep rd 1
+align 16
+g_roots rd ALBGC_MAX_ROOTS
+align 16
+g_grey rd ALBGC_GREY_QUEUE
+
+section '.edata' export data readable
+  export 'ALBGC_ASM.dll',\
+    ALBGC_Init,'ALBGC_Init',\
+    ALBGC_Alloc,'ALBGC_Alloc',\
+    ALBGC_Root,'ALBGC_Root',\
+    ALBGC_Release,'ALBGC_Release',\
+    ALBGC_GetSlot,'ALBGC_GetSlot',\
+    ALBGC_SetSlot,'ALBGC_SetSlot',\
+    ALBGC_Step,'ALBGC_Step',\
+    ALBGC_Collect,'ALBGC_Collect',\
+    ALBGC_Used,'ALBGC_Used',\
+    ALBGC_Available,'ALBGC_Available'
+
+section '.reloc' fixups data readable discardable
+  if $=$$
+    dd 0,8
+  end if
+
+section '.idata' import data readable writeable
+  library kernel32,'KERNEL32.DLL'
+  include 'api/kernel32.inc'
+DISABLEASM
+
+-- ---------------------------------------------------------------------------
+-- ALB-facing module API
+-- ---------------------------------------------------------------------------
+DECLARE MODULE ALBGC
+    FUNCTION  GC_Init(total_bytes AS S32) AS S32
+    FUNCTION  GC_Alloc(payload_size AS S32, slots AS S32) AS S32
+    PROCEDURE GC_Root(handle AS S32)
+    PROCEDURE GC_Release(handle AS S32)
+    PROCEDURE GC_SetSlot(parent AS S32, index AS S32, child AS S32)
+    FUNCTION  GC_GetSlot(parent AS S32, index AS S32) AS S32
+    FUNCTION  GC_Step(work AS S32) AS S32
+    PROCEDURE GC_Collect()
+    FUNCTION  GC_Used() AS S32
+    FUNCTION  GC_Available() AS S32
+END MODULE
+
+FUNCTION GC_Init(total_bytes AS S32) AS S32
+    RETURN ALBGC_Init(total_bytes)
+END FUNCTION
+
+FUNCTION GC_Alloc(payload_size AS S32, slots AS S32) AS S32
+    RETURN ALBGC_Alloc(payload_size, slots)
+END FUNCTION
+
+PROCEDURE GC_Root(handle AS S32)
+    CALL ALBGC_Root(handle)
+END PROCEDURE
+
+PROCEDURE GC_Release(handle AS S32)
+    CALL ALBGC_Release(handle)
+END PROCEDURE
+
+PROCEDURE GC_SetSlot(parent AS S32, index AS S32, child AS S32)
+    CALL ALBGC_SetSlot(parent, index, child)
+END PROCEDURE
+
+FUNCTION GC_GetSlot(parent AS S32, index AS S32) AS S32
+    RETURN ALBGC_GetSlot(parent, index)
+END FUNCTION
+
+FUNCTION GC_Step(work AS S32) AS S32
+    RETURN ALBGC_Step(work)
+END FUNCTION
+
+PROCEDURE GC_Collect()
+    CALL ALBGC_Collect()
+END PROCEDURE
+
+FUNCTION GC_Used() AS S32
+    RETURN ALBGC_Used()
+END FUNCTION
+
+FUNCTION GC_Available() AS S32
+    RETURN ALBGC_Available()
+END FUNCTION

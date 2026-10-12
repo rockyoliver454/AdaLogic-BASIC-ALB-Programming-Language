@@ -1,0 +1,58 @@
+-- Twin of Ada font_shaders. Scanline + outline bar over glyphs.
+VERSION 1.0
+
+DECLARE MODULE GdFontSh
+    PROCEDURE PresentBar()
+    PROCEDURE PresentOutline(x AS S32, y AS S32, w AS S32)
+    PROCEDURE ApplyScan(t AS S32)
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdFontSh
+
+    PROCEDURE PresentBar()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $334155
+        FILL RECT 0, 16, 640, 1
+    END PROCEDURE
+
+    PROCEDURE PresentOutline(x AS S32, y AS S32, w AS S32)
+        ASSERT(w > 2)
+        ASSERT(y >= 0)
+        COLOR $0F172A
+        FILL RECT x, y - 1, w, 1
+        COLOR $94A3B8
+        FILL RECT x, y + 8, w, 1
+    END PROCEDURE
+
+    PROCEDURE ApplyScan(t AS S32)
+        LET y AS S32 = 0
+        LET x AS S32 = 0
+        LET v AS S32 = 0
+        ASSERT(t >= 0)
+        ASSERT(1 = 1)
+        y = t AND 7
+        WHILE y < GdVgpu.FbH()
+            x = 0
+            WHILE x < GdVgpu.FbW()
+                v = GdVgpu.Get(x, y) / 2
+                GdVgpu.Put(x, y, v)
+                x = x + 1
+            END WHILE
+            y = y + 8
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        GdVgpu.WipeFb(40)
+        ApplyScan(0)
+        IF GdVgpu.Get(0, 0) < 40 THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

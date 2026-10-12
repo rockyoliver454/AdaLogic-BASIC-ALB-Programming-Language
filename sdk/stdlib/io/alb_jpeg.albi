@@ -1,0 +1,258 @@
+-- ============================================================================
+-- ALBJpeg — JPEG marker / SOF walk (not a full raster decoder)
+-- ============================================================================
+-- Reads SOI, skips APPn / COM / DQT / DHT / RST, latches SOF0 or SOF1
+-- (width, height, components, 8-bit baseline). Stops at SOS / EOI.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_jpeg.albi"
+--
+-- ProbeBuf()     0 if SOF was found. W()/H() from SOF.
+-- Nf()           component count. Precision() sample bits (expect 8).
+-- IsBaseline()   1 for SOF0. HasDqt / HasDht / HasSos are 1 if seen.
+--
+-- This does not invert DCT or Huffman. Progressive, lossless, and 12-bit
+-- JPEG return status 5. Pair with ALBWin.LoadPath (binary).
+-- Optional goldens live in alb_jpeg_huffman.albi and alb_jpeg_idct.albi
+-- if you INCLUDE those separately.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBJpeg
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION W() AS S32
+    FUNCTION H() AS S32
+    FUNCTION Nf() AS S32
+    FUNCTION Precision() AS S32
+    FUNCTION IsBaseline() AS S32
+    FUNCTION HasDqt() AS S32
+    FUNCTION HasDht() AS S32
+    FUNCTION HasSos() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBJpeg
+
+    -- 1-based window. Marker walk only — no IDCT, no Huffman decode.
+    STRICT src[8192] AS U8
+    LET srclen AS S32 = 0
+    LET jw AS S32 = 0
+    LET jh AS S32 = 0
+    LET jnf AS S32 = 0
+    LET jpr AS S32 = 0
+    LET base AS S32 = 0
+    LET dqt AS S32 = 0
+    LET dht AS S32 = 0
+    LET sos AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        jw = 0
+        jh = 0
+        jnf = 0
+        jpr = 0
+        base = 0
+        dqt = 0
+        dht = 0
+        sos = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 8192 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION Be16(i AS S32) AS S32
+        RETURN CAST(src[i] AS S32) * 256 + CAST(src[i + 1] AS S32)
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        LET i AS S32 = 1
+        LET mk AS S32 = 0
+        LET seglen AS S32 = 0
+        jw = 0
+        jh = 0
+        jnf = 0
+        jpr = 0
+        base = 0
+        dqt = 0
+        dht = 0
+        sos = 0
+        IF srclen < 4 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        -- 255 216 = SOI (FF D8). Then walk 255-prefixed markers.
+        IF src[1] <> 255 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[2] <> 216 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        i = 3
+        WHILE i < srclen
+            IF src[i] <> 255 THEN
+                i = i + 1
+            ELSE
+                WHILE i <= srclen
+                    IF src[i] <> 255 THEN
+                        mk = CAST(src[i] AS S32)
+                        i = i + 1
+                        IF mk = 216 THEN
+                        ELSE
+                            IF mk = 217 THEN
+                                i = srclen + 1
+                            ELSE
+                                IF mk = 1 THEN
+                                ELSE
+                                    IF mk >= 208 THEN
+                                        IF mk <= 215 THEN
+                                        ELSE
+                                            IF i + 1 > srclen THEN
+                                                lastst = 4
+                                                RETURN lastst
+                                            END IF
+                                            seglen = Be16(i)
+                                            IF seglen < 2 THEN
+                                                lastst = 3
+                                                RETURN lastst
+                                            END IF
+                                            IF i + seglen - 1 > srclen THEN
+                                                lastst = 4
+                                                RETURN lastst
+                                            END IF
+                                            -- 192 = SOF0 baseline DCT, 193 = SOF1 extended sequential.
+                                            IF mk = 192 THEN
+                                                base = 1
+                                                jpr = CAST(src[i + 2] AS S32)
+                                                jh = Be16(i + 3)
+                                                jw = Be16(i + 5)
+                                                jnf = CAST(src[i + 7] AS S32)
+                                            END IF
+                                            IF mk = 193 THEN
+                                                jpr = CAST(src[i + 2] AS S32)
+                                                jh = Be16(i + 3)
+                                                jw = Be16(i + 5)
+                                                jnf = CAST(src[i + 7] AS S32)
+                                            END IF
+                                            IF mk = 219 THEN
+                                                dqt = 1
+                                            END IF
+                                            IF mk = 196 THEN
+                                                dht = 1
+                                            END IF
+                                            IF mk = 218 THEN
+                                                sos = 1
+                                                i = srclen + 1
+                                            ELSE
+                                                i = i + seglen
+                                            END IF
+                                        END IF
+                                    ELSE
+                                        IF i + 1 > srclen THEN
+                                            lastst = 4
+                                            RETURN lastst
+                                        END IF
+                                        seglen = Be16(i)
+                                        IF seglen < 2 THEN
+                                            lastst = 3
+                                            RETURN lastst
+                                        END IF
+                                        IF i + seglen - 1 > srclen THEN
+                                            lastst = 4
+                                            RETURN lastst
+                                        END IF
+                                        IF mk = 192 THEN
+                                            base = 1
+                                            jpr = CAST(src[i + 2] AS S32)
+                                            jh = Be16(i + 3)
+                                            jw = Be16(i + 5)
+                                            jnf = CAST(src[i + 7] AS S32)
+                                        END IF
+                                        IF mk = 193 THEN
+                                            jpr = CAST(src[i + 2] AS S32)
+                                            jh = Be16(i + 3)
+                                            jw = Be16(i + 5)
+                                            jnf = CAST(src[i + 7] AS S32)
+                                        END IF
+                                        IF mk = 219 THEN
+                                            dqt = 1
+                                        END IF
+                                        IF mk = 196 THEN
+                                            dht = 1
+                                        END IF
+                                        IF mk = 218 THEN
+                                            sos = 1
+                                            i = srclen + 1
+                                        ELSE
+                                            i = i + seglen
+                                        END IF
+                                    END IF
+                                END IF
+                            END IF
+                        END IF
+                    ELSE
+                        i = i + 1
+                    END IF
+                END WHILE
+            END IF
+        END WHILE
+        IF jw < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF jpr <> 8 THEN
+            lastst = 5
+            RETURN lastst
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION W() AS S32
+        RETURN jw
+    END FUNCTION
+
+    FUNCTION H() AS S32
+        RETURN jh
+    END FUNCTION
+
+    FUNCTION Nf() AS S32
+        RETURN jnf
+    END FUNCTION
+
+    FUNCTION Precision() AS S32
+        RETURN jpr
+    END FUNCTION
+
+    FUNCTION IsBaseline() AS S32
+        RETURN base
+    END FUNCTION
+
+    FUNCTION HasDqt() AS S32
+        RETURN dqt
+    END FUNCTION
+
+    FUNCTION HasDht() AS S32
+        RETURN dht
+    END FUNCTION
+
+    FUNCTION HasSos() AS S32
+        RETURN sos
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

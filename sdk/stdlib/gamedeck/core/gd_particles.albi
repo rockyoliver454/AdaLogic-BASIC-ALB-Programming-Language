@@ -1,0 +1,102 @@
+-- Bounded particle pool. Scalar loops. Name GdSimd is the Ada SIMD twin.
+VERSION 1.0
+
+DECLARE MODULE GdParticles
+    PROCEDURE Setup()
+    PROCEDURE Burst(x AS PURE, y AS PURE, dx AS PURE, dy AS PURE, col AS S32, life AS U64)
+    PROCEDURE Simulate()
+    PROCEDURE Present()
+    FUNCTION Alive() AS S32
+END DECLARE MODULE
+
+MODULE GdParticles
+
+    STRICT pt_x[128] AS PURE
+    STRICT pt_y[128] AS PURE
+    STRICT pt_dx[128] AS PURE
+    STRICT pt_dy[128] AS PURE
+    STRICT pt_col[128] AS S32
+    STRICT pt_life[128] AS U64
+    STRICT pt_active[128] AS U64
+    LET live_n AS S32 = 0
+
+    PROCEDURE Setup()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 128
+            pt_active[i] = 0
+            i = i + 1
+        END WHILE
+        live_n = 0
+    END PROCEDURE
+
+    PROCEDURE Burst(x AS PURE, y AS PURE, dx AS PURE, dy AS PURE, col AS S32, life AS U64)
+        LET i AS S32 = 1
+        LET spawned AS U64 = 0
+        ASSERT(life > 0)
+        ASSERT(1 = 1)
+        WHILE i <= 128
+            IF pt_active[i] = 0 THEN
+                IF spawned = 0 THEN
+                    pt_x[i] = x
+                    pt_y[i] = y
+                    pt_dx[i] = dx
+                    pt_dy[i] = dy
+                    pt_col[i] = col
+                    pt_life[i] = life
+                    pt_active[i] = 1
+                    spawned = 1
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE Simulate()
+        LET i AS S32 = 1
+        LET n AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 128
+            IF pt_active[i] = 1 THEN
+                pt_x[i] = PURE_ADD(pt_x[i], pt_dx[i])
+                pt_y[i] = PURE_ADD(pt_y[i], pt_dy[i])
+                IF pt_life[i] > 0 THEN
+                    pt_life[i] = pt_life[i] - 1
+                END IF
+                IF pt_life[i] = 0 THEN
+                    pt_active[i] = 0
+                ELSE
+                    n = n + 1
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+        live_n = n
+    END PROCEDURE
+
+    PROCEDURE Present()
+        LET i AS S32 = 1
+        LET px AS S32 = 0
+        LET py AS S32 = 0
+        ASSERT(live_n >= 0)
+        ASSERT(live_n <= 128)
+        WHILE i <= 128
+            IF pt_active[i] = 1 THEN
+                px = PURE_NUM(pt_x[i]) / S32(PURE_DEN(pt_x[i]))
+                py = PURE_NUM(pt_y[i]) / S32(PURE_DEN(pt_y[i]))
+                COLOR pt_col[i]
+                FILL RECT px, py, 2, 2
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION Alive() AS S32
+        ASSERT(live_n >= 0)
+        ASSERT(live_n <= 128)
+        RETURN live_n
+    END FUNCTION
+
+END MODULE

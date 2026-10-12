@@ -1,0 +1,422 @@
+INCLUDE "../SCREEN.ALBI"
+INCLUDE "../INPUT.ALBI"
+INCLUDE "Settings.albi"
+INCLUDE "controls.albi"
+IMPORT Settings
+IMPORT Controls
+
+MODULE Controls
+    LET cam_x AS S32 = 0
+    LET cam_y AS S32 = 0
+    LET cam_z AS S32 = 0
+    LET cam_vx AS S32 = 0
+    LET cam_vy AS S32 = 0
+    LET zoom_level AS S32 = 100
+    LET paused AS U8 = 0
+    LET time_speed AS U8 = 1
+    LET move_speed AS S32 = 6
+    LET build_mode AS U8 = 0
+    LET ui_visible AS U8 = 1
+
+    LET prev_q AS U8 = 0
+    LET prev_e AS U8 = 0
+    LET prev_space AS U8 = 0
+    LET prev_b AS U8 = 0
+    LET prev_h AS U8 = 0
+    LET prev_r AS U8 = 0
+    LET prev_t AS U8 = 0
+    LET prev_1 AS U8 = 0
+    LET prev_2 AS U8 = 0
+    LET prev_3 AS U8 = 0
+    LET prev_4 AS U8 = 0
+    LET prev_escape AS U8 = 0
+    LET prev_f AS U8 = 0
+    LET prev_g AS U8 = 0
+    LET prev_mouse_left AS U8 = 0
+    LET prev_mouse_right AS U8 = 0
+    LET menu_requested AS U8 = 0
+    LET selection_active AS U8 = 0
+    LET selection_ready AS U8 = 0
+    LET selection_subtract AS U8 = 0
+    LET selection_start_x AS S32 = 0
+    LET selection_start_y AS S32 = 0
+    LET selection_end_x AS S32 = 0
+    LET selection_end_y AS S32 = 0
+    LET draft_toggle_requested AS U8 = 0
+    LET move_order_requested AS U8 = 0
+    LET move_order_screen_x AS S32 = 0
+    LET move_order_screen_y AS S32 = 0
+
+    PROCEDURE Setup()
+        cam_x = -200
+        cam_y = -200
+        cam_z = 0
+        cam_vx = 0
+        cam_vy = 0
+        zoom_level = 100
+        paused = 0
+        time_speed = 1
+        build_mode = 0
+        ui_visible = 1
+        prev_q = 0
+        prev_e = 0
+        prev_space = 0
+        prev_b = 0
+        prev_h = 0
+        prev_r = 0
+        prev_t = 0
+        prev_1 = 0
+        prev_2 = 0
+        prev_3 = 0
+        prev_4 = 0
+        prev_escape = 0
+        prev_f = 0
+        prev_g = 0
+        prev_mouse_left = 0
+        prev_mouse_right = 0
+        menu_requested = 0
+        selection_active = 0
+        selection_ready = 0
+        selection_subtract = 0
+        selection_start_x = 0
+        selection_start_y = 0
+        selection_end_x = 0
+        selection_end_y = 0
+        draft_toggle_requested = 0
+        move_order_requested = 0
+        move_order_screen_x = 0
+        move_order_screen_y = 0
+    END PROCEDURE
+
+    PROCEDURE ClearTransientInput()
+        prev_q = 0
+        prev_e = 0
+        prev_space = 0
+        prev_b = 0
+        prev_h = 0
+        prev_r = 0
+        prev_t = 0
+        prev_1 = 0
+        prev_2 = 0
+        prev_3 = 0
+        prev_4 = 0
+        prev_escape = 0
+        prev_f = 0
+        prev_g = 0
+        prev_mouse_left = 0
+        prev_mouse_right = 0
+        menu_requested = 0
+        selection_active = 0
+        selection_ready = 0
+        selection_subtract = 0
+        draft_toggle_requested = 0
+        move_order_requested = 0
+    END PROCEDURE
+
+    PROCEDURE RestoreState(cam_x_value AS S32, cam_y_value AS S32, cam_z_value AS S32, cam_vx_value AS S32, cam_vy_value AS S32, zoom_value AS S32, paused_value AS U8, speed_value AS U8, build_mode_value AS U8, ui_visible_value AS U8)
+        cam_x = cam_x_value
+        cam_y = cam_y_value
+        cam_z = cam_z_value
+        cam_vx = cam_vx_value
+        cam_vy = cam_vy_value
+        zoom_level = zoom_value
+        paused = paused_value
+        time_speed = speed_value
+        build_mode = build_mode_value
+        ui_visible = ui_visible_value
+        ClearTransientInput()
+    END PROCEDURE
+
+    FUNCTION ConsumeMenuRequest() AS U8
+        IF menu_requested = 1 THEN
+            menu_requested = 0
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION ConsumeSelectionRelease() AS U8
+        IF selection_ready = 1 THEN
+            selection_ready = 0
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION IsSelectionDragging() AS U8
+        RETURN selection_active
+    END FUNCTION
+
+    FUNCTION IsSelectionSubtracting() AS U8
+        RETURN selection_subtract
+    END FUNCTION
+
+    FUNCTION GetSelectionStartX() AS S32
+        RETURN selection_start_x
+    END FUNCTION
+
+    FUNCTION GetSelectionStartY() AS S32
+        RETURN selection_start_y
+    END FUNCTION
+
+    FUNCTION GetSelectionEndX() AS S32
+        RETURN selection_end_x
+    END FUNCTION
+
+    FUNCTION GetSelectionEndY() AS S32
+        RETURN selection_end_y
+    END FUNCTION
+
+    FUNCTION ConsumeDraftToggleRequest() AS U8
+        IF draft_toggle_requested = 1 THEN
+            draft_toggle_requested = 0
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION ConsumeMoveOrderRequest() AS U8
+        IF move_order_requested = 1 THEN
+            move_order_requested = 0
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION GetMoveOrderScreenX() AS S32
+        RETURN move_order_screen_x
+    END FUNCTION
+
+    FUNCTION GetMoveOrderScreenY() AS S32
+        RETURN move_order_screen_y
+    END FUNCTION
+
+    PROCEDURE ReadInput()
+        LET q_held AS U8 = 0
+        LET e_held AS U8 = 0
+        LET space_held AS U8 = 0
+        LET b_held AS U8 = 0
+        LET h_held AS U8 = 0
+        LET r_held AS U8 = 0
+        LET t_held AS U8 = 0
+        LET k1_held AS U8 = 0
+        LET k2_held AS U8 = 0
+        LET k3_held AS U8 = 0
+        LET k4_held AS U8 = 0
+        LET escape_held AS U8 = 0
+        LET f_held AS U8 = 0
+        LET g_held AS U8 = 0
+        LET shift_held AS U8 = 0
+        LET left_mouse AS U8 = 0
+        LET right_mouse AS U8 = 0
+
+        IF KEY(#K_Q) THEN q_held = 1 END IF
+        IF KEY(#K_E) THEN e_held = 1 END IF
+        IF KEY(#K_SPACE) THEN space_held = 1 END IF
+        IF KEY(#K_B) THEN b_held = 1 END IF
+        IF KEY(#K_H) THEN h_held = 1 END IF
+        IF KEY(#K_R) THEN r_held = 1 END IF
+        IF KEY(#K_T) THEN t_held = 1 END IF
+        IF KEY(#K_1) THEN k1_held = 1 END IF
+        IF KEY(#K_2) THEN k2_held = 1 END IF
+        IF KEY(#K_3) THEN k3_held = 1 END IF
+        IF KEY(#K_4) THEN k4_held = 1 END IF
+        IF KEY(#K_ESCAPE) THEN escape_held = 1 END IF
+        IF KEY(#K_F) THEN f_held = 1 END IF
+        IF KEY(#K_G) THEN g_held = 1 END IF
+        IF KEY(#K_LSHIFT) OR KEY(#K_RSHIFT) THEN shift_held = 1 END IF
+        IF MOUSE_CLICK(0) THEN left_mouse = 1 END IF
+        IF MOUSE_CLICK(2) OR MOUSE_CLICK(3) THEN right_mouse = 1 END IF
+
+        IF q_held = 1 THEN
+            IF prev_q = 0 THEN cam_z = cam_z - 1 END IF
+        END IF
+        IF e_held = 1 THEN
+            IF prev_e = 0 THEN cam_z = cam_z + 1 END IF
+        END IF
+
+        IF space_held = 1 THEN
+            IF prev_space = 0 THEN
+                IF paused = 1 THEN paused = 0 ELSE paused = 1 END IF
+            END IF
+        END IF
+
+        IF b_held = 1 THEN
+            IF prev_b = 0 THEN
+                IF build_mode = 1 THEN build_mode = 0 ELSE build_mode = 1 END IF
+            END IF
+        END IF
+
+        IF h_held = 1 THEN
+            IF prev_h = 0 THEN
+                IF ui_visible = 1 THEN ui_visible = 0 ELSE ui_visible = 1 END IF
+            END IF
+        END IF
+
+        IF r_held = 1 THEN
+            IF prev_r = 0 THEN zoom_level = zoom_level + 25 END IF
+        END IF
+        IF t_held = 1 THEN
+            IF prev_t = 0 THEN zoom_level = zoom_level - 25 END IF
+        END IF
+
+        IF k1_held = 1 THEN
+            IF prev_1 = 0 THEN time_speed = 1 END IF
+        END IF
+        IF k2_held = 1 THEN
+            IF prev_2 = 0 THEN time_speed = 2 END IF
+        END IF
+        IF k3_held = 1 THEN
+            IF prev_3 = 0 THEN time_speed = 3 END IF
+        END IF
+        IF k4_held = 1 THEN
+            IF prev_4 = 0 THEN time_speed = 4 END IF
+        END IF
+
+        IF escape_held = 1 THEN
+            IF prev_escape = 0 THEN menu_requested = 1 END IF
+        END IF
+
+        IF f_held = 1 THEN
+            IF prev_f = 0 THEN Settings.ToggleFullscreen() END IF
+        END IF
+
+        IF g_held = 1 THEN
+            IF prev_g = 0 THEN draft_toggle_requested = 1 END IF
+        END IF
+
+        IF left_mouse = 1 THEN
+            IF prev_mouse_left = 0 THEN
+                selection_active = 1
+                selection_ready = 0
+                selection_subtract = shift_held
+                selection_start_x = MOUSE_X
+                selection_start_y = MOUSE_Y
+                selection_end_x = MOUSE_X
+                selection_end_y = MOUSE_Y
+            ELSE
+                IF selection_active = 1 THEN
+                    selection_end_x = MOUSE_X
+                    selection_end_y = MOUSE_Y
+                END IF
+            END IF
+        ELSE
+            IF prev_mouse_left = 1 THEN
+                IF selection_active = 1 THEN
+                    selection_end_x = MOUSE_X
+                    selection_end_y = MOUSE_Y
+                    selection_ready = 1
+                    selection_active = 0
+                END IF
+            END IF
+        END IF
+
+        IF right_mouse = 1 THEN
+            IF prev_mouse_right = 0 THEN
+                move_order_requested = 1
+                move_order_screen_x = MOUSE_X
+                move_order_screen_y = MOUSE_Y
+            END IF
+        END IF
+
+        IF zoom_level < 50 THEN zoom_level = 50 END IF
+        IF zoom_level > 200 THEN zoom_level = 200 END IF
+
+        prev_q = q_held
+        prev_e = e_held
+        prev_space = space_held
+        prev_b = b_held
+        prev_h = h_held
+        prev_r = r_held
+        prev_t = t_held
+        prev_1 = k1_held
+        prev_2 = k2_held
+        prev_3 = k3_held
+        prev_4 = k4_held
+        prev_escape = escape_held
+        prev_f = f_held
+        prev_g = g_held
+        prev_mouse_left = left_mouse
+        prev_mouse_right = right_mouse
+
+        move_speed = 6
+        IF shift_held = 1 THEN move_speed = 10 END IF
+
+        IF KEY(#BTN_LEFT) THEN cam_vx = cam_vx - 1 END IF
+        IF KEY(#BTN_RIGHT) THEN cam_vx = cam_vx + 1 END IF
+        IF KEY(#BTN_UP) THEN cam_vy = cam_vy - 1 END IF
+        IF KEY(#BTN_DOWN) THEN cam_vy = cam_vy + 1 END IF
+
+        LET moving_h AS U8 = 0
+        IF KEY(#BTN_LEFT) THEN moving_h = 1 END IF
+        IF KEY(#BTN_RIGHT) THEN moving_h = 1 END IF
+        IF moving_h = 0 THEN
+            IF cam_vx > 1 THEN cam_vx = cam_vx - 1
+            ELSE
+                IF cam_vx < -1 THEN cam_vx = cam_vx + 1
+                ELSE cam_vx = 0
+                END IF
+            END IF
+        END IF
+
+        LET moving_v AS U8 = 0
+        IF KEY(#BTN_UP) THEN moving_v = 1 END IF
+        IF KEY(#BTN_DOWN) THEN moving_v = 1 END IF
+        IF moving_v = 0 THEN
+            IF cam_vy > 1 THEN cam_vy = cam_vy - 1
+            ELSE
+                IF cam_vy < -1 THEN cam_vy = cam_vy + 1
+                ELSE cam_vy = 0
+                END IF
+            END IF
+        END IF
+
+        IF cam_vx > move_speed THEN cam_vx = move_speed END IF
+        IF cam_vx < 0 - move_speed THEN cam_vx = 0 - move_speed END IF
+        IF cam_vy > move_speed THEN cam_vy = move_speed END IF
+        IF cam_vy < 0 - move_speed THEN cam_vy = 0 - move_speed END IF
+
+        cam_x = cam_x + cam_vx
+        cam_y = cam_y + cam_vy
+
+        IF cam_x < -500 THEN cam_x = -500 END IF
+        IF cam_y < -500 THEN cam_y = -500 END IF
+        IF cam_x > 2000 THEN cam_x = 2000 END IF
+        IF cam_y > 2000 THEN cam_y = 2000 END IF
+
+        IF cam_z < -2 THEN cam_z = -2 END IF
+        IF cam_z > 2 THEN cam_z = 2 END IF
+    END PROCEDURE
+
+    FUNCTION GetCamX() AS S32
+        RETURN cam_x
+    END FUNCTION
+
+    FUNCTION GetCamY() AS S32
+        RETURN cam_y
+    END FUNCTION
+
+    FUNCTION GetCamZ() AS S32
+        RETURN cam_z
+    END FUNCTION
+
+    FUNCTION GetZoom() AS S32
+        RETURN zoom_level
+    END FUNCTION
+
+    FUNCTION IsPaused() AS U8
+        RETURN paused
+    END FUNCTION
+
+    FUNCTION GetTimeSpeed() AS U8
+        RETURN time_speed
+    END FUNCTION
+
+    FUNCTION IsBuildMode() AS U8
+        RETURN build_mode
+    END FUNCTION
+
+    FUNCTION IsUIVisible() AS U8
+        RETURN ui_visible
+    END FUNCTION
+END MODULE

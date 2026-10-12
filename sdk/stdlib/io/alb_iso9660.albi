@@ -1,0 +1,117 @@
+-- ============================================================================
+-- ALBIso — ISO 9660 / ECMA-119 primary volume
+-- ============================================================================
+-- Accepts a PVD snapshot that *starts* at the volume descriptor
+-- (type byte, then "CD001"). Real discs store this at sector 16
+-- (offset 32768); copy those 2048 bytes, or keep a tiny fixture like
+-- io_samples/tiny.iso.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_iso9660.albi"
+--
+-- ProbeBuf()   0 ok. VolType() 1 = primary, 255 = terminator.
+-- SpaceN()     volume space size (little-endian both-endian field).
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBIso
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION VolType() AS S32
+    FUNCTION SpaceN() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBIso
+
+    -- 1-based window. Looks for CD001. A full disc has the PVD at sector 16; kit files are short.
+    STRICT src[4096] AS U8
+    LET srclen AS S32 = 0
+    LET vtyp AS S32 = 0
+    LET spacen AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        vtyp = 0
+        spacen = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 4096 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION CdAt(i AS S32) AS S32
+        IF i + 5 > srclen THEN
+            RETURN 0
+        END IF
+        IF src[i] <> 67 THEN
+            RETURN 0
+        END IF
+        IF src[i + 1] <> 68 THEN
+            RETURN 0
+        END IF
+        IF src[i + 2] <> 48 THEN
+            RETURN 0
+        END IF
+        IF src[i + 3] <> 48 THEN
+            RETURN 0
+        END IF
+        IF src[i + 4] <> 49 THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION GetU32(i AS S32) AS S32
+        RETURN CAST(src[i] AS S32) + CAST(src[i + 1] AS S32) * 256 + CAST(src[i + 2] AS S32) * 65536 + CAST(src[i + 3] AS S32) * 16777216
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        LET base AS S32 = 0
+        vtyp = 0
+        spacen = 0
+        IF srclen < 7 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        IF CdAt(2) <> 0 THEN
+            base = 1
+        ELSE
+            lastst = 3
+            RETURN lastst
+        END IF
+        vtyp = CAST(src[base] AS S32)
+        IF vtyp <> 1 THEN
+            IF vtyp <> 255 THEN
+                lastst = 5
+                RETURN lastst
+            END IF
+        END IF
+        IF base + 87 <= srclen THEN
+            spacen = GetU32(base + 80)
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION VolType() AS S32
+        RETURN vtyp
+    END FUNCTION
+
+    FUNCTION SpaceN() AS S32
+        RETURN spacen
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

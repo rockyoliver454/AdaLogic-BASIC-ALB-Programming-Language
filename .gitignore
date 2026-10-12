@@ -31,3 +31,13 @@ b~*.ad?
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# MCP server + SDK staging
+**/__pycache__/
+**/*_build/
+**/fasm_*/
+sdk/tmp/
+
+# Prebuilt toolchain is versioned under sdk/ on purpose
+!sdk/bin/
+!sdk/bin/**

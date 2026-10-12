@@ -1,0 +1,157 @@
+-- ====================================================================
+-- DOS_FILES.ALBI
+-- Path and text-output helpers for DOS-oriented tools.
+-- ====================================================================
+
+LET DOSFILE_LAST_SAVE_PATH AS STRING = ""
+LET DOSFILE_LAST_SAVE_SIZE AS U16 = 0
+
+FUNCTION DOSFILE_Substr(source_text AS STRING, first_idx AS U16, count AS U16) AS STRING
+    LET out_text AS STRING = ""
+    LET idx AS U16 = 0
+    LET text_len AS U16 = CAST(LEN(source_text) AS U16)
+
+    IF count = 0 THEN RETURN "" END IF
+    IF first_idx = 0 THEN RETURN "" END IF
+    IF first_idx > text_len THEN RETURN "" END IF
+
+    FOR idx = 0 TO count - 1 THEN
+        IF first_idx + idx <= text_len THEN
+            out_text = CONCAT(out_text, MID$(source_text, first_idx + idx, 1))
+        END IF
+    END FOR
+
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFILE_Last_Slash(path_text AS STRING) AS U16
+    LET slash_pos AS U16 = 0
+    LET idx AS U16 = 1
+    LET path_len AS U16 = CAST(LEN(path_text) AS U16)
+    LET ch AS STRING = ""
+
+    FOR idx = 1 TO path_len THEN
+        ch = MID$(path_text, idx, 1)
+        IF ch = "/" THEN slash_pos = idx END IF
+        IF ch = "\" THEN slash_pos = idx END IF
+    END FOR
+
+    RETURN slash_pos
+END FUNCTION
+
+FUNCTION DOSFILE_File_Name(path_text AS STRING) AS STRING
+    LET path_len AS U16 = CAST(LEN(path_text) AS U16)
+    LET slash_pos AS U16 = DOSFILE_Last_Slash(path_text)
+
+    IF path_len = 0 THEN RETURN "" END IF
+    IF slash_pos = 0 THEN RETURN path_text END IF
+    IF slash_pos >= path_len THEN RETURN "" END IF
+
+    RETURN DOSFILE_Substr(path_text, slash_pos + 1, path_len - slash_pos)
+END FUNCTION
+
+FUNCTION DOSFILE_Last_Dot(file_text AS STRING) AS U16
+    LET dot_pos AS U16 = 0
+    LET idx AS U16 = 1
+    LET file_len AS U16 = CAST(LEN(file_text) AS U16)
+
+    FOR idx = 1 TO file_len THEN
+        IF MID$(file_text, idx, 1) = "." THEN dot_pos = idx END IF
+    END FOR
+
+    RETURN dot_pos
+END FUNCTION
+
+FUNCTION DOSFILE_Base_Name(path_text AS STRING) AS STRING
+    LET file_text AS STRING = DOSFILE_File_Name(path_text)
+    LET file_len AS U16 = CAST(LEN(file_text) AS U16)
+    LET dot_pos AS U16 = DOSFILE_Last_Dot(file_text)
+
+    IF file_len = 0 THEN RETURN "" END IF
+    IF dot_pos <= 1 THEN RETURN file_text END IF
+
+    RETURN DOSFILE_Substr(file_text, 1, dot_pos - 1)
+END FUNCTION
+
+FUNCTION DOSFILE_Extension(path_text AS STRING) AS STRING
+    LET file_text AS STRING = DOSFILE_File_Name(path_text)
+    LET file_len AS U16 = CAST(LEN(file_text) AS U16)
+    LET dot_pos AS U16 = DOSFILE_Last_Dot(file_text)
+
+    IF dot_pos = 0 THEN RETURN "" END IF
+    IF dot_pos >= file_len THEN RETURN "" END IF
+
+    RETURN DOSFILE_Substr(file_text, dot_pos + 1, file_len - dot_pos)
+END FUNCTION
+
+FUNCTION DOSFILE_Directory(path_text AS STRING) AS STRING
+    LET slash_pos AS U16 = DOSFILE_Last_Slash(path_text)
+
+    IF slash_pos <= 1 THEN RETURN "" END IF
+
+    RETURN DOSFILE_Substr(path_text, 1, slash_pos - 1)
+END FUNCTION
+
+FUNCTION DOSFILE_Path_Join(dir_text AS STRING, name_text AS STRING) AS STRING
+    LET dir_len AS U16 = CAST(LEN(dir_text) AS U16)
+    LET tail AS STRING = ""
+    LET out_text AS STRING = ""
+
+    IF dir_len = 0 THEN RETURN name_text END IF
+
+    tail = MID$(dir_text, dir_len, 1)
+    IF tail = "/" THEN RETURN dir_text | name_text END IF
+    IF tail = "\" THEN RETURN dir_text | name_text END IF
+
+    out_text = dir_text
+    out_text = CONCAT(out_text, "\")
+    out_text = CONCAT(out_text, name_text)
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFILE_Change_Extension(path_text AS STRING, new_ext AS STRING) AS STRING
+    LET clean_ext AS STRING = new_ext
+    LET clean_len AS U16 = CAST(LEN(clean_ext) AS U16)
+    LET dir_text AS STRING = DOSFILE_Directory(path_text)
+    LET stem_text AS STRING = DOSFILE_Base_Name(path_text)
+    LET out_text AS STRING = ""
+
+    IF clean_len > 0 THEN
+        IF MID$(clean_ext, 1, 1) = "." THEN
+            clean_ext = DOSFILE_Substr(clean_ext, 2, clean_len - 1)
+        END IF
+    END IF
+
+    IF clean_len = 0 THEN
+        IF dir_text = "" THEN RETURN stem_text END IF
+        RETURN DOSFILE_Path_Join(dir_text, stem_text)
+    END IF
+
+    out_text = stem_text
+    out_text = CONCAT(out_text, ".")
+    out_text = CONCAT(out_text, clean_ext)
+
+    IF dir_text = "" THEN RETURN out_text END IF
+    RETURN DOSFILE_Path_Join(dir_text, out_text)
+END FUNCTION
+
+FUNCTION DOSFILE_With_Default_Ext(path_text AS STRING, default_ext AS STRING) AS STRING
+    IF LEN(DOSFILE_Extension(path_text)) > 0 THEN RETURN path_text END IF
+    RETURN DOSFILE_Change_Extension(path_text, default_ext)
+END FUNCTION
+
+PROCEDURE DOSFILE_Save_Text(path_text AS STRING, body_text AS STRING)
+    LET out_blob AS BINARY = CONCAT(body_text, "")
+
+    DOSFILE_LAST_SAVE_PATH = path_text
+    DOSFILE_LAST_SAVE_SIZE = CAST(LEN(body_text) AS U16)
+    FLUSH out_blob INTO path_text
+END PROCEDURE
+
+PROCEDURE DOSFILE_Save_Report(path_text AS STRING, title_text AS STRING, body_text AS STRING)
+    LET out_text AS STRING = title_text
+
+    out_text = CONCAT(out_text, "\n")
+    out_text = CONCAT(out_text, body_text)
+    CALL DOSFILE_Save_Text(path_text, out_text)
+END PROCEDURE

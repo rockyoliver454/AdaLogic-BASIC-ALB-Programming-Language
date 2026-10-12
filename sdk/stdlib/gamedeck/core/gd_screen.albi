@@ -1,0 +1,66 @@
+-- Virtual size anchors. Twin of src/SCREEN.ALBI, owned by this tree.
+VERSION 1.0
+
+DECLARE MODULE GdScreen
+    PROCEDURE Init()
+    FUNCTION CenterX() AS S32
+    FUNCTION CenterY() AS S32
+    FUNCTION MaxX() AS S32
+    FUNCTION MaxY() AS S32
+    FUNCTION PctX(percent AS S32) AS S32
+    FUNCTION PctY(percent AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdScreen
+
+    LET cx AS S32 = 160
+    LET cy AS S32 = 100
+    LET mx AS S32 = 320
+    LET my AS S32 = 200
+
+    PROCEDURE Init()
+        mx = S32(VIRTUAL_WIDTH)
+        my = S32(VIRTUAL_HEIGHT)
+        ASSERT(mx > 0)
+        ASSERT(my > 0)
+        cx = mx / 2
+        cy = my / 2
+    END PROCEDURE
+
+    FUNCTION CenterX() AS S32
+        ASSERT(mx > 0)
+        ASSERT(cx >= 0)
+        RETURN cx
+    END FUNCTION
+
+    FUNCTION CenterY() AS S32
+        ASSERT(my > 0)
+        ASSERT(cy >= 0)
+        RETURN cy
+    END FUNCTION
+
+    FUNCTION MaxX() AS S32
+        ASSERT(mx > 0)
+        ASSERT(mx <= 4096)
+        RETURN mx
+    END FUNCTION
+
+    FUNCTION MaxY() AS S32
+        ASSERT(my > 0)
+        ASSERT(my <= 4096)
+        RETURN my
+    END FUNCTION
+
+    FUNCTION PctX(percent AS S32) AS S32 REQUIRE percent >= 0
+        ASSERT(mx > 0)
+        ASSERT(percent <= 100)
+        RETURN CAST((mx * percent) / 100 AS S32)
+    END FUNCTION
+
+    FUNCTION PctY(percent AS S32) AS S32 REQUIRE percent >= 0
+        ASSERT(my > 0)
+        ASSERT(percent <= 100)
+        RETURN CAST((my * percent) / 100 AS S32)
+    END FUNCTION
+
+END MODULE

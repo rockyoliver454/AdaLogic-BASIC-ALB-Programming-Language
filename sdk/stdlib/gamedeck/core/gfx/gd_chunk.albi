@@ -1,0 +1,156 @@
+-- 64x64 chunk with a spare buffer. Crossing an edge bakes the neighbor then swaps.
+VERSION 1.0
+
+DECLARE MODULE GdChunk
+    PROCEDURE Setup(seed AS S32)
+    PROCEDURE Bake(cx AS S32, cy AS S32)
+    PROCEDURE Follow(px AS S32, py AS S32)
+    FUNCTION CellAt(tx AS S32, ty AS S32) AS S32
+    FUNCTION OriginCX() AS S32
+    FUNCTION OriginCY() AS S32
+    FUNCTION WorldTile(px AS S32, py AS S32) AS S32
+    PROCEDURE PresentView(cam_x AS S32, cam_y AS S32)
+END DECLARE MODULE
+
+MODULE GdChunk
+
+    STRICT buf_a[4096] AS U8
+    STRICT buf_b[4096] AS U8
+    LET use_a AS S32 = 1
+    LET ox AS S32 = 0
+    LET oy AS S32 = 0
+    LET map_seed AS S32 = 1
+
+    PROCEDURE Setup(seed AS S32)
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        map_seed = seed
+        IF map_seed = 0 THEN
+            map_seed = 1
+        END IF
+        use_a = 1
+        ox = 0
+        oy = 0
+        Bake(0, 0)
+    END PROCEDURE
+
+    PROCEDURE Bake(cx AS S32, cy AS S32)
+        LET i AS S32 = 1
+        LET tx AS S32 = 0
+        LET ty AS S32 = 0
+        LET h AS S32 = 0
+        LET v AS U8 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 4096
+            tx = (i - 1) MOD 64
+            ty = (i - 1) / 64
+            h = GdNoise.ValueAt(cx * 64 + tx, cy * 64 + ty, map_seed)
+            v = 0
+            IF h > 208 THEN
+                v = 1
+            END IF
+            IF use_a = 1 THEN
+                buf_a[i] = v
+            ELSE
+                buf_b[i] = v
+            END IF
+            i = i + 1
+        END WHILE
+        ox = cx
+        oy = cy
+    END PROCEDURE
+
+    PROCEDURE Follow(px AS S32, py AS S32)
+        LET tx AS S32 = px / 8
+        LET ty AS S32 = py / 8
+        LET nx AS S32 = tx / 64
+        LET ny AS S32 = ty / 64
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF nx < 0 THEN
+            nx = 0
+        END IF
+        IF ny < 0 THEN
+            ny = 0
+        END IF
+        IF nx <> ox OR ny <> oy THEN
+            IF use_a = 1 THEN
+                use_a = 0
+            ELSE
+                use_a = 1
+            END IF
+            Bake(nx, ny)
+        END IF
+    END PROCEDURE
+
+    FUNCTION CellAt(tx AS S32, ty AS S32) AS S32
+        LET i AS S32 = 1
+        ASSERT(tx >= 0)
+        ASSERT(ty >= 0)
+        IF tx > 63 THEN
+            RETURN 1
+        END IF
+        IF ty > 63 THEN
+            RETURN 1
+        END IF
+        i = ty * 64 + tx + 1
+        IF use_a = 1 THEN
+            RETURN S32(buf_a[i])
+        END IF
+        RETURN S32(buf_b[i])
+    END FUNCTION
+
+    FUNCTION OriginCX() AS S32
+        ASSERT(ox >= 0)
+        ASSERT(1 = 1)
+        RETURN ox
+    END FUNCTION
+
+    FUNCTION OriginCY() AS S32
+        ASSERT(oy >= 0)
+        ASSERT(1 = 1)
+        RETURN oy
+    END FUNCTION
+
+    FUNCTION WorldTile(px AS S32, py AS S32) AS S32
+        LET tx AS S32 = (px / 8) - ox * 64
+        LET ty AS S32 = (py / 8) - oy * 64
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF tx < 0 THEN
+            RETURN 1
+        END IF
+        IF ty < 0 THEN
+            RETURN 1
+        END IF
+        RETURN CellAt(tx, ty)
+    END FUNCTION
+
+    PROCEDURE PresentView(cam_x AS S32, cam_y AS S32)
+        LET col AS S32 = 0
+        LET row AS S32 = 0
+        LET t AS S32 = 0
+        LET sx AS S32 = 0
+        LET sy AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE row < 25
+            col = 0
+            WHILE col < 40
+                sx = cam_x + col * 8
+                sy = cam_y + row * 8
+                t = WorldTile(sx, sy)
+                IF t = 0 THEN
+                    COLOR $334155
+                ELSE
+                    COLOR $1E293B
+                END IF
+                FILL RECT col * 8, row * 8, 8, 8
+                col = col + 1
+            END WHILE
+            row = row + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

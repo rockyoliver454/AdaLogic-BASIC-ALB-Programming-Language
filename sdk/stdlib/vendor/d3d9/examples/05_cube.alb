@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_d3d9.albi"
+
+LET rc = alb_d3d9_test_cube(90)
+IF rc = 0 THEN
+  PRINT "d3d9 cube PASS"
+ELSE
+  PRINT "d3d9 cube FAIL " | rc
+END IF
+END

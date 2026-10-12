@@ -1,0 +1,175 @@
+-- ============================================================================
+-- ALBCairn — bounded ID → blob store
+-- ============================================================================
+-- Preferred on-disk layout (little-endian), magic "CAIR":
+--   bytes 1-4    C A I R
+--   5-8          version U32 (kit uses 1)
+--   9-12         entry count U32
+--   then count × 16-byte rows: id U32, tag U16, pad U16, off U32, size U32
+--   then the blob bytes. off is from the start of the blob, 0-based.
+-- IDs must be sorted so FindId can binary-search.
+--
+-- Also accepts a bare Ada-style index (count U32 at byte 1, then 16-byte
+-- rows) if the magic is not CAIR.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_cairn.albi"
+--
+-- LoadBuf()     0 ok. Count() entries (cap 64).
+-- FindId(id)    1-based row, or 0.
+-- TagOf / BlobSz / ByteAt(id, i)   i is 1-based inside that blob.
+-- SIZEOF is a language token — the size getter is named BlobSz.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBCairn
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION LoadBuf() AS S32
+    FUNCTION Count() AS S32
+    FUNCTION FindId(want AS S32) AS S32
+    FUNCTION TagOf(want AS S32) AS S32
+    FUNCTION BlobSz(want AS S32) AS S32
+    FUNCTION ByteAt(want AS S32, i AS S32) AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBCairn
+
+    -- 1-based window. eoff = first entry row, boff = first blob byte.
+    STRICT src[8192] AS U8
+    LET srclen AS S32 = 0
+    LET nent AS S32 = 0
+    LET eoff AS S32 = 0
+    LET boff AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        nent = 0
+        eoff = 0
+        boff = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 8192 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION GetU16(i AS S32) AS S32
+        RETURN CAST(src[i] AS S32) + CAST(src[i + 1] AS S32) * 256
+    END FUNCTION
+
+    FUNCTION GetU32(i AS S32) AS S32
+        RETURN GetU16(i) + GetU16(i + 2) * 65536
+    END FUNCTION
+
+    FUNCTION LoadBuf() AS S32
+        nent = 0
+        eoff = 0
+        boff = 0
+        IF srclen < 8 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        -- 67 65 73 82 = "CAIR"
+        IF src[1] = 67 THEN
+            IF src[2] = 65 THEN
+                IF src[3] = 73 THEN
+                    IF src[4] = 82 THEN
+                        nent = GetU32(9)
+                        eoff = 13
+                        boff = 13 + nent * 16
+                        IF boff > srclen THEN
+                            lastst = 4
+                            RETURN lastst
+                        END IF
+                        lastst = 0
+                        RETURN lastst
+                    END IF
+                END IF
+            END IF
+        END IF
+        nent = GetU32(1)
+        eoff = 5
+        boff = 5 + nent * 16
+        IF nent < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF nent > 64 THEN
+            lastst = 2
+            RETURN lastst
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION Count() AS S32
+        RETURN nent
+    END FUNCTION
+
+    FUNCTION FindId(want AS S32) AS S32
+        LET lo AS S32 = 1
+        LET hi AS S32 = nent
+        LET mid AS S32 = 0
+        LET idv AS S32 = 0
+        WHILE lo <= hi
+            mid = lo + (hi - lo) / 2
+            idv = GetU32(eoff + (mid - 1) * 16)
+            IF idv = want THEN
+                RETURN mid
+            END IF
+            IF idv < want THEN
+                lo = mid + 1
+            ELSE
+                hi = mid - 1
+            END IF
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION TagOf(want AS S32) AS S32
+        LET mid AS S32 = FindId(want)
+        IF mid < 1 THEN
+            RETURN 0
+        END IF
+        RETURN GetU16(eoff + (mid - 1) * 16 + 4)
+    END FUNCTION
+
+    FUNCTION BlobSz(want AS S32) AS S32
+        LET mid AS S32 = FindId(want)
+        IF mid < 1 THEN
+            RETURN 0
+        END IF
+        RETURN GetU32(eoff + (mid - 1) * 16 + 12)
+    END FUNCTION
+
+    FUNCTION ByteAt(want AS S32, i AS S32) AS S32
+        LET mid AS S32 = FindId(want)
+        LET off AS S32 = 0
+        LET sz AS S32 = 0
+        IF mid < 1 THEN
+            RETURN 0
+        END IF
+        off = GetU32(eoff + (mid - 1) * 16 + 8)
+        sz = GetU32(eoff + (mid - 1) * 16 + 12)
+        IF i < 1 THEN
+            RETURN 0
+        END IF
+        IF i > sz THEN
+            RETURN 0
+        END IF
+        RETURN CAST(src[boff + off + i - 1] AS S32)
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

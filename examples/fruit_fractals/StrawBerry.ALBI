@@ -1,0 +1,288 @@
+-- ====================================================================
+-- STRAWBERRY.ALBI
+-- Reusable 3D Strawberry Model and Software Rasterizer.
+-- ====================================================================
+
+VERSION 1.0
+
+INCLUDE "ALBMATH_PURE.ALBI"
+IMPORT ALBMathPure
+
+DECLARE MODULE StrawBerry
+    PROCEDURE Setup()
+    PROCEDURE FillTriangle(x1 AS S32, y1 AS S32, x2 AS S32, y2 AS S32, x3 AS S32, y3 AS S32, ccol AS S32)
+    PROCEDURE Render(cam_z AS S32, scale AS S32, rot_yaw AS S32, rot_pitch AS S32, cx AS S32, cy AS S32)
+END DECLARE MODULE
+
+MODULE StrawBerry
+
+    LET SB_v_count AS S32 = 89
+    STRICT SB_v_x[200] AS S32
+    STRICT SB_v_y[200] AS S32
+    STRICT SB_v_z[200] AS S32
+
+    LET SB_f_count AS S32 = 157
+    STRICT SB_f_p1[200] AS S32
+    STRICT SB_f_p2[200] AS S32
+    STRICT SB_f_p3[200] AS S32
+    STRICT SB_f_col[200] AS S32
+
+    STRICT SB_proj_x[200] AS S32
+    STRICT SB_proj_y[200] AS S32
+    STRICT SB_proj_z[200] AS S32
+
+    STRICT SB_sort_z[200] AS S32
+    STRICT SB_sort_id[200] AS S32
+
+    PROCEDURE FillTriangle(x1 AS S32, y1 AS S32, x2 AS S32, y2 AS S32, x3 AS S32, y3 AS S32, ccol AS S32)
+        COLOR ccol
+        FILL TRIANGLE x1, y1, x2, y2, x3, y3
+    END PROCEDURE
+
+    PROCEDURE Setup()
+        LET i AS S32 = 0
+        LET ang AS S32 = 0
+        LET sn AS S32 = 0
+        LET sd AS S32 = 1
+        LET cn AS S32 = 0
+        LET cd AS S32 = 1
+        LET temp_pure AS PURE = PURE(0, 1)
+        LET u_ang_v AS U64 = 0
+        LET f_idx AS S32 = 1
+        LET nxt AS S32 = 0
+
+        SB_v_x[1] = 0  SB_v_y[1] = -65  SB_v_z[1] = 0
+
+        i = 0 WHILE i < 12
+            ang = i * 30 u_ang_v = U64(ang)
+            temp_pure = ALBMathPure.PureSinDegApprox(u_ang_v) sn = ALBMathPure.PureNum(temp_pure) sd = S32(ALBMathPure.PureDen(temp_pure))
+            temp_pure = ALBMathPure.PureCosDegApprox(u_ang_v) cn = ALBMathPure.PureNum(temp_pure) cd = S32(ALBMathPure.PureDen(temp_pure))
+            SB_v_x[i+2] = (25 * cn) / cd  SB_v_z[i+2] = (25 * sn) / sd  SB_v_y[i+2] = -45
+            i = i + 1 END WHILE
+
+        i = 0 WHILE i < 12
+            ang = i * 30 u_ang_v = U64(ang)
+            temp_pure = ALBMathPure.PureSinDegApprox(u_ang_v) sn = ALBMathPure.PureNum(temp_pure) sd = S32(ALBMathPure.PureDen(temp_pure))
+            temp_pure = ALBMathPure.PureCosDegApprox(u_ang_v) cn = ALBMathPure.PureNum(temp_pure) cd = S32(ALBMathPure.PureDen(temp_pure))
+            SB_v_x[i+14] = (45 * cn) / cd  SB_v_z[i+14] = (45 * sn) / sd  SB_v_y[i+14] = -20
+            i = i + 1 END WHILE
+
+        i = 0 WHILE i < 12
+            ang = i * 30 u_ang_v = U64(ang)
+            temp_pure = ALBMathPure.PureSinDegApprox(u_ang_v) sn = ALBMathPure.PureNum(temp_pure) sd = S32(ALBMathPure.PureDen(temp_pure))
+            temp_pure = ALBMathPure.PureCosDegApprox(u_ang_v) cn = ALBMathPure.PureNum(temp_pure) cd = S32(ALBMathPure.PureDen(temp_pure))
+            SB_v_x[i+26] = (55 * cn) / cd  SB_v_z[i+26] = (55 * sn) / sd  SB_v_y[i+26] = 10
+            i = i + 1 END WHILE
+
+        i = 0 WHILE i < 12
+            ang = i * 30 u_ang_v = U64(ang)
+            temp_pure = ALBMathPure.PureSinDegApprox(u_ang_v) sn = ALBMathPure.PureNum(temp_pure) sd = S32(ALBMathPure.PureDen(temp_pure))
+            temp_pure = ALBMathPure.PureCosDegApprox(u_ang_v) cn = ALBMathPure.PureNum(temp_pure) cd = S32(ALBMathPure.PureDen(temp_pure))
+            SB_v_x[i+38] = (45 * cn) / cd  SB_v_z[i+38] = (45 * sn) / sd  SB_v_y[i+38] = 40
+            i = i + 1 END WHILE
+
+        i = 0 WHILE i < 12
+            ang = i * 30 u_ang_v = U64(ang)
+            temp_pure = ALBMathPure.PureSinDegApprox(u_ang_v) sn = ALBMathPure.PureNum(temp_pure) sd = S32(ALBMathPure.PureDen(temp_pure))
+            temp_pure = ALBMathPure.PureCosDegApprox(u_ang_v) cn = ALBMathPure.PureNum(temp_pure) cd = S32(ALBMathPure.PureDen(temp_pure))
+            SB_v_x[i+50] = (30 * cn) / cd  SB_v_z[i+50] = (30 * sn) / sd  SB_v_y[i+50] = 65
+            i = i + 1 END WHILE
+
+        i = 0 WHILE i < 12
+            ang = i * 30 u_ang_v = U64(ang)
+            temp_pure = ALBMathPure.PureSinDegApprox(u_ang_v) sn = ALBMathPure.PureNum(temp_pure) sd = S32(ALBMathPure.PureDen(temp_pure))
+            temp_pure = ALBMathPure.PureCosDegApprox(u_ang_v) cn = ALBMathPure.PureNum(temp_pure) cd = S32(ALBMathPure.PureDen(temp_pure))
+            SB_v_x[i+62] = (15 * cn) / cd  SB_v_z[i+62] = (15 * sn) / sd  SB_v_y[i+62] = 85
+            i = i + 1 END WHILE
+
+        SB_v_x[74] = 0  SB_v_y[74] = 95  SB_v_z[74] = 0
+
+        i = 0 WHILE i < 12
+            ang = (i * 30) + 15 u_ang_v = U64(ang)
+            temp_pure = ALBMathPure.PureSinDegApprox(u_ang_v) sn = ALBMathPure.PureNum(temp_pure) sd = S32(ALBMathPure.PureDen(temp_pure))
+            temp_pure = ALBMathPure.PureCosDegApprox(u_ang_v) cn = ALBMathPure.PureNum(temp_pure) cd = S32(ALBMathPure.PureDen(temp_pure))
+            SB_v_x[i+75] = (48 * cn) / cd  SB_v_z[i+75] = (48 * sn) / sd  SB_v_y[i+75] = -80
+            i = i + 1 END WHILE
+
+        SB_v_x[87] = -4  SB_v_y[87] = -65  SB_v_z[87] = 0
+        SB_v_x[88] = 4   SB_v_y[88] = -65  SB_v_z[88] = 0
+        SB_v_x[89] = 0   SB_v_y[89] = -110 SB_v_z[89] = 20 
+
+        f_idx = 1
+        i = 0 WHILE i < 12
+            nxt = i + 1 IF nxt > 11 THEN nxt = 0 END IF
+            SB_f_p1[f_idx] = 1  SB_f_p2[f_idx] = i + 2  SB_f_p3[f_idx] = nxt + 2
+            IF (i MOD 2) = 0 THEN SB_f_col[f_idx] = $FF2222 ELSE SB_f_col[f_idx] = $DD1111 END IF
+            f_idx = f_idx + 1 i = i + 1 END WHILE
+
+        i = 0 WHILE i < 12
+            nxt = i + 1 IF nxt > 11 THEN nxt = 0 END IF
+            SB_f_p1[f_idx] = i + 2  SB_f_p2[f_idx] = i + 14  SB_f_p3[f_idx] = nxt + 14
+            IF (i MOD 2) = 0 THEN SB_f_col[f_idx] = $DD1111 ELSE SB_f_col[f_idx] = $BB0000 END IF
+            f_idx = f_idx + 1
+            SB_f_p1[f_idx] = i + 2  SB_f_p2[f_idx] = nxt + 14  SB_f_p3[f_idx] = nxt + 2
+            IF (i MOD 2) = 0 THEN SB_f_col[f_idx] = $EE2222 ELSE SB_f_col[f_idx] = $CC0000 END IF
+            f_idx = f_idx + 1 i = i + 1 END WHILE
+
+        i = 0 WHILE i < 12
+            nxt = i + 1 IF nxt > 11 THEN nxt = 0 END IF
+            SB_f_p1[f_idx] = i + 14  SB_f_p2[f_idx] = i + 26  SB_f_p3[f_idx] = nxt + 26
+            IF (i MOD 2) = 0 THEN SB_f_col[f_idx] = $CC0000 ELSE SB_f_col[f_idx] = $AA0000 END IF
+            f_idx = f_idx + 1
+            SB_f_p1[f_idx] = i + 14  SB_f_p2[f_idx] = nxt + 26  SB_f_p3[f_idx] = nxt + 14
+            IF (i MOD 2) = 0 THEN SB_f_col[f_idx] = $DD1111 ELSE SB_f_col[f_idx] = $BB0000 END IF
+            f_idx = f_idx + 1 i = i + 1 END WHILE
+
+        i = 0 WHILE i < 12
+            nxt = i + 1 IF nxt > 11 THEN nxt = 0 END IF
+            SB_f_p1[f_idx] = i + 26  SB_f_p2[f_idx] = i + 38  SB_f_p3[f_idx] = nxt + 38
+            IF (i MOD 2) = 0 THEN SB_f_col[f_idx] = $AA0000 ELSE SB_f_col[f_idx] = $880000 END IF
+            f_idx = f_idx + 1
+            SB_f_p1[f_idx] = i + 26  SB_f_p2[f_idx] = nxt + 38  SB_f_p3[f_idx] = nxt + 26
+            IF (i MOD 2) = 0 THEN SB_f_col[f_idx] = $BB0000 ELSE SB_f_col[f_idx] = $990000 END IF
+            f_idx = f_idx + 1 i = i + 1 END WHILE
+
+        i = 0 WHILE i < 12
+            nxt = i + 1 IF nxt > 11 THEN nxt = 0 END IF
+            SB_f_p1[f_idx] = i + 38  SB_f_p2[f_idx] = i + 50  SB_f_p3[f_idx] = nxt + 50
+            IF (i MOD 2) = 0 THEN SB_f_col[f_idx] = $880000 ELSE SB_f_col[f_idx] = $660000 END IF
+            f_idx = f_idx + 1
+            SB_f_p1[f_idx] = i + 38  SB_f_p2[f_idx] = nxt + 50  SB_f_p3[f_idx] = nxt + 38
+            IF (i MOD 2) = 0 THEN SB_f_col[f_idx] = $990000 ELSE SB_f_col[f_idx] = $770000 END IF
+            f_idx = f_idx + 1 i = i + 1 END WHILE
+
+        i = 0 WHILE i < 12
+            nxt = i + 1 IF nxt > 11 THEN nxt = 0 END IF
+            SB_f_p1[f_idx] = i + 50  SB_f_p2[f_idx] = i + 62  SB_f_p3[f_idx] = nxt + 62
+            IF (i MOD 2) = 0 THEN SB_f_col[f_idx] = $660000 ELSE SB_f_col[f_idx] = $440000 END IF
+            f_idx = f_idx + 1
+            SB_f_p1[f_idx] = i + 50  SB_f_p2[f_idx] = nxt + 62  SB_f_p3[f_idx] = nxt + 50
+            IF (i MOD 2) = 0 THEN SB_f_col[f_idx] = $770000 ELSE SB_f_col[f_idx] = $550000 END IF
+            f_idx = f_idx + 1 i = i + 1 END WHILE
+
+        i = 0 WHILE i < 12
+            nxt = i + 1 IF nxt > 11 THEN nxt = 0 END IF
+            SB_f_p1[f_idx] = i + 62  SB_f_p2[f_idx] = 74  SB_f_p3[f_idx] = nxt + 62
+            IF (i MOD 2) = 0 THEN SB_f_col[f_idx] = $440000 ELSE SB_f_col[f_idx] = $330000 END IF
+            f_idx = f_idx + 1 i = i + 1 END WHILE
+
+        i = 0 WHILE i < 12
+            nxt = i + 1 IF nxt > 11 THEN nxt = 0 END IF
+            SB_f_p1[f_idx] = i + 2  SB_f_p2[f_idx] = i + 75  SB_f_p3[f_idx] = nxt + 2
+            IF (i MOD 2) = 0 THEN SB_f_col[f_idx] = $22AA22 ELSE SB_f_col[f_idx] = $118811 END IF
+            f_idx = f_idx + 1 i = i + 1 END WHILE
+
+        SB_f_p1[f_idx] = 87  SB_f_p2[f_idx] = 88  SB_f_p3[f_idx] = 89
+        SB_f_col[f_idx] = $117711
+        f_idx = f_idx + 1
+    END PROCEDURE
+
+    PROCEDURE Render(cam_z AS S32, scale AS S32, rot_yaw AS S32, rot_pitch AS S32, cx AS S32, cy AS S32)
+        LET u_yaw AS U64 = 0
+        IF rot_yaw < 0 THEN u_yaw = U64(360 + (rot_yaw MOD 360)) ELSE u_yaw = U64(rot_yaw MOD 360) END IF
+        LET u_pitch AS U64 = 0
+        IF rot_pitch < 0 THEN u_pitch = U64(360 + (rot_pitch MOD 360)) ELSE u_pitch = U64(rot_pitch MOD 360) END IF
+        
+        LET p_sin AS PURE = PURE(0, 1) LET p_cos AS PURE = PURE(0, 1)
+        LET y_sin AS PURE = ALBMathPure.PureSinDegApprox(u_yaw)
+        LET y_cos AS PURE = ALBMathPure.PureCosDegApprox(u_yaw)
+        LET ysn AS S32 = ALBMathPure.PureNum(y_sin) LET ysd AS S32 = S32(ALBMathPure.PureDen(y_sin))
+        LET ycn AS S32 = ALBMathPure.PureNum(y_cos) LET ycd AS S32 = S32(ALBMathPure.PureDen(y_cos))
+
+        p_sin = ALBMathPure.PureSinDegApprox(u_pitch)
+        p_cos = ALBMathPure.PureCosDegApprox(u_pitch)
+        LET psn AS S32 = ALBMathPure.PureNum(p_sin) LET psd AS S32 = S32(ALBMathPure.PureDen(p_sin))
+        LET pcn AS S32 = ALBMathPure.PureNum(p_cos) LET pcd AS S32 = S32(ALBMathPure.PureDen(p_cos))
+
+        LET i AS S32 = 1
+        LET tx AS S32 = 0 LET ty AS S32 = 0 LET tz AS S32 = 0
+        LET rx AS S32 = 0 LET ry AS S32 = 0 LET rz AS S32 = 0
+        LET z_depth AS S32 = 0
+        LET f AS S32 = 1
+        LET v1 AS S32 = 0 LET v2 AS S32 = 0 LET v3 AS S32 = 0
+        LET avg_z AS S32 = 0
+        LET swapped AS U64 = 1
+        LET temp_z AS S32 = 0 LET temp_id AS S32 = 0
+        LET s AS S32 = 1
+        LET p AS S32 = 1
+        LET real_id AS S32 = 0
+        LET px1 AS S32 = 0 LET py1 AS S32 = 0
+        LET px2 AS S32 = 0 LET py2 AS S32 = 0
+        LET px3 AS S32 = 0 LET py3 AS S32 = 0
+        LET scx AS S32 = 0 LET scy AS S32 = 0
+
+        i = 1
+        WHILE i <= SB_v_count
+            -- 1. Apply Yaw
+            tx = ((SB_v_x[i] * ycn) / ycd) - ((SB_v_z[i] * ysn) / ysd)
+            tz = ((SB_v_x[i] * ysn) / ysd) + ((SB_v_z[i] * ycn) / ycd)
+            ty = SB_v_y[i]
+
+            -- 2. Apply Pitch (Camera Tilt)
+            rx = tx
+            rz = ((ty * psn) / psd) + ((tz * pcn) / pcd)
+            ry = ((ty * pcn) / pcd) - ((tz * psn) / psd)
+
+            SB_proj_z[i] = rz
+            z_depth = rz + cam_z
+            IF z_depth < 1 THEN z_depth = 1 END IF
+            
+            SB_proj_x[i] = cx + ((rx * scale) / z_depth)
+            SB_proj_y[i] = cy + ((ry * scale) / z_depth)
+            
+            i = i + 1
+        END WHILE
+
+        f = 1
+        WHILE f <= SB_f_count
+            v1 = SB_f_p1[f] v2 = SB_f_p2[f] v3 = SB_f_p3[f]
+            avg_z = (SB_proj_z[v1] + SB_proj_z[v2] + SB_proj_z[v3]) / 3
+            SB_sort_z[f] = avg_z
+            SB_sort_id[f] = f
+            f = f + 1
+        END WHILE
+
+        swapped = 1
+        WHILE swapped = 1
+            swapped = 0
+            s = 1
+            WHILE s < SB_f_count
+                IF SB_sort_z[s] > SB_sort_z[s + 1] THEN
+                    temp_z = SB_sort_z[s]
+                    SB_sort_z[s] = SB_sort_z[s + 1]
+                    SB_sort_z[s + 1] = temp_z
+                    
+                    temp_id = SB_sort_id[s]
+                    SB_sort_id[s] = SB_sort_id[s + 1]
+                    SB_sort_id[s + 1] = temp_id
+                    
+                    swapped = 1
+                END IF
+                s = s + 1
+            END WHILE
+        END WHILE
+
+        p = 1
+        WHILE p <= SB_f_count
+            real_id = SB_sort_id[p]
+            px1 = SB_proj_x[SB_f_p1[real_id]] py1 = SB_proj_y[SB_f_p1[real_id]]
+            px2 = SB_proj_x[SB_f_p2[real_id]] py2 = SB_proj_y[SB_f_p2[real_id]]
+            px3 = SB_proj_x[SB_f_p3[real_id]] py3 = SB_proj_y[SB_f_p3[real_id]]
+
+            CALL StrawBerry.FillTriangle(px1, py1, px2, py2, px3, py3, SB_f_col[real_id])
+            
+            IF real_id <= 144 THEN
+                IF SB_sort_z[p] < 10 THEN
+                    scx = (px1 + px2 + px3) / 3
+                    scy = (py1 + py2 + py3) / 3
+                    
+                    COLOR $FFDD00
+                    FILL RECT scx - 1, scy - 1, 2, 3
+                END IF
+            END IF
+
+            p = p + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

@@ -1,0 +1,929 @@
+-- Purpose: zlib/DEFLATE inflater (ALB twin of PeeEnGee_Inflate)
+-- Safety: personal / educational tooling only - not a certified media pipeline
+-- LSB-first bit reader (RFC 1951). Do not mix with JPEG MSB Huffman.
+IMPORT PeeEnGee_Crc32
+DECLARE MODULE PeeEnGee_Inflate BEGIN
+    FUNCTION Api_Version() AS U32
+    FUNCTION Max_Window() AS S32
+    FUNCTION Status_Ok() AS S32
+    FUNCTION Status_Corrupt() AS S32
+    FUNCTION Do_Stored_Hi() AS S32
+    FUNCTION Inflate_Hi_Len() AS S32
+    FUNCTION Inflate_Hi_B0() AS S32
+    FUNCTION Inflate_Hi_B1() AS S32
+    FUNCTION Huff_Fixed_Build_Ok() AS S32
+    PROCEDURE SrcReset()
+    PROCEDURE SrcPut(b AS U8)
+    FUNCTION InflateZlib() AS S32
+    FUNCTION InflateRaw() AS S32
+    FUNCTION OutLen() AS S32
+    FUNCTION OutAt(i AS S32) AS U8
+END DECLARE MODULE
+MODULE PeeEnGee_Inflate BEGIN
+    STRICT src[8192] AS U8
+    STRICT outb[16384] AS U8
+    STRICT lens[320] AS S32
+    STRICT lit_cnt[16] AS S32
+    STRICT lit_sym[288] AS S32
+    STRICT dist_cnt[16] AS S32
+    STRICT dist_sym[32] AS S32
+    STRICT clen_cnt[16] AS S32
+    STRICT clen_sym[19] AS S32
+    STRICT offs[16] AS S32
+    STRICT clen_ord[19] AS S32
+    STRICT len_base[29] AS S32
+    STRICT len_extra[29] AS S32
+    STRICT dist_base[30] AS S32
+    STRICT dist_extra[30] AS S32
+    LET src_last AS S32 = 0 - 1
+    LET pos AS S32 = 0
+    LET bit_buf AS U32 = 0
+    LET bit_cnt AS S32 = 0
+    LET outn AS S32 = 0
+    LET bad AS S32 = 0
+    LET fail AS S32 = 0
+    LET tree_sel AS S32 = 0
+    LET tables_ready AS S32 = 0
+    LET last_st AS S32 = 3
+
+    FUNCTION Api_Version() AS U32
+        RETURN 65792
+    END FUNCTION
+    FUNCTION Max_Window() AS S32
+        RETURN 32768
+    END FUNCTION
+    FUNCTION Status_Ok() AS S32
+        RETURN 0
+    END FUNCTION
+    FUNCTION Status_Corrupt() AS S32
+        RETURN 3
+    END FUNCTION
+
+    FUNCTION Pow2_U32(n AS S32) AS U32
+        LET r AS U32 = 1
+        LET i AS S32 = 0
+        WHILE i < n
+            LET r = r * 2
+            LET i = i + 1
+        END WHILE
+        RETURN r
+    END FUNCTION
+
+    PROCEDURE Fill_Static_Tables
+        LET i AS S32 = 1
+        LET clen_ord[1] = 16
+        LET clen_ord[2] = 17
+        LET clen_ord[3] = 18
+        LET clen_ord[4] = 0
+        LET clen_ord[5] = 8
+        LET clen_ord[6] = 7
+        LET clen_ord[7] = 9
+        LET clen_ord[8] = 6
+        LET clen_ord[9] = 10
+        LET clen_ord[10] = 5
+        LET clen_ord[11] = 11
+        LET clen_ord[12] = 4
+        LET clen_ord[13] = 12
+        LET clen_ord[14] = 3
+        LET clen_ord[15] = 13
+        LET clen_ord[16] = 2
+        LET clen_ord[17] = 14
+        LET clen_ord[18] = 1
+        LET clen_ord[19] = 15
+        LET len_base[1] = 3
+        LET len_base[2] = 4
+        LET len_base[3] = 5
+        LET len_base[4] = 6
+        LET len_base[5] = 7
+        LET len_base[6] = 8
+        LET len_base[7] = 9
+        LET len_base[8] = 10
+        LET len_base[9] = 11
+        LET len_base[10] = 13
+        LET len_base[11] = 15
+        LET len_base[12] = 17
+        LET len_base[13] = 19
+        LET len_base[14] = 23
+        LET len_base[15] = 27
+        LET len_base[16] = 31
+        LET len_base[17] = 35
+        LET len_base[18] = 43
+        LET len_base[19] = 51
+        LET len_base[20] = 59
+        LET len_base[21] = 67
+        LET len_base[22] = 83
+        LET len_base[23] = 99
+        LET len_base[24] = 115
+        LET len_base[25] = 131
+        LET len_base[26] = 163
+        LET len_base[27] = 195
+        LET len_base[28] = 227
+        LET len_base[29] = 258
+        LET len_extra[1] = 0
+        LET len_extra[2] = 0
+        LET len_extra[3] = 0
+        LET len_extra[4] = 0
+        LET len_extra[5] = 0
+        LET len_extra[6] = 0
+        LET len_extra[7] = 0
+        LET len_extra[8] = 0
+        LET len_extra[9] = 1
+        LET len_extra[10] = 1
+        LET len_extra[11] = 1
+        LET len_extra[12] = 1
+        LET len_extra[13] = 2
+        LET len_extra[14] = 2
+        LET len_extra[15] = 2
+        LET len_extra[16] = 2
+        LET len_extra[17] = 3
+        LET len_extra[18] = 3
+        LET len_extra[19] = 3
+        LET len_extra[20] = 3
+        LET len_extra[21] = 4
+        LET len_extra[22] = 4
+        LET len_extra[23] = 4
+        LET len_extra[24] = 4
+        LET len_extra[25] = 5
+        LET len_extra[26] = 5
+        LET len_extra[27] = 5
+        LET len_extra[28] = 5
+        LET len_extra[29] = 0
+        LET dist_base[1] = 1
+        LET dist_base[2] = 2
+        LET dist_base[3] = 3
+        LET dist_base[4] = 4
+        LET dist_base[5] = 5
+        LET dist_base[6] = 7
+        LET dist_base[7] = 9
+        LET dist_base[8] = 13
+        LET dist_base[9] = 17
+        LET dist_base[10] = 25
+        LET dist_base[11] = 33
+        LET dist_base[12] = 49
+        LET dist_base[13] = 65
+        LET dist_base[14] = 97
+        LET dist_base[15] = 129
+        LET dist_base[16] = 193
+        LET dist_base[17] = 257
+        LET dist_base[18] = 385
+        LET dist_base[19] = 513
+        LET dist_base[20] = 769
+        LET dist_base[21] = 1025
+        LET dist_base[22] = 1537
+        LET dist_base[23] = 2049
+        LET dist_base[24] = 3073
+        LET dist_base[25] = 4097
+        LET dist_base[26] = 6145
+        LET dist_base[27] = 8193
+        LET dist_base[28] = 12289
+        LET dist_base[29] = 16385
+        LET dist_base[30] = 24577
+        LET i = 1
+        WHILE i <= 30
+            LET dist_extra[i] = 0
+            LET i = i + 1
+        END WHILE
+        LET dist_extra[5] = 1
+        LET dist_extra[6] = 1
+        LET dist_extra[7] = 2
+        LET dist_extra[8] = 2
+        LET dist_extra[9] = 3
+        LET dist_extra[10] = 3
+        LET dist_extra[11] = 4
+        LET dist_extra[12] = 4
+        LET dist_extra[13] = 5
+        LET dist_extra[14] = 5
+        LET dist_extra[15] = 6
+        LET dist_extra[16] = 6
+        LET dist_extra[17] = 7
+        LET dist_extra[18] = 7
+        LET dist_extra[19] = 8
+        LET dist_extra[20] = 8
+        LET dist_extra[21] = 9
+        LET dist_extra[22] = 9
+        LET dist_extra[23] = 10
+        LET dist_extra[24] = 10
+        LET dist_extra[25] = 11
+        LET dist_extra[26] = 11
+        LET dist_extra[27] = 12
+        LET dist_extra[28] = 12
+        LET dist_extra[29] = 13
+        LET dist_extra[30] = 13
+        LET tables_ready = 1
+    END PROCEDURE
+
+    PROCEDURE Stop(s AS S32)
+        IF bad = 0 THEN
+            LET bad = 1
+            LET fail = s
+        END IF
+    END PROCEDURE
+
+    FUNCTION Get_Byte() AS U8
+        LET b AS U8 = 0
+        IF bad <> 0 THEN
+            RETURN 0
+        END IF
+        IF pos > src_last THEN
+            PeeEnGee_Inflate.Stop(1)
+            RETURN 0
+        END IF
+        LET b = src[pos + 1]
+        LET pos = pos + 1
+        RETURN b
+    END FUNCTION
+
+    FUNCTION Get_Bits(n AS S32) AS S32
+        LET v AS U32 = 0
+        LET b AS U8 = 0
+        IF n = 0 THEN
+            RETURN 0
+        END IF
+        IF bad <> 0 THEN
+            RETURN 0
+        END IF
+        WHILE bit_cnt < n
+            LET b = PeeEnGee_Inflate.Get_Byte()
+            IF bad <> 0 THEN
+                RETURN 0
+            END IF
+            LET bit_buf = bit_buf OR (CAST(b AS U32) * PeeEnGee_Inflate.Pow2_U32(bit_cnt))
+            LET bit_cnt = bit_cnt + 8
+        END WHILE
+        LET v = bit_buf AND (PeeEnGee_Inflate.Pow2_U32(n) - 1)
+        LET bit_buf = bit_buf / PeeEnGee_Inflate.Pow2_U32(n)
+        LET bit_cnt = bit_cnt - n
+        RETURN CAST(v AS S32)
+    END FUNCTION
+
+    PROCEDURE Align_To_Byte
+        LET bit_drop AS S32 = bit_cnt MOD 8
+        IF bit_drop > 0 THEN
+            LET bit_buf = bit_buf / PeeEnGee_Inflate.Pow2_U32(bit_drop)
+            LET bit_cnt = bit_cnt - bit_drop
+        END IF
+    END PROCEDURE
+
+    PROCEDURE Emit(b AS U8)
+        IF bad <> 0 THEN
+        ELSE
+            IF outn >= 16384 THEN
+                PeeEnGee_Inflate.Stop(4)
+            ELSE
+                LET outb[outn + 1] = b
+                LET outn = outn + 1
+            END IF
+        END IF
+    END PROCEDURE
+
+    FUNCTION Cnt_Of(code_len AS S32) AS S32
+        IF tree_sel = 0 THEN
+            RETURN lit_cnt[code_len + 1]
+        END IF
+        IF tree_sel = 1 THEN
+            RETURN dist_cnt[code_len + 1]
+        END IF
+        RETURN clen_cnt[code_len + 1]
+    END FUNCTION
+
+    FUNCTION Sym_Of(slot AS S32) AS S32
+        IF tree_sel = 0 THEN
+            RETURN lit_sym[slot + 1]
+        END IF
+        IF tree_sel = 1 THEN
+            RETURN dist_sym[slot + 1]
+        END IF
+        RETURN clen_sym[slot + 1]
+    END FUNCTION
+
+    PROCEDURE Set_Cnt(code_len AS S32, v AS S32)
+        IF tree_sel = 0 THEN
+            LET lit_cnt[code_len + 1] = v
+        ELSE
+            IF tree_sel = 1 THEN
+                LET dist_cnt[code_len + 1] = v
+            ELSE
+                LET clen_cnt[code_len + 1] = v
+            END IF
+        END IF
+    END PROCEDURE
+
+    PROCEDURE Set_Sym(slot AS S32, v AS S32)
+        IF tree_sel = 0 THEN
+            LET lit_sym[slot + 1] = v
+        ELSE
+            IF tree_sel = 1 THEN
+                LET dist_sym[slot + 1] = v
+            ELSE
+                LET clen_sym[slot + 1] = v
+            END IF
+        END IF
+    END PROCEDURE
+
+    FUNCTION Build_Tree(n AS S32) AS S32
+        LET i AS S32 = 0
+        LET L AS S32 = 0
+        LET left AS S32 = 1
+        LET sym AS S32 = 0
+        LET slot AS S32 = 0
+        IF n <= 0 THEN
+            RETURN 0
+        END IF
+        IF n > 288 THEN
+            RETURN 0
+        END IF
+        LET i = 0
+        WHILE i <= 15
+            PeeEnGee_Inflate.Set_Cnt(i, 0)
+            LET offs[i + 1] = 0
+            LET i = i + 1
+        END WHILE
+        LET i = 0
+        WHILE i < n
+            IF tree_sel = 0 THEN
+                LET lit_sym[i + 1] = 0
+            ELSE
+                IF tree_sel = 1 THEN
+                    IF i < 32 THEN
+                        LET dist_sym[i + 1] = 0
+                    END IF
+                ELSE
+                    IF i < 19 THEN
+                        LET clen_sym[i + 1] = 0
+                    END IF
+                END IF
+            END IF
+            LET i = i + 1
+        END WHILE
+        LET i = 0
+        WHILE i < n
+            LET L = lens[i + 1]
+            IF L > 15 THEN
+                RETURN 0
+            END IF
+            PeeEnGee_Inflate.Set_Cnt(L, PeeEnGee_Inflate.Cnt_Of(L) + 1)
+            LET i = i + 1
+        END WHILE
+        IF PeeEnGee_Inflate.Cnt_Of(0) = n THEN
+            RETURN 1
+        END IF
+        LET L = 1
+        WHILE L <= 15
+            LET left = left * 2 - PeeEnGee_Inflate.Cnt_Of(L)
+            IF left < 0 THEN
+                RETURN 0
+            END IF
+            LET L = L + 1
+        END WHILE
+        LET L = 1
+        WHILE L <= 14
+            LET offs[L + 2] = offs[L + 1] + PeeEnGee_Inflate.Cnt_Of(L)
+            LET L = L + 1
+        END WHILE
+        LET i = 0
+        WHILE i < n
+            LET L = lens[i + 1]
+            IF L <> 0 THEN
+                LET slot = offs[L + 1]
+                PeeEnGee_Inflate.Set_Sym(slot, i)
+                LET offs[L + 1] = slot + 1
+            END IF
+            LET i = i + 1
+        END WHILE
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION Decode_Symbol() AS S32
+        LET code AS S32 = 0
+        LET first AS S32 = 0
+        LET index AS S32 = 0
+        LET ncount AS S32 = 0
+        LET slot AS S32 = 0
+        LET code_len AS S32 = 1
+        WHILE code_len <= 15
+            LET code = code + PeeEnGee_Inflate.Get_Bits(1)
+            IF bad <> 0 THEN
+                RETURN 0 - 1
+            END IF
+            LET ncount = PeeEnGee_Inflate.Cnt_Of(code_len)
+            IF (code - first) < ncount THEN
+                LET slot = index + (code - first)
+                IF slot < 0 THEN
+                    PeeEnGee_Inflate.Stop(3)
+                    RETURN 0 - 1
+                END IF
+                RETURN PeeEnGee_Inflate.Sym_Of(slot)
+            END IF
+            LET index = index + ncount
+            LET first = (first + ncount) * 2
+            LET code = code * 2
+            LET code_len = code_len + 1
+        END WHILE
+        PeeEnGee_Inflate.Stop(3)
+        RETURN 0 - 1
+    END FUNCTION
+
+    PROCEDURE Do_Stored
+        LET slen AS S32 = 0
+        LET snlen AS S32 = 0
+        LET i AS S32 = 0
+        LET b AS S32 = 0
+        PeeEnGee_Inflate.Align_To_Byte()
+        LET slen = PeeEnGee_Inflate.Get_Bits(16)
+        LET snlen = PeeEnGee_Inflate.Get_Bits(16)
+        IF bad <> 0 THEN
+        ELSE
+            IF (slen + snlen) <> 65535 THEN
+                PeeEnGee_Inflate.Stop(3)
+            ELSE
+                LET i = 1
+                WHILE i <= slen
+                    LET b = PeeEnGee_Inflate.Get_Bits(8)
+                    IF bad <> 0 THEN
+                        LET i = slen
+                    ELSE
+                        PeeEnGee_Inflate.Emit(CAST(b AS U8))
+                    END IF
+                    LET i = i + 1
+                END WHILE
+            END IF
+        END IF
+    END PROCEDURE
+
+    PROCEDURE Do_Codes
+        LET sym AS S32 = 0
+        LET run AS S32 = 0
+        LET dsym AS S32 = 0
+        LET delta AS S32 = 0
+        LET i AS S32 = 0
+        LET guard AS S32 = 0
+        WHILE guard < 65536
+            LET tree_sel = 0
+            LET sym = PeeEnGee_Inflate.Decode_Symbol()
+            IF bad <> 0 THEN
+                LET guard = 65536
+            ELSE
+                IF sym < 256 THEN
+                    PeeEnGee_Inflate.Emit(CAST(sym AS U8))
+                    IF bad <> 0 THEN
+                        LET guard = 65536
+                    END IF
+                ELSE
+                    IF sym = 256 THEN
+                        LET guard = 65536
+                    ELSE
+                        IF sym > 285 THEN
+                            PeeEnGee_Inflate.Stop(3)
+                            LET guard = 65536
+                        ELSE
+                            LET run = len_base[sym - 256] + PeeEnGee_Inflate.Get_Bits(len_extra[sym - 256])
+                            IF bad <> 0 THEN
+                                LET guard = 65536
+                            ELSE
+                                LET tree_sel = 1
+                                LET dsym = PeeEnGee_Inflate.Decode_Symbol()
+                                IF bad <> 0 THEN
+                                    LET guard = 65536
+                                ELSE
+                                    IF dsym < 0 THEN
+                                        PeeEnGee_Inflate.Stop(3)
+                                        LET guard = 65536
+                                    ELSE
+                                        IF dsym > 29 THEN
+                                            PeeEnGee_Inflate.Stop(3)
+                                            LET guard = 65536
+                                        ELSE
+                                            LET delta = dist_base[dsym + 1] + PeeEnGee_Inflate.Get_Bits(dist_extra[dsym + 1])
+                                            IF bad <> 0 THEN
+                                                LET guard = 65536
+                                            ELSE
+                                                IF delta <= 0 THEN
+                                                    PeeEnGee_Inflate.Stop(3)
+                                                    LET guard = 65536
+                                                ELSE
+                                                    IF delta > outn THEN
+                                                        PeeEnGee_Inflate.Stop(3)
+                                                        LET guard = 65536
+                                                    ELSE
+                                                        LET i = 1
+                                                        WHILE i <= run
+                                                            PeeEnGee_Inflate.Emit(outb[outn - delta + 1])
+                                                            IF bad <> 0 THEN
+                                                                LET i = run
+                                                            END IF
+                                                            LET i = i + 1
+                                                        END WHILE
+                                                    END IF
+                                                END IF
+                                            END IF
+                                        END IF
+                                    END IF
+                                END IF
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+            LET guard = guard + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE Do_Fixed
+        LET i AS S32 = 0
+        LET ok1 AS S32 = 0
+        LET ok2 AS S32 = 0
+        WHILE i < 288
+            LET lens[i + 1] = 0
+            LET i = i + 1
+        END WHILE
+        LET i = 0
+        WHILE i <= 143
+            LET lens[i + 1] = 8
+            LET i = i + 1
+        END WHILE
+        LET i = 144
+        WHILE i <= 255
+            LET lens[i + 1] = 9
+            LET i = i + 1
+        END WHILE
+        LET i = 256
+        WHILE i <= 279
+            LET lens[i + 1] = 7
+            LET i = i + 1
+        END WHILE
+        LET i = 280
+        WHILE i <= 287
+            LET lens[i + 1] = 8
+            LET i = i + 1
+        END WHILE
+        LET tree_sel = 0
+        LET ok1 = PeeEnGee_Inflate.Build_Tree(288)
+        LET i = 0
+        WHILE i <= 29
+            LET lens[i + 1] = 5
+            LET i = i + 1
+        END WHILE
+        LET tree_sel = 1
+        LET ok2 = PeeEnGee_Inflate.Build_Tree(30)
+        IF ok1 = 0 THEN
+            PeeEnGee_Inflate.Stop(3)
+        ELSE
+            IF ok2 = 0 THEN
+                PeeEnGee_Inflate.Stop(3)
+            ELSE
+                PeeEnGee_Inflate.Do_Codes()
+            END IF
+        END IF
+    END PROCEDURE
+
+    PROCEDURE Do_Dynamic
+        LET hlit AS S32 = 0
+        LET hdist AS S32 = 0
+        LET hclen AS S32 = 0
+        LET k AS S32 = 0
+        LET i AS S32 = 0
+        LET total AS S32 = 0
+        LET sym AS S32 = 0
+        LET rep AS S32 = 0
+        LET val AS S32 = 0
+        LET ok AS S32 = 0
+        LET hlit = PeeEnGee_Inflate.Get_Bits(5) + 257
+        LET hdist = PeeEnGee_Inflate.Get_Bits(5) + 1
+        LET hclen = PeeEnGee_Inflate.Get_Bits(4) + 4
+        IF bad <> 0 THEN
+        ELSE
+            IF hlit > 286 THEN
+                PeeEnGee_Inflate.Stop(3)
+            ELSE
+                IF hdist > 30 THEN
+                    PeeEnGee_Inflate.Stop(3)
+                ELSE
+                    LET k = 0
+                    WHILE k < 19
+                        LET lens[k + 1] = 0
+                        LET k = k + 1
+                    END WHILE
+                    LET k = 0
+                    WHILE k < hclen
+                        LET lens[clen_ord[k + 1] + 1] = PeeEnGee_Inflate.Get_Bits(3)
+                        IF bad <> 0 THEN
+                            LET k = hclen
+                        END IF
+                        LET k = k + 1
+                    END WHILE
+                    IF bad <> 0 THEN
+                    ELSE
+                        LET tree_sel = 2
+                        LET ok = PeeEnGee_Inflate.Build_Tree(19)
+                        IF ok = 0 THEN
+                            PeeEnGee_Inflate.Stop(3)
+                        ELSE
+                            LET total = hlit + hdist
+                            LET i = 0
+                            WHILE i < total
+                                LET tree_sel = 2
+                                LET sym = PeeEnGee_Inflate.Decode_Symbol()
+                                LET rep = 0
+                                LET val = 0
+                                IF bad <> 0 THEN
+                                    LET i = total
+                                ELSE
+                                    IF sym < 0 THEN
+                                        PeeEnGee_Inflate.Stop(3)
+                                        LET i = total
+                                    ELSE
+                                        IF sym < 16 THEN
+                                            LET lens[i + 1] = sym
+                                            LET i = i + 1
+                                        ELSE
+                                            IF sym = 16 THEN
+                                                IF i = 0 THEN
+                                                    PeeEnGee_Inflate.Stop(3)
+                                                    LET i = total
+                                                ELSE
+                                                    LET val = lens[i]
+                                                    LET rep = 3 + PeeEnGee_Inflate.Get_Bits(2)
+                                                END IF
+                                            ELSE
+                                                IF sym = 17 THEN
+                                                    LET val = 0
+                                                    LET rep = 3 + PeeEnGee_Inflate.Get_Bits(3)
+                                                ELSE
+                                                    IF sym = 18 THEN
+                                                        LET val = 0
+                                                        LET rep = 11 + PeeEnGee_Inflate.Get_Bits(7)
+                                                    ELSE
+                                                        PeeEnGee_Inflate.Stop(3)
+                                                        LET i = total
+                                                    END IF
+                                                END IF
+                                            END IF
+                                            IF rep > 0 THEN
+                                                IF (i + rep) > total THEN
+                                                    PeeEnGee_Inflate.Stop(3)
+                                                    LET i = total
+                                                ELSE
+                                                    LET k = 1
+                                                    WHILE k <= rep
+                                                        LET lens[i + 1] = val
+                                                        LET i = i + 1
+                                                        LET k = k + 1
+                                                    END WHILE
+                                                END IF
+                                            END IF
+                                        END IF
+                                    END IF
+                                END IF
+                            END WHILE
+                            IF bad <> 0 THEN
+                            ELSE
+                                IF lens[257] = 0 THEN
+                                    PeeEnGee_Inflate.Stop(3)
+                                ELSE
+                                    LET k = 0
+                                    WHILE k < hlit
+                                        LET k = k + 1
+                                    END WHILE
+                                    LET tree_sel = 0
+                                    LET ok = PeeEnGee_Inflate.Build_Tree(hlit)
+                                    IF ok = 0 THEN
+                                        PeeEnGee_Inflate.Stop(3)
+                                    ELSE
+                                        LET k = 0
+                                        WHILE k < hdist
+                                            LET lens[k + 1] = lens[hlit + k + 1]
+                                            LET k = k + 1
+                                        END WHILE
+                                        LET tree_sel = 1
+                                        LET ok = PeeEnGee_Inflate.Build_Tree(hdist)
+                                        IF ok = 0 THEN
+                                            PeeEnGee_Inflate.Stop(3)
+                                        ELSE
+                                            PeeEnGee_Inflate.Do_Codes()
+                                        END IF
+                                    END IF
+                                END IF
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+        END IF
+    END PROCEDURE
+
+    PROCEDURE Inflate_Core(wrapped AS S32)
+        LET cmf AS S32 = 0
+        LET flg AS S32 = 0
+        LET is_final AS S32 = 0
+        LET btype AS S32 = 0
+        LET guard AS S32 = 0
+        LET b0 AS S32 = 0
+        LET b1 AS S32 = 0
+        LET b2 AS S32 = 0
+        LET b3 AS S32 = 0
+        LET want AS U32 = 0
+        LET got AS U32 = 0
+        LET i AS S32 = 0
+        LET outn = 0
+        LET bad = 0
+        LET fail = 0
+        LET pos = 0
+        LET bit_buf = 0
+        LET bit_cnt = 0
+        IF tables_ready = 0 THEN
+            PeeEnGee_Inflate.Fill_Static_Tables()
+        END IF
+        IF wrapped <> 0 THEN
+            LET cmf = PeeEnGee_Inflate.Get_Bits(8)
+            LET flg = PeeEnGee_Inflate.Get_Bits(8)
+            IF bad <> 0 THEN
+                LET fail = 1
+            ELSE
+                IF (cmf MOD 16) <> 8 THEN
+                    PeeEnGee_Inflate.Stop(3)
+                ELSE
+                    IF (cmf / 16) > 7 THEN
+                        PeeEnGee_Inflate.Stop(3)
+                    ELSE
+                        IF ((cmf * 256 + flg) MOD 31) <> 0 THEN
+                            PeeEnGee_Inflate.Stop(3)
+                        ELSE
+                            IF ((flg / 32) MOD 2) = 1 THEN
+                                PeeEnGee_Inflate.Stop(3)
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+        END IF
+        IF bad <> 0 THEN
+        ELSE
+            WHILE guard < 65536
+                LET is_final = PeeEnGee_Inflate.Get_Bits(1)
+                LET btype = PeeEnGee_Inflate.Get_Bits(2)
+                IF bad <> 0 THEN
+                    LET guard = 65536
+                ELSE
+                    IF btype = 0 THEN
+                        PeeEnGee_Inflate.Do_Stored()
+                    ELSE
+                        IF btype = 1 THEN
+                            PeeEnGee_Inflate.Do_Fixed()
+                        ELSE
+                            IF btype = 2 THEN
+                                PeeEnGee_Inflate.Do_Dynamic()
+                            ELSE
+                                PeeEnGee_Inflate.Stop(3)
+                            END IF
+                        END IF
+                    END IF
+                    IF bad <> 0 THEN
+                        LET guard = 65536
+                    ELSE
+                        IF is_final <> 0 THEN
+                            LET guard = 65536
+                        END IF
+                    END IF
+                END IF
+                LET guard = guard + 1
+            END WHILE
+        END IF
+        IF bad <> 0 THEN
+            LET last_st = fail
+        ELSE
+            IF wrapped <> 0 THEN
+                PeeEnGee_Inflate.Align_To_Byte()
+                LET b0 = PeeEnGee_Inflate.Get_Bits(8)
+                LET b1 = PeeEnGee_Inflate.Get_Bits(8)
+                LET b2 = PeeEnGee_Inflate.Get_Bits(8)
+                LET b3 = PeeEnGee_Inflate.Get_Bits(8)
+                IF bad <> 0 THEN
+                    LET last_st = 1
+                ELSE
+                    LET want = CAST(b0 AS U32)
+                    LET want = want * 256 + CAST(b1 AS U32)
+                    LET want = want * 256 + CAST(b2 AS U32)
+                    LET want = want * 256 + CAST(b3 AS U32)
+                    LET got = PeeEnGee_Crc32.Adler_Init()
+                    LET i = 1
+                    WHILE i <= outn
+                        LET got = PeeEnGee_Crc32.Adler_Add(got, outb[i])
+                        LET i = i + 1
+                    END WHILE
+                    IF want <> got THEN
+                        LET last_st = 3
+                    ELSE
+                        LET last_st = 0
+                    END IF
+                END IF
+            ELSE
+                LET last_st = 0
+            END IF
+        END IF
+    END PROCEDURE
+
+    FUNCTION Do_Stored_Hi() AS S32
+        LET src[1] = 120
+        LET src[2] = 1
+        LET src[3] = 1
+        LET src[4] = 2
+        LET src[5] = 0
+        LET src[6] = 253
+        LET src[7] = 255
+        LET src[8] = 104
+        LET src[9] = 105
+        LET src[10] = 1
+        LET src[11] = 59
+        LET src[12] = 0
+        LET src[13] = 210
+        LET src_last = 12
+        PeeEnGee_Inflate.Inflate_Core(1)
+        IF last_st <> 0 THEN
+            RETURN 0
+        END IF
+        RETURN outn
+    END FUNCTION
+
+    FUNCTION Inflate_Hi_Len() AS S32
+        RETURN Do_Stored_Hi()
+    END FUNCTION
+    FUNCTION Inflate_Hi_B0() AS S32
+        RETURN CAST(outb[1] AS S32)
+    END FUNCTION
+    FUNCTION Inflate_Hi_B1() AS S32
+        RETURN CAST(outb[2] AS S32)
+    END FUNCTION
+
+    FUNCTION Huff_Fixed_Build_Ok() AS S32
+        LET i AS S32 = 0
+        LET ok AS S32 = 0
+        IF tables_ready = 0 THEN
+            PeeEnGee_Inflate.Fill_Static_Tables()
+        END IF
+        WHILE i <= 143
+            LET lens[i + 1] = 8
+            LET i = i + 1
+        END WHILE
+        LET i = 144
+        WHILE i <= 255
+            LET lens[i + 1] = 9
+            LET i = i + 1
+        END WHILE
+        LET i = 256
+        WHILE i <= 279
+            LET lens[i + 1] = 7
+            LET i = i + 1
+        END WHILE
+        LET i = 280
+        WHILE i <= 287
+            LET lens[i + 1] = 8
+            LET i = i + 1
+        END WHILE
+        LET tree_sel = 0
+        LET ok = PeeEnGee_Inflate.Build_Tree(288)
+        RETURN ok
+    END FUNCTION
+
+    PROCEDURE SrcReset
+        src_last = 0 - 1
+        pos = 0
+        bit_buf = 0
+        bit_cnt = 0
+        outn = 0
+        bad = 0
+        fail = 0
+        last_st = 3
+    END PROCEDURE
+
+    PROCEDURE SrcPut(b AS U8)
+        IF src_last >= 8191 THEN
+            RETURN
+        END IF
+        src_last = src_last + 1
+        src[src_last + 1] = b
+    END PROCEDURE
+
+    FUNCTION InflateZlib() AS S32
+        PeeEnGee_Inflate.Inflate_Core(1)
+        RETURN last_st
+    END FUNCTION
+
+    FUNCTION InflateRaw() AS S32
+        PeeEnGee_Inflate.Inflate_Core(0)
+        RETURN last_st
+    END FUNCTION
+
+    FUNCTION OutLen() AS S32
+        RETURN outn
+    END FUNCTION
+
+    FUNCTION OutAt(i AS S32) AS U8
+        IF i < 1 THEN
+            RETURN 0
+        END IF
+        IF i > outn THEN
+            RETURN 0
+        END IF
+        RETURN outb[i]
+    END FUNCTION
+END MODULE

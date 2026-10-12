@@ -1,0 +1,46 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_opengl.albi"
+
+-- Raw immediate-mode hello triangle (no DLL test_* / draw_*).
+LET ctx AS S64 = alb_opengl_context_create_simple(640, 480)
+IF ctx = 0 THEN
+  PRINT "opengl hello_triangle FAIL create"
+ELSE
+  LET w AS S32 = alb_opengl_context_width(ctx)
+  LET h AS S32 = alb_opengl_context_height(ctx)
+  LET i AS S32 = 0
+  LET status AS S32 = 0
+  LET fails AS S32 = 0
+  FOR i = 0 TO 89 THEN
+    LET yaw AS F64 = i * 0.04
+    LET status = alb_opengl_context_begin_frame(ctx)
+    IF status = 0 THEN LET status = alb_opengl_context_clear(ctx, 0.05, 0.05, 0.08, 1.0)
+    IF status = 0 THEN
+      CALL alb_glMatrixMode(#ALB_GL_PROJECTION)
+      CALL alb_glLoadIdentity()
+      CALL alb_glOrtho(0.0, w, h, 0.0, -1.0, 1.0)
+      CALL alb_glMatrixMode(#ALB_GL_MODELVIEW)
+      CALL alb_glLoadIdentity()
+      CALL alb_glTranslatef(w * 0.5, h * 0.5, 0.0)
+      CALL alb_glRotatef(yaw * 57.2957795, 0.0, 0.0, 1.0)
+      CALL alb_glBegin(#ALB_GL_TRIANGLES)
+      CALL alb_glColor3f(1.0, 0.2, 0.2)
+      CALL alb_glVertex2f(0.0, -120.0)
+      CALL alb_glColor3f(0.2, 1.0, 0.2)
+      CALL alb_glVertex2f(140.0, 100.0)
+      CALL alb_glColor3f(0.2, 0.2, 1.0)
+      CALL alb_glVertex2f(-140.0, 100.0)
+      CALL alb_glEnd()
+    END IF
+    IF status = 0 THEN LET status = alb_opengl_context_end_frame(ctx, 0)
+    IF status != 0 THEN LET fails = fails + 1
+  END FOR
+  CALL alb_opengl_context_destroy(ctx)
+  IF fails = 0 THEN
+    PRINT "opengl hello_triangle PASS"
+  ELSE
+    PRINT "opengl hello_triangle FAIL " | fails
+  END IF
+END IF
+END

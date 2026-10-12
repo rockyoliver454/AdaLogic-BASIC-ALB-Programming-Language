@@ -1,0 +1,64 @@
+-- Twin of Ada Core_Console_Checksum. Table-less CRC32 fold.
+VERSION 1.0
+
+DECLARE MODULE GdCrc
+    FUNCTION Init() AS U32
+    FUNCTION Fold(crc AS U32, b AS S32) AS U32
+    FUNCTION Final(crc AS U32) AS U32
+    FUNCTION OfByte(b AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdCrc
+
+    FUNCTION Init() AS U32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 4294967295
+    END FUNCTION
+
+    FUNCTION Fold(crc AS U32, b AS S32) AS U32
+        LET z AS U32 = crc XOR U32(b AND 255)
+        LET i AS S32 = 0
+        LET odd AS U32 = 0
+        ASSERT(b >= 0)
+        ASSERT(b <= 255)
+        WHILE i < 8
+            odd = z AND 1
+            z = z / 2
+            IF odd = 1 THEN
+                z = z XOR 3988292384
+            END IF
+            i = i + 1
+        END WHILE
+        RETURN z
+    END FUNCTION
+
+    FUNCTION Final(crc AS U32) AS U32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN crc XOR 4294967295
+    END FUNCTION
+
+    FUNCTION OfByte(b AS S32) AS S32
+        LET z AS U32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        z = Final(Fold(Init(), b))
+        RETURN S32(z MOD 65536)
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        a = OfByte(0)
+        b = OfByte(1)
+        IF a <> b THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

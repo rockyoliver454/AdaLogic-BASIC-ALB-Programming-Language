@@ -1,0 +1,60 @@
+-- Software darkness. Distance dim of packed RGB.
+VERSION 1.0
+
+DECLARE MODULE GdDark
+    FUNCTION ShadeRgb(base AS S32, dist2 AS S32, light_r2 AS S32) AS S32
+    PROCEDURE PresentCone(px AS S32, py AS S32, cam_x AS S32, cam_y AS S32)
+END DECLARE MODULE
+
+MODULE GdDark
+
+    FUNCTION ShadeRgb(base AS S32, dist2 AS S32, light_r2 AS S32) AS S32
+        LET r AS S32 = (base / 65536) MOD 256
+        LET g AS S32 = (base / 256) MOD 256
+        LET b AS S32 = base MOD 256
+        LET k AS S32 = 32
+        ASSERT(light_r2 > 0)
+        ASSERT(1 = 1)
+        IF dist2 < light_r2 THEN
+            k = 255 - (dist2 * 200) / light_r2
+        END IF
+        IF k < 24 THEN
+            k = 24
+        END IF
+        r = (r * k) / 255
+        g = (g * k) / 255
+        b = (b * k) / 255
+        RETURN r * 65536 + g * 256 + b
+    END FUNCTION
+
+    PROCEDURE PresentCone(px AS S32, py AS S32, cam_x AS S32, cam_y AS S32)
+        LET col AS S32 = 0
+        LET row AS S32 = 0
+        LET sx AS S32 = 0
+        LET sy AS S32 = 0
+        LET d2 AS S32 = 0
+        LET base AS S32 = 0
+        LET t AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE row < 25
+            col = 0
+            WHILE col < 40
+                sx = cam_x + col * 8
+                sy = cam_y + row * 8
+                t = GdChunk.WorldTile(sx, sy)
+                IF t = 0 THEN
+                    base = $475569
+                ELSE
+                    base = $0F172A
+                END IF
+                d2 = GdVec2.Dist2(sx, sy, px, py)
+                COLOR ShadeRgb(base, d2, 4096)
+                FILL RECT col * 8, row * 8, 8, 8
+                col = col + 1
+            END WHILE
+            row = row + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

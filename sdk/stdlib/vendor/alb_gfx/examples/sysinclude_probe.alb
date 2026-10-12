@@ -1,0 +1,5 @@
+BEGIN
+VERSION 0.3
+INCLUDE <alb_gfx.albi>
+PRINT "sysinclude_ok"
+END

@@ -1,0 +1,34 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+INCLUDE <alb_openblas.albi>
+INCLUDE <alb_nuklear.albi>
+
+PROCEDURE Print_Pass_Fail(label AS STRING, rc AS S32)
+  IF rc = 0 THEN
+    PRINT label | " PASS"
+  ELSE
+    PRINT label | " FAIL " | rc
+  END IF
+END PROCEDURE
+
+FUNCTION Shape_Name(shape AS S32) AS STRING
+  IF shape = 2 THEN RETURN "Star"
+  RETURN "?"
+END FUNCTION
+
+LET fails AS S32 = 0
+LET rc AS S32 = 0
+LET i AS S32 = 0
+
+PRINT "with procs"
+LET rc = alb_openblas_test_all()
+CALL Print_Pass_Fail("openblas_test_all", rc)
+PRINT "shape=" | Shape_Name(2)
+LET ctx AS S64 = gfx_init(400, 300)
+PRINT "ctx=" | ctx
+IF ctx != 0 THEN
+  CALL gfx_shutdown(ctx)
+END IF
+PRINT "OK"
+END

@@ -1,0 +1,64 @@
+-- Twin of Ada core_vgpu_bridge. Letterbox metrics + RLE present of the FB.
+VERSION 1.0
+
+DECLARE MODULE GdVgpuBr
+    PROCEDURE Setup()
+    PROCEDURE Present()
+    FUNCTION ScreenToVgpuX(sx AS S32) AS S32
+    FUNCTION ScreenToVgpuY(sy AS S32) AS S32
+    FUNCTION OffX() AS S32
+    FUNCTION OffY() AS S32
+    FUNCTION Scale() AS S32
+END DECLARE MODULE
+
+MODULE GdVgpuBr
+
+    LET ox AS S32 = 80
+    LET oy AS S32 = 0
+    LET sc AS S32 = 3
+
+    PROCEDURE Setup()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        sc = 3
+        ox = 80
+        oy = 0
+    END PROCEDURE
+
+    PROCEDURE Present()
+        ASSERT(sc > 0)
+        ASSERT(ox >= 0)
+        GdVgpu.PresentScaled(ox, oy, sc)
+    END PROCEDURE
+
+    FUNCTION ScreenToVgpuX(sx AS S32) AS S32
+        ASSERT(sc > 0)
+        ASSERT(1 = 1)
+        RETURN (sx - ox) / sc
+    END FUNCTION
+
+    FUNCTION ScreenToVgpuY(sy AS S32) AS S32
+        ASSERT(sc > 0)
+        ASSERT(1 = 1)
+        RETURN (sy - oy) / sc
+    END FUNCTION
+
+    FUNCTION OffX() AS S32
+        ASSERT(ox >= 0)
+        ASSERT(ox <= 640)
+        RETURN ox
+    END FUNCTION
+
+    FUNCTION OffY() AS S32
+        ASSERT(oy >= 0)
+        ASSERT(oy <= 360)
+        RETURN oy
+    END FUNCTION
+
+    FUNCTION Scale() AS S32
+        ASSERT(sc > 0)
+        ASSERT(sc <= 8)
+        RETURN sc
+    END FUNCTION
+
+END MODULE

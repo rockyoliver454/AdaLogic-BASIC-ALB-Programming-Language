@@ -1,0 +1,48 @@
+-- Twin of Ada core_proc_flora. 8 hashed tree heights.
+VERSION 1.0
+
+DECLARE MODULE GdFlora
+    PROCEDURE Setup()
+    FUNCTION CountKind() AS S32
+    FUNCTION TreeH(i AS S32) AS S32
+    PROCEDURE PresentGrove()
+END DECLARE MODULE
+
+MODULE GdFlora
+
+    STRICT th[8] AS S32
+
+    PROCEDURE Setup()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 8
+            th[i] = 12 + GdHash.ByteOf(i, 4, 17) / 8
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION CountKind() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 8
+    END FUNCTION
+
+    FUNCTION TreeH(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 8)
+        RETURN th[i]
+    END FUNCTION
+
+    PROCEDURE PresentGrove()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $166534
+        WHILE i <= 8
+            FILL RECT 20 + i * 24, 300 - th[i], 6, th[i]
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

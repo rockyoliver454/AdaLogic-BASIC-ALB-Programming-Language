@@ -1,0 +1,29 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+INCLUDE <alb_openblas.albi>
+INCLUDE <alb_nuklear.albi>
+PRINT "step3 flash"
+LET gfx AS S64 = gfx_init(640, 400)
+PRINT "gfx=" | gfx
+IF gfx = 0 THEN
+  PRINT "gfx FAIL"
+ELSE
+  LET i AS S32 = 0
+  LET t AS F64 = 0.0
+  LET flash_g AS F64 = 0.0
+  LET flash_b AS F64 = 0.0
+  LET st AS S32 = 0
+  FOR i = 1 TO 20 THEN
+    LET t = i * 0.15
+    LET flash_g = 0.20 + 0.40 * (0.5 + 0.5 * SIN(t))
+    LET flash_b = 0.35 + 0.45 * (0.5 + 0.5 * COS(t))
+    CALL gfx_poll_events()
+    LET st = gfx_begin_frame(gfx)
+    LET st = gfx_clear(gfx, 0.05, flash_g, flash_b, 1.0)
+    LET st = gfx_end_frame(gfx, 1)
+  END FOR
+  CALL gfx_shutdown(gfx)
+  PRINT "flash OK"
+END IF
+END

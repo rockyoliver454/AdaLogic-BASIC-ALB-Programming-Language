@@ -1,0 +1,27 @@
+-- Twin of C signalgen ADSR. Integer envelope, no floats.
+VERSION 1.0
+
+DECLARE MODULE GdSfxAdsr
+    FUNCTION LevelAt(t AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdSfxAdsr
+
+    FUNCTION LevelAt(t AS S32) AS S32
+        LET p AS S32 = 0
+        ASSERT(t >= 0)
+        ASSERT(1 = 1)
+        p = t AND 63
+        IF p < 8 THEN
+            RETURN p * 6
+        END IF
+        IF p < 16 THEN
+            RETURN 48 - (p - 8) * 2
+        END IF
+        IF p < 48 THEN
+            RETURN 32
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

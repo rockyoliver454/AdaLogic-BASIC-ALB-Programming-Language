@@ -1,0 +1,9 @@
+DECLARE MODULE Menu
+    PROCEDURE Setup()
+    PROCEDURE OpenPauseMenu()
+    PROCEDURE Stage1_Input()
+    PROCEDURE Stage3_Render()
+    FUNCTION IsInMenu() AS U8
+    FUNCTION IsQuitting() AS U8
+    FUNCTION WantsGameplayBackdrop() AS U8
+END DECLARE MODULE

@@ -1,0 +1,15 @@
+BEGIN
+VERSION 1.0
+LET a AS F64 = 1.57079632679
+LET s AS F64 = 0.0
+LET c AS F64 = 0.0
+LET n AS S32 = 0
+LET s = SIN(a)
+LET c = COS(a)
+PRINT "math ok"
+WHILE n < 3
+  PRINT "n=" | n
+  LET n = n + 1
+END WHILE
+PRINT "while ok"
+END

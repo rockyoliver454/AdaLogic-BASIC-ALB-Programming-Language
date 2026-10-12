@@ -1,0 +1,42 @@
+-- Time-of-day tint. Clock is ticks, not wall FFI.
+VERSION 1.0
+
+DECLARE MODULE GdSun
+    PROCEDURE PulseClock()
+    FUNCTION Hour() AS S32
+    FUNCTION Tint() AS S32
+END DECLARE MODULE
+
+MODULE GdSun
+
+    LET clk AS S32 = 0
+
+    PROCEDURE PulseClock()
+        ASSERT(clk >= 0)
+        ASSERT(1 = 1)
+        clk = clk + 1
+        IF clk >= 2400 THEN
+            clk = 0
+        END IF
+    END PROCEDURE
+
+    FUNCTION Hour() AS S32
+        ASSERT(clk >= 0)
+        ASSERT(clk <= 2400)
+        RETURN clk / 100
+    END FUNCTION
+
+    FUNCTION Tint() AS S32
+        LET h AS S32 = clk / 100
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF h < 6 THEN
+            RETURN $1E3A5F
+        END IF
+        IF h > 18 THEN
+            RETURN $7C2D12
+        END IF
+        RETURN $FDE68A
+    END FUNCTION
+
+END MODULE

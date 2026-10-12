@@ -1,0 +1,40 @@
+-- Twin of Ada core_console_wrap. Four 40-col segments over 160.
+VERSION 1.0
+
+DECLARE MODULE GdConWrap
+    FUNCTION Cols() AS S32
+    FUNCTION SegLen(pos AS S32) AS S32
+    FUNCTION SegOf(pos AS S32) AS S32
+    FUNCTION SegStart(seg AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdConWrap
+
+    FUNCTION Cols() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 40
+    END FUNCTION
+
+    FUNCTION SegLen(pos AS S32) AS S32
+        ASSERT(pos >= 0)
+        ASSERT(pos <= 160)
+        IF pos + 40 > 160 THEN
+            RETURN 160 - pos
+        END IF
+        RETURN 40
+    END FUNCTION
+
+    FUNCTION SegOf(pos AS S32) AS S32
+        ASSERT(pos >= 0)
+        ASSERT(pos <= 160)
+        RETURN pos / 40
+    END FUNCTION
+
+    FUNCTION SegStart(seg AS S32) AS S32
+        ASSERT(seg >= 0)
+        ASSERT(seg <= 3)
+        RETURN seg * 40
+    END FUNCTION
+
+END MODULE

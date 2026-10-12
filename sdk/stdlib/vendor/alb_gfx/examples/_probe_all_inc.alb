@@ -1,0 +1,15 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+INCLUDE <alb_openblas.albi>
+INCLUDE <alb_nuklear.albi>
+PRINT "all includes ok"
+PRINT alb_openblas_version()
+PRINT alb_nuklear_version()
+LET ctx AS S64 = gfx_init(320, 240)
+PRINT "ctx="
+PRINT ctx
+IF ctx != 0 THEN
+  CALL gfx_shutdown(ctx)
+END IF
+END

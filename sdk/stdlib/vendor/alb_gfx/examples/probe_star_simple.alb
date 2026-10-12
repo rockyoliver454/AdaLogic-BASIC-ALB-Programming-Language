@@ -1,0 +1,102 @@
+-- ============================================================================
+-- probe_star_simple.alb — 1 tip, no rotation multiply
+-- ============================================================================
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+
+LET i AS S32 = 0
+LET idx AS S32 = 0
+LET st AS S32 = 0
+LET gfx AS S64 = 0
+LET vb AS S64 = 0
+LET pipe AS S64 = 0
+LET verts AS S64 = 0
+LET pi AS F64 = 3.141592653589793
+LET a0 AS F64 = 0.0
+LET am AS F64 = 0.0
+LET a1 AS F64 = 0.0
+LET ox AS F64 = 0.0
+LET oy AS F64 = 0.0
+LET mx AS F64 = 0.0
+LET my AS F64 = 0.0
+LET nx AS F64 = 0.0
+LET ny AS F64 = 0.0
+
+PRINT "probe_star_simple start"
+LET gfx = gfx_init(640, 400)
+LET verts = gfx_alloc_memory(512)
+LET vb = gfx_buffer_create(gfx, 512, #GFX_BUFFER_USAGE_DYNAMIC)
+LET pipe = gfx_pipeline_create(gfx, 0, 0, #GFX_TOPOLOGY_TRIANGLELIST)
+CALL gfx_pipeline_bind(gfx, pipe)
+CALL gfx_bind_vertex_buffer(gfx, vb)
+
+LET a0 = -pi * 0.5
+LET a1 = a0 + 2.0 * pi / 5.0
+LET am = a0 + pi / 5.0
+LET ox = 0.55 * COS(a0)
+LET oy = 0.55 * SIN(a0)
+LET mx = 0.22 * COS(am)
+LET my = 0.22 * SIN(am)
+LET nx = 0.55 * COS(a1)
+LET ny = 0.55 * SIN(a1)
+
+CALL gfx_write_f32(verts, 0, 0.0)
+CALL gfx_write_f32(verts, 1, 0.0)
+CALL gfx_write_f32(verts, 2, 0.0)
+CALL gfx_write_f32(verts, 3, 1.0)
+CALL gfx_write_f32(verts, 4, 0.5)
+CALL gfx_write_f32(verts, 5, 0.2)
+CALL gfx_write_f32(verts, 6, 1.0)
+CALL gfx_write_f32(verts, 7, ox)
+CALL gfx_write_f32(verts, 8, oy)
+CALL gfx_write_f32(verts, 9, 0.0)
+CALL gfx_write_f32(verts, 10, 1.0)
+CALL gfx_write_f32(verts, 11, 0.7)
+CALL gfx_write_f32(verts, 12, 0.2)
+CALL gfx_write_f32(verts, 13, 1.0)
+CALL gfx_write_f32(verts, 14, mx)
+CALL gfx_write_f32(verts, 15, my)
+CALL gfx_write_f32(verts, 16, 0.0)
+CALL gfx_write_f32(verts, 17, 0.9)
+CALL gfx_write_f32(verts, 18, 0.5)
+CALL gfx_write_f32(verts, 19, 0.3)
+CALL gfx_write_f32(verts, 20, 1.0)
+
+CALL gfx_write_f32(verts, 21, 0.0)
+CALL gfx_write_f32(verts, 22, 0.0)
+CALL gfx_write_f32(verts, 23, 0.0)
+CALL gfx_write_f32(verts, 24, 0.95)
+CALL gfx_write_f32(verts, 25, 0.45)
+CALL gfx_write_f32(verts, 26, 0.2)
+CALL gfx_write_f32(verts, 27, 1.0)
+CALL gfx_write_f32(verts, 28, mx)
+CALL gfx_write_f32(verts, 29, my)
+CALL gfx_write_f32(verts, 30, 0.0)
+CALL gfx_write_f32(verts, 31, 0.95)
+CALL gfx_write_f32(verts, 32, 0.45)
+CALL gfx_write_f32(verts, 33, 0.2)
+CALL gfx_write_f32(verts, 34, 1.0)
+CALL gfx_write_f32(verts, 35, nx)
+CALL gfx_write_f32(verts, 36, ny)
+CALL gfx_write_f32(verts, 37, 0.0)
+CALL gfx_write_f32(verts, 38, 0.85)
+CALL gfx_write_f32(verts, 39, 0.4)
+CALL gfx_write_f32(verts, 40, 0.3)
+CALL gfx_write_f32(verts, 41, 1.0)
+
+LET idx = gfx_read_f32_centi(verts, 7)
+PRINT "ox_centi=" | idx
+
+FOR i = 1 TO 600 THEN
+  CALL gfx_poll_events()
+  CALL gfx_buffer_update(gfx, vb, 0, 168, verts)
+  LET st = gfx_begin_frame(gfx)
+  LET st = gfx_clear(gfx, 0.05, 0.07, 0.12, 1.0)
+  CALL gfx_draw_arrays(gfx, 6, 0)
+  LET st = gfx_end_frame(gfx, 1)
+END FOR
+
+CALL gfx_shutdown(gfx)
+PRINT "probe_star_simple done"
+END

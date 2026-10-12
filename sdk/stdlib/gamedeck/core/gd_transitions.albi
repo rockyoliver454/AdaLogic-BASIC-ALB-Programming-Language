@@ -1,0 +1,63 @@
+-- Scene fade FSM. Twin of C game_transitions. Arm on SwitchTo.
+VERSION 1.0
+
+DECLARE MODULE GdTransitions
+    PROCEDURE Setup()
+    PROCEDURE Arm()
+    PROCEDURE PulseFade()
+    FUNCTION FadeAmt() AS S32
+    PROCEDURE PresentVeil()
+END DECLARE MODULE
+
+MODULE GdTransitions
+
+    LET amt AS S32 = 0
+    LET dir AS S32 = 0 - 1
+
+    PROCEDURE Setup()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        amt = 0
+        dir = 0 - 1
+    END PROCEDURE
+
+    PROCEDURE Arm()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        amt = 180
+        dir = 0 - 1
+    END PROCEDURE
+
+    PROCEDURE PulseFade()
+        ASSERT(amt >= 0)
+        ASSERT(amt <= 255)
+        IF amt <= 0 THEN
+            RETURN
+        END IF
+        amt = amt + dir * 12
+        IF amt < 0 THEN
+            amt = 0
+        END IF
+        IF amt > 255 THEN
+            amt = 255
+        END IF
+    END PROCEDURE
+
+    FUNCTION FadeAmt() AS S32
+        ASSERT(amt >= 0)
+        ASSERT(amt <= 255)
+        RETURN amt
+    END FUNCTION
+
+    PROCEDURE PresentVeil()
+        ASSERT(amt >= 0)
+        ASSERT(amt <= 255)
+        IF amt <= 0 THEN
+            RETURN
+        END IF
+        COLOR amt * 65536 + amt * 256 + amt
+        FILL RECT 0, 0, 640, amt
+        FILL RECT 0, 360 - amt, 640, amt
+    END PROCEDURE
+
+END MODULE

@@ -1,0 +1,30 @@
+-- Twin of Ada core_console_state. Shown flag (Open is reserved).
+VERSION 1.0
+
+DECLARE MODULE GdConState
+    PROCEDURE Show()
+    PROCEDURE Hide()
+    FUNCTION Shown() AS S32
+END DECLARE MODULE
+
+MODULE GdConState
+
+    LET shown AS S32 = 0
+
+    PROCEDURE Show()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        shown = 1
+    END PROCEDURE
+    PROCEDURE Hide()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        shown = 0
+    END PROCEDURE
+    FUNCTION Shown() AS S32
+        ASSERT(shown >= 0)
+        ASSERT(shown <= 1)
+        RETURN shown
+    END FUNCTION
+
+END MODULE

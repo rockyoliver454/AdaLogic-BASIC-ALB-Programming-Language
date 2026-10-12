@@ -1,0 +1,12 @@
+-- ============================================================================
+-- alb_d3d9_app.albi — APPLICATION companion for Direct3D 9 demos
+-- ============================================================================
+-- NOT the graphics API. Thin alb_d3d9.dll stays raw D3D9 only.
+-- This DLL holds demos: shapes / OpenBLAS tint / Nuklear control panel.
+-- Place alb_d3d9_app.dll beside the program (plus alb_d3d9.dll,
+-- alb_openblas.dll, libopenblas.dll, alb_nuklear.dll, alb_glfw.dll, glfw3.dll).
+-- ============================================================================
+
+VERSION 0.1
+
+IMPORT_DLL FUNCTION demo_d3d9_run_all_features() AS S32 FROM ("alb_d3d9_app.dll")

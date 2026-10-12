@@ -1,0 +1,133 @@
+-- ============================================================================
+-- ALBTga — Truevision TGA header
+-- ============================================================================
+-- 18-byte header. ImgType() 1 colormap, 2 uncompressed truecolor, 3 gray.
+-- W()/H() U16 LE, Bpp() bits per pixel. Footer "TRUEVISION-XFILE" is
+-- optional and not required for ProbeBuf to succeed.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_tga.albi"
+--
+-- ProbeBuf()  0 ok. RLE types 9/10/11 and other image types → status 5.
+-- Pixels after the header are not copied into a raster buffer.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBTga
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION W() AS S32
+    FUNCTION H() AS S32
+    FUNCTION Bpp() AS S32
+    FUNCTION ImgType() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBTga
+
+    -- 1-based window. 18-byte TGA header. ImgType 2 = uncompressed truecolor.
+    STRICT src[4096] AS U8
+    LET srclen AS S32 = 0
+    LET tw AS S32 = 0
+    LET th AS S32 = 0
+    LET bppn AS S32 = 0
+    LET imgt AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        tw = 0
+        th = 0
+        bppn = 0
+        imgt = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 4096 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION GetU16(i AS S32) AS S32
+        RETURN CAST(src[i] AS S32) + CAST(src[i + 1] AS S32) * 256
+    END FUNCTION
+
+    FUNCTION FooterOk() AS S32
+        LET i AS S32 = srclen - 17
+        IF srclen < 26 THEN
+            RETURN 0
+        END IF
+        IF src[i] <> 84 THEN
+            RETURN 0
+        END IF
+        IF src[i + 1] <> 82 THEN
+            RETURN 0
+        END IF
+        IF src[i + 2] <> 85 THEN
+            RETURN 0
+        END IF
+        IF src[i + 3] <> 69 THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        tw = 0
+        th = 0
+        bppn = 0
+        imgt = 0
+        IF srclen < 18 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        imgt = CAST(src[3] AS S32)
+        tw = GetU16(13)
+        th = GetU16(15)
+        bppn = CAST(src[17] AS S32)
+        IF tw < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF th < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF imgt <> 2 THEN
+            IF imgt <> 1 THEN
+                IF imgt <> 3 THEN
+                    lastst = 5
+                    RETURN lastst
+                END IF
+            END IF
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION W() AS S32
+        RETURN tw
+    END FUNCTION
+
+    FUNCTION H() AS S32
+        RETURN th
+    END FUNCTION
+
+    FUNCTION Bpp() AS S32
+        RETURN bppn
+    END FUNCTION
+
+    FUNCTION ImgType() AS S32
+        RETURN imgt
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

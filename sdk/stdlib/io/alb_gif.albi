@@ -1,0 +1,363 @@
+-- ============================================================================
+-- ALBGif — GIF87a / GIF89a screen + first-image LZW
+-- ============================================================================
+-- ProbeBuf()  logical screen: W(), H(), VerN() 87 or 89. No raster.
+-- DecodeBuf() also walks to the first 0x2C image, LZW-decompresses, and
+--             fills PixAt. PixN() is clamped to W()*H() (max 1024 samples).
+-- ImgN()      1 if an image descriptor was seen.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_gif.albi"
+--
+-- STRICT tables are 1-based. Feed with ALBWin.LoadPath (binary).
+-- Animated GIF: only the first image. Huge rasters stop at 1024 pixels.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBGif
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION DecodeBuf() AS S32
+    FUNCTION W() AS S32
+    FUNCTION H() AS S32
+    FUNCTION VerN() AS S32
+    FUNCTION PixAt(i AS S32) AS U8
+    FUNCTION PixN() AS S32
+    FUNCTION ImgN() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBGif
+
+    -- src[] file window. pix[] first-image indices (cap 1024).
+    -- pref[] / suff[] / stk[] are 1-based LZW tables: code C lives at [C+1]
+    -- because STRICT arrays cannot use index 0.
+    STRICT src[4096] AS U8
+    STRICT pix[1024] AS U8
+    STRICT pref[4096] AS S32
+    STRICT suff[4096] AS U8
+    STRICT stk[4096] AS U8
+    LET srclen AS S32 = 0
+    LET gw AS S32 = 0
+    LET gh AS S32 = 0
+    LET ver AS S32 = 0
+    LET pixn AS S32 = 0
+    LET imgn AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        gw = 0
+        gh = 0
+        ver = 0
+        pixn = 0
+        imgn = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 4096 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION GetU16(i AS S32) AS S32
+        RETURN CAST(src[i] AS S32) + CAST(src[i + 1] AS S32) * 256
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        LET packed AS S32 = 0
+        LET gct AS S32 = 0
+        gw = 0
+        gh = 0
+        ver = 0
+        IF srclen < 13 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        -- 71 73 70 = "GIF". Bytes 5–7 are "87a" or "89a".
+        IF src[1] <> 71 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[2] <> 73 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[3] <> 70 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[4] <> 56 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[5] = 55 THEN
+            ver = 87
+        ELSE
+            IF src[5] = 57 THEN
+                ver = 89
+            ELSE
+                lastst = 3
+                RETURN lastst
+            END IF
+        END IF
+        IF src[6] <> 97 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        gw = GetU16(7)
+        gh = GetU16(9)
+        packed = CAST(src[11] AS S32)
+        IF (packed AND 128) <> 0 THEN
+            gct = packed AND 7
+            gct = 3 * (2 SHL gct)
+            IF 13 + gct > srclen THEN
+                lastst = 4
+                RETURN lastst
+            END IF
+        END IF
+        IF gw < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION DecodeBuf() AS S32
+        LET packed AS S32 = 0
+        LET gct AS S32 = 0
+        LET i AS S32 = 14
+        LET mincs AS S32 = 0
+        LET clearc AS S32 = 0
+        LET endc AS S32 = 0
+        LET csz AS S32 = 0
+        LET nxtc AS S32 = 0
+        LET blk AS S32 = 0
+        LET bp AS S32 = 0
+        LET bitbuf AS S32 = 0
+        LET bitn AS S32 = 0
+        LET code AS S32 = 0
+        LET prev AS S32 = 0 - 1
+        LET k AS S32 = 0
+        LET t AS S32 = 0
+        LET mask AS S32 = 0
+        LET sp AS S32 = 0
+        LET first AS S32 = 0
+        LET outi AS S32 = 1
+        LET capn AS S32 = 0
+        pixn = 0
+        imgn = 0
+        lastst = ProbeBuf()
+        IF lastst <> 0 THEN
+            RETURN lastst
+        END IF
+        capn = gw * gh
+        IF capn < 1 THEN
+            capn = 1
+        END IF
+        IF capn > 1024 THEN
+            capn = 1024
+        END IF
+        packed = CAST(src[11] AS S32)
+        IF (packed AND 128) <> 0 THEN
+            gct = packed AND 7
+            gct = 3 * (2 SHL gct)
+            i = 14 + gct
+        END IF
+        WHILE i <= srclen
+            IF src[i] = 44 THEN
+                IF i + 11 > srclen THEN
+                    lastst = 4
+                    RETURN lastst
+                END IF
+                imgn = imgn + 1
+                mincs = CAST(src[i + 10] AS S32)
+                i = i + 11
+                IF mincs < 2 THEN
+                    lastst = 5
+                    RETURN lastst
+                END IF
+                clearc = 1 SHL mincs
+                endc = clearc + 1
+                csz = mincs + 1
+                nxtc = endc + 1
+                k = 1
+                WHILE k <= 4096
+                    pref[k] = 0 - 1
+                    suff[k] = 0
+                    k = k + 1
+                END WHILE
+                k = 0
+                WHILE k < clearc
+                    pref[k + 1] = 0 - 1
+                    suff[k + 1] = CAST(k AS U8)
+                    k = k + 1
+                END WHILE
+                bitbuf = 0
+                bitn = 0
+                prev = 0 - 1
+                WHILE i <= srclen
+                    blk = CAST(src[i] AS S32)
+                    i = i + 1
+                    IF blk = 0 THEN
+                        lastst = 0
+                        pixn = outi - 1
+                        RETURN lastst
+                    END IF
+                    bp = 0
+                    WHILE bp < blk
+                        IF i > srclen THEN
+                            lastst = 4
+                            RETURN lastst
+                        END IF
+                        bitbuf = bitbuf + CAST(src[i] AS S32) SHL bitn
+                        bitn = bitn + 8
+                        i = i + 1
+                        bp = bp + 1
+                        WHILE bitn >= csz
+                            mask = (1 SHL csz) - 1
+                            code = bitbuf AND mask
+                            bitbuf = bitbuf / (1 SHL csz)
+                            bitn = bitn - csz
+                            IF code = endc THEN
+                                pixn = outi - 1
+                                lastst = 0
+                                RETURN lastst
+                            END IF
+                            IF code = clearc THEN
+                                -- Reset table. Next codes start after clear+end.
+                                csz = mincs + 1
+                                nxtc = endc + 1
+                                prev = 0 - 1
+                            ELSE
+                                IF prev < 0 THEN
+                                    IF outi <= capn THEN
+                                        pix[outi] = suff[code + 1]
+                                        outi = outi + 1
+                                    END IF
+                                    prev = code
+                                    first = CAST(suff[code + 1] AS S32)
+                                ELSE
+                                    t = code
+                                    sp = 0
+                                    IF t >= nxtc THEN
+                                        -- KwKwK: emit first byte of previous string, then decode prev.
+                                        stk[1] = CAST(first AS U8)
+                                        sp = 1
+                                        t = prev
+                                    END IF
+                                    WHILE t >= clearc
+                                        IF sp >= 4095 THEN
+                                            lastst = 5
+                                            RETURN lastst
+                                        END IF
+                                        sp = sp + 1
+                                        stk[sp] = suff[t + 1]
+                                        t = pref[t + 1]
+                                        IF t < 0 THEN
+                                            lastst = 5
+                                            RETURN lastst
+                                        END IF
+                                    END WHILE
+                                    first = CAST(suff[t + 1] AS S32)
+                                    IF outi <= capn THEN
+                                        pix[outi] = suff[t + 1]
+                                        outi = outi + 1
+                                    END IF
+                                    WHILE sp > 0
+                                        IF outi <= capn THEN
+                                            pix[outi] = stk[sp]
+                                            outi = outi + 1
+                                        END IF
+                                        sp = sp - 1
+                                    END WHILE
+                                    IF nxtc < 4096 THEN
+                                        pref[nxtc + 1] = prev
+                                        suff[nxtc + 1] = CAST(first AS U8)
+                                        nxtc = nxtc + 1
+                                        IF nxtc >= (1 SHL csz) THEN
+                                            IF csz < 12 THEN
+                                                csz = csz + 1
+                                            END IF
+                                        END IF
+                                    END IF
+                                    prev = code
+                                END IF
+                            END IF
+                        END WHILE
+                    END WHILE
+                END WHILE
+            ELSE
+                IF src[i] = 33 THEN
+                    IF i + 2 > srclen THEN
+                        lastst = 4
+                        RETURN lastst
+                    END IF
+                    i = i + 2
+                    blk = CAST(src[i] AS S32)
+                    WHILE blk > 0
+                        i = i + 1 + blk
+                        IF i > srclen THEN
+                            lastst = 4
+                            RETURN lastst
+                        END IF
+                        blk = CAST(src[i] AS S32)
+                    END WHILE
+                    i = i + 1
+                ELSE
+                    IF src[i] = 59 THEN
+                        pixn = outi - 1
+                        lastst = 0
+                        RETURN lastst
+                    ELSE
+                        i = i + 1
+                    END IF
+                END IF
+            END IF
+        END WHILE
+        pixn = outi - 1
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION W() AS S32
+        RETURN gw
+    END FUNCTION
+
+    FUNCTION H() AS S32
+        RETURN gh
+    END FUNCTION
+
+    FUNCTION VerN() AS S32
+        RETURN ver
+    END FUNCTION
+
+    FUNCTION PixAt(i AS S32) AS U8
+        IF i < 1 THEN
+            RETURN 0
+        END IF
+        IF i > pixn THEN
+            RETURN 0
+        END IF
+        RETURN pix[i]
+    END FUNCTION
+
+    FUNCTION PixN() AS S32
+        RETURN pixn
+    END FUNCTION
+
+    FUNCTION ImgN() AS S32
+        RETURN imgn
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

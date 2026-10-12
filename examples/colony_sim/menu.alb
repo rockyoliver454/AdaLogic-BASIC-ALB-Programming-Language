@@ -1,0 +1,686 @@
+INCLUDE "../SCREEN.ALBI"
+INCLUDE "../INPUT.ALBI"
+INCLUDE "AppState.albi"
+INCLUDE "Settings.albi"
+INCLUDE "SaveGame.albi"
+INCLUDE "world.albi"
+INCLUDE "colony.albi"
+INCLUDE "agents.albi"
+INCLUDE "buildings.albi"
+INCLUDE "controls.albi"
+INCLUDE "menu.albi"
+
+IMPORT AppState
+IMPORT Settings
+IMPORT SaveGame
+IMPORT World
+IMPORT Colony
+IMPORT Agents
+IMPORT Buildings
+IMPORT Controls
+IMPORT Menu
+
+MODULE Menu
+    LET PAGE_ROOT AS U8 = 0
+    LET PAGE_SAVE AS U8 = 1
+    LET PAGE_LOAD AS U8 = 2
+    LET PAGE_OPTIONS AS U8 = 3
+    LET PAGE_CONTROLS AS U8 = 4
+    LET PAGE_WORLD AS U8 = 5
+    LET PAGE_CHARACTERS AS U8 = 6
+    LET PAGE_ACHIEVEMENTS AS U8 = 7
+    LET PAGE_CREDITS AS U8 = 8
+
+    LET MODE_TITLE AS U8 = 0
+    LET MODE_PAUSE AS U8 = 1
+
+    LET sub_state AS U8 = 0
+    LET menu_mode AS U8 = 0
+    LET menu_active AS U8 = 1
+    LET quit_requested AS U8 = 0
+    LET prev_click AS U64 = 0
+    LET prev_escape AS U8 = 0
+
+    LET root_x AS S32 = 72
+    LET root_y AS S32 = 132
+    LET root_w AS S32 = 278
+    LET root_h AS S32 = 40
+    LET root_gap AS S32 = 48
+
+    LET panel_x AS S32 = 390
+    LET panel_y AS S32 = 56
+    LET panel_w AS S32 = 844
+    LET panel_h AS S32 = 610
+
+    LET row_x AS S32 = 430
+    LET row_w AS S32 = 730
+    LET row_h AS S32 = 42
+    LET row_gap AS S32 = 54
+    LET row_y_base AS S32 = 152
+
+    LET back_x AS S32 = 1014
+    LET back_y AS S32 = 618
+    LET back_w AS S32 = 176
+    LET back_h AS S32 = 38
+
+    FUNCTION PointInRect(px AS S32, py AS S32, rx AS S32, ry AS S32, rw AS S32, rh AS S32) AS U8
+        IF px >= rx AND px < rx + rw AND py >= ry AND py < ry + rh THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION RootButtonCount() AS U8
+        IF menu_mode = MODE_PAUSE THEN RETURN 10 END IF
+        RETURN 9
+    END FUNCTION
+
+    FUNCTION RootButtonY(slot AS U8) AS S32
+        RETURN root_y + (S32(slot) - 1) * root_gap
+    END FUNCTION
+
+    FUNCTION RowY(row AS U8) AS S32
+        RETURN row_y_base + (S32(row) - 1) * row_gap
+    END FUNCTION
+
+    FUNCTION SeasonLabel(season_value AS U8) AS STRING
+        IF season_value = 0 THEN RETURN "SPRING" END IF
+        IF season_value = 1 THEN RETURN "SUMMER" END IF
+        IF season_value = 2 THEN RETURN "AUTUMN" END IF
+        RETURN "WINTER"
+    END FUNCTION
+
+    FUNCTION ToggleLabel(flag AS U8) AS STRING
+        IF flag = 1 THEN RETURN "ON" END IF
+        RETURN "OFF"
+    END FUNCTION
+
+    FUNCTION DigitText(digit_value AS U32) AS STRING
+        IF digit_value = 1 THEN RETURN "1" END IF
+        IF digit_value = 2 THEN RETURN "2" END IF
+        IF digit_value = 3 THEN RETURN "3" END IF
+        IF digit_value = 4 THEN RETURN "4" END IF
+        IF digit_value = 5 THEN RETURN "5" END IF
+        IF digit_value = 6 THEN RETURN "6" END IF
+        IF digit_value = 7 THEN RETURN "7" END IF
+        IF digit_value = 8 THEN RETURN "8" END IF
+        IF digit_value = 9 THEN RETURN "9" END IF
+        RETURN "0"
+    END FUNCTION
+
+    FUNCTION NumberText(value AS U32) AS STRING
+        LET result_text AS STRING = ""
+        LET work_value AS U32 = value
+        LET digit_value AS U32 = 0
+        IF work_value = 0 THEN RETURN "0" END IF
+        WHILE work_value > 0
+            digit_value = work_value MOD 10
+            result_text = CONCAT(DigitText(digit_value), result_text)
+            work_value = work_value / 10
+        END WHILE
+        RETURN CONCAT(result_text, "")
+    END FUNCTION
+
+    FUNCTION RootLabel(slot AS U8) AS STRING
+        IF menu_mode = MODE_PAUSE THEN
+            IF slot = 1 THEN RETURN "RESUME" END IF
+            IF slot = 2 THEN RETURN "SAVE SNAPSHOT" END IF
+            IF slot = 3 THEN RETURN "LOAD SNAPSHOT" END IF
+            IF slot = 4 THEN RETURN "OPTIONS" END IF
+            IF slot = 5 THEN RETURN "CONTROLS" END IF
+            IF slot = 6 THEN RETURN "WORLD PRESET" END IF
+            IF slot = 7 THEN RETURN "COLONY PRESET" END IF
+            IF slot = 8 THEN RETURN "ACHIEVEMENTS" END IF
+            IF slot = 9 THEN RETURN "CREDITS" END IF
+            RETURN "QUIT"
+        END IF
+
+        IF slot = 1 THEN RETURN "START COLONY" END IF
+        IF slot = 2 THEN RETURN "LOAD SNAPSHOT" END IF
+        IF slot = 3 THEN RETURN "OPTIONS" END IF
+        IF slot = 4 THEN RETURN "CONTROLS" END IF
+        IF slot = 5 THEN RETURN "WORLD PRESET" END IF
+        IF slot = 6 THEN RETURN "COLONY PRESET" END IF
+        IF slot = 7 THEN RETURN "ACHIEVEMENTS" END IF
+        IF slot = 8 THEN RETURN "CREDITS" END IF
+        RETURN "QUIT"
+    END FUNCTION
+
+    FUNCTION PanelTitle() AS STRING
+        IF sub_state = PAGE_SAVE THEN RETURN "SAVE SNAPSHOT" END IF
+        IF sub_state = PAGE_LOAD THEN RETURN "LOAD SNAPSHOT" END IF
+        IF sub_state = PAGE_OPTIONS THEN RETURN "OPTIONS" END IF
+        IF sub_state = PAGE_CONTROLS THEN RETURN "CONTROLS" END IF
+        IF sub_state = PAGE_WORLD THEN RETURN "WORLD PRESET" END IF
+        IF sub_state = PAGE_CHARACTERS THEN RETURN "COLONY PRESET" END IF
+        IF sub_state = PAGE_ACHIEVEMENTS THEN RETURN "ACHIEVEMENTS" END IF
+        IF sub_state = PAGE_CREDITS THEN RETURN "CREDITS" END IF
+        RETURN "COLONY SIM"
+    END FUNCTION
+
+    FUNCTION RootButtonTint(slot AS U8) AS S32
+        IF slot = 1 THEN RETURN $2F5D3A END IF
+        IF slot = 2 THEN RETURN $44515F END IF
+        IF slot = 3 THEN RETURN $334466 END IF
+        IF slot = 4 THEN RETURN $24525A END IF
+        IF slot = 5 THEN RETURN $5F4A2D END IF
+        IF slot = 6 THEN RETURN $5C3A40 END IF
+        IF slot = 7 THEN RETURN $6A6330 END IF
+        IF slot = 8 THEN RETURN $40445A END IF
+        IF slot = 9 THEN RETURN $5A3A3A END IF
+        RETURN $5A3A3A
+    END FUNCTION
+
+    PROCEDURE DrawButton(x AS S32, y AS S32, w AS S32, h AS S32, fill_col AS S32, border_col AS S32, label AS STRING)
+        LET hover AS U8 = PointInRect(MOUSE_X, MOUSE_Y, x, y, w, h)
+        COLOR fill_col
+        IF hover = 1 THEN COLOR fill_col + $111111 END IF
+        FILL RECT x, y, w, h
+        COLOR border_col
+        DRAW RECT x, y, w, h
+        COLOR $FFFFFF
+        DRAW TEXT(x + 16, y + 13, CONCAT(label, ""))
+    END PROCEDURE
+
+    PROCEDURE DrawBackButton()
+        DrawButton(back_x, back_y, back_w, back_h, $35414D, $87A0B6, "BACK (ESC)")
+    END PROCEDURE
+
+    PROCEDURE Setup()
+        sub_state = PAGE_ROOT
+        menu_mode = MODE_TITLE
+        menu_active = 1
+        quit_requested = 0
+        prev_click = 0
+        prev_escape = 0
+    END PROCEDURE
+
+    PROCEDURE OpenPauseMenu()
+        menu_mode = MODE_PAUSE
+        menu_active = 1
+        sub_state = PAGE_ROOT
+        prev_click = MOUSE_CLICK(0)
+        prev_escape = 1
+    END PROCEDURE
+
+    PROCEDURE StartNewColony()
+        AppState.ResetForBoot()
+        Controls.ClearTransientInput()
+        SaveGame.ClearPendingName()
+        menu_mode = MODE_PAUSE
+        menu_active = 0
+        sub_state = PAGE_ROOT
+        prev_click = MOUSE_CLICK(0)
+    END PROCEDURE
+
+    PROCEDURE ResumeGameplay()
+        menu_mode = MODE_PAUSE
+        menu_active = 0
+        sub_state = PAGE_ROOT
+        prev_click = MOUSE_CLICK(0)
+    END PROCEDURE
+
+    PROCEDURE OpenPage(page_id AS U8)
+        sub_state = page_id
+        prev_click = MOUSE_CLICK(0)
+        IF page_id = PAGE_LOAD THEN SaveGame.RefreshCatalog() END IF
+        IF page_id = PAGE_SAVE THEN
+            SaveGame.ClearPendingName()
+            SaveGame.CaptureLiveThumbnail()
+        END IF
+    END PROCEDURE
+
+    PROCEDURE HandleRootAction(slot AS U8)
+        IF menu_mode = MODE_PAUSE THEN
+            IF slot = 1 THEN
+                ResumeGameplay()
+                RETURN
+            END IF
+            IF slot = 2 THEN
+                OpenPage(PAGE_SAVE)
+                RETURN
+            END IF
+            IF slot = 3 THEN
+                OpenPage(PAGE_LOAD)
+                RETURN
+            END IF
+            IF slot = 4 THEN
+                OpenPage(PAGE_OPTIONS)
+                RETURN
+            END IF
+            IF slot = 5 THEN
+                OpenPage(PAGE_CONTROLS)
+                RETURN
+            END IF
+            IF slot = 6 THEN
+                OpenPage(PAGE_WORLD)
+                RETURN
+            END IF
+            IF slot = 7 THEN
+                OpenPage(PAGE_CHARACTERS)
+                RETURN
+            END IF
+            IF slot = 8 THEN
+                OpenPage(PAGE_ACHIEVEMENTS)
+                RETURN
+            END IF
+            IF slot = 9 THEN
+                OpenPage(PAGE_CREDITS)
+                RETURN
+            END IF
+            quit_requested = 1
+            RETURN
+        END IF
+
+        IF slot = 1 THEN
+            StartNewColony()
+            RETURN
+        END IF
+        IF slot = 2 THEN
+            OpenPage(PAGE_LOAD)
+            RETURN
+        END IF
+        IF slot = 3 THEN
+            OpenPage(PAGE_OPTIONS)
+            RETURN
+        END IF
+        IF slot = 4 THEN
+            OpenPage(PAGE_CONTROLS)
+            RETURN
+        END IF
+        IF slot = 5 THEN
+            OpenPage(PAGE_WORLD)
+            RETURN
+        END IF
+        IF slot = 6 THEN
+            OpenPage(PAGE_CHARACTERS)
+            RETURN
+        END IF
+        IF slot = 7 THEN
+            OpenPage(PAGE_ACHIEVEMENTS)
+            RETURN
+        END IF
+        IF slot = 8 THEN
+            OpenPage(PAGE_CREDITS)
+            RETURN
+        END IF
+        quit_requested = 1
+    END PROCEDURE
+
+    PROCEDURE HandleOptionsClick(mx AS S32, my AS S32)
+        IF PointInRect(mx, my, row_x, RowY(1), row_w, row_h) THEN Settings.ToggleSound() END IF
+        IF PointInRect(mx, my, row_x, RowY(2), row_w, row_h) THEN Settings.ToggleMusic() END IF
+        IF PointInRect(mx, my, row_x, RowY(3), row_w, row_h) THEN Settings.ToggleFullscreen() END IF
+        IF PointInRect(mx, my, row_x, RowY(4), row_w, row_h) THEN Settings.ToggleStretchy() END IF
+        IF PointInRect(mx, my, row_x, RowY(5), row_w, row_h) THEN Settings.ToggleResizable() END IF
+        IF PointInRect(mx, my, row_x, RowY(6), row_w, row_h) THEN Settings.ToggleShowFPS() END IF
+        IF PointInRect(mx, my, row_x, RowY(7), row_w, row_h) THEN Settings.ToggleDevMode() END IF
+    END PROCEDURE
+
+    PROCEDURE HandleWorldClick(mx AS S32, my AS S32)
+        IF PointInRect(mx, my, 900, RowY(1), 34, row_h) THEN Settings.CycleStartSeason(-1) END IF
+        IF PointInRect(mx, my, 1074, RowY(1), 34, row_h) THEN Settings.CycleStartSeason(1) END IF
+        IF PointInRect(mx, my, 900, RowY(2), 34, row_h) THEN Settings.CycleStartHour(-1) END IF
+        IF PointInRect(mx, my, 1074, RowY(2), 34, row_h) THEN Settings.CycleStartHour(1) END IF
+        IF PointInRect(mx, my, 900, RowY(3), 34, row_h) THEN Settings.CycleDayLength(-1) END IF
+        IF PointInRect(mx, my, 1074, RowY(3), 34, row_h) THEN Settings.CycleDayLength(1) END IF
+        IF PointInRect(mx, my, 900, RowY(4), 34, row_h) THEN Settings.CycleStartBerries(-1) END IF
+        IF PointInRect(mx, my, 1074, RowY(4), 34, row_h) THEN Settings.CycleStartBerries(1) END IF
+        IF PointInRect(mx, my, 900, RowY(5), 208, row_h) THEN Settings.ResetStartupSettings() END IF
+    END PROCEDURE
+
+    PROCEDURE HandleCharacterClick(mx AS S32, my AS S32)
+        IF PointInRect(mx, my, 900, RowY(1), 34, row_h) THEN Settings.CycleStartAgents(-1) END IF
+        IF PointInRect(mx, my, 1074, RowY(1), 34, row_h) THEN Settings.CycleStartAgents(1) END IF
+        IF PointInRect(mx, my, 900, RowY(2), 34, row_h) THEN Settings.CycleStartFood(-1) END IF
+        IF PointInRect(mx, my, 1074, RowY(2), 34, row_h) THEN Settings.CycleStartFood(1) END IF
+        IF PointInRect(mx, my, 900, RowY(3), 34, row_h) THEN Settings.CycleStartWood(-1) END IF
+        IF PointInRect(mx, my, 1074, RowY(3), 34, row_h) THEN Settings.CycleStartWood(1) END IF
+        IF PointInRect(mx, my, 900, RowY(4), 34, row_h) THEN Settings.CycleStartStone(-1) END IF
+        IF PointInRect(mx, my, 1074, RowY(4), 34, row_h) THEN Settings.CycleStartStone(1) END IF
+        IF PointInRect(mx, my, 900, RowY(5), 34, row_h) THEN Settings.CycleMoodBonus(-1) END IF
+        IF PointInRect(mx, my, 1074, RowY(5), 34, row_h) THEN Settings.CycleMoodBonus(1) END IF
+    END PROCEDURE
+
+    PROCEDURE HandleSaveClick(mx AS S32, my AS S32)
+        IF PointInRect(mx, my, 430, 588, 210, 44) THEN
+            SaveGame.SaveCurrentGame()
+        END IF
+        IF PointInRect(mx, my, 660, 588, 210, 44) THEN
+            SaveGame.ClearPendingName()
+        END IF
+    END PROCEDURE
+
+    PROCEDURE HandleLoadClick(mx AS S32, my AS S32)
+        IF PointInRect(mx, my, 430, 588, 120, 44) THEN SaveGame.SelectPrev() END IF
+        IF PointInRect(mx, my, 568, 588, 120, 44) THEN SaveGame.SelectNext() END IF
+        IF PointInRect(mx, my, 980, 588, 170, 44) THEN
+            IF SaveGame.LoadSelectedGame() = 1 THEN
+                menu_mode = MODE_PAUSE
+                menu_active = 0
+                sub_state = PAGE_ROOT
+                prev_click = MOUSE_CLICK(0)
+                prev_escape = 1
+            END IF
+        END IF
+    END PROCEDURE
+
+    PROCEDURE Stage1_Input()
+        LET mx AS S32 = MOUSE_X
+        LET my AS S32 = MOUSE_Y
+        LET clk AS U64 = MOUSE_CLICK(0)
+        LET click_edge AS U64 = 0
+        LET escape_held AS U8 = 0
+        LET slot AS U8 = 1
+
+        IF clk = 1 THEN
+            IF prev_click = 0 THEN click_edge = 1 END IF
+        END IF
+        prev_click = clk
+
+        IF KEY(#K_ESCAPE) THEN escape_held = 1 END IF
+        IF escape_held = 1 THEN
+            IF prev_escape = 0 THEN
+                IF sub_state > PAGE_ROOT THEN
+                    sub_state = PAGE_ROOT
+                ELSE
+                    IF menu_mode = MODE_PAUSE THEN
+                        ResumeGameplay()
+                    ELSE
+                        quit_requested = 1
+                    END IF
+                END IF
+            END IF
+        END IF
+        prev_escape = escape_held
+
+        IF sub_state = PAGE_SAVE THEN SaveGame.PollNameInput() END IF
+
+        IF click_edge = 1 THEN
+            IF sub_state = PAGE_ROOT THEN
+                FOR slot = 1 TO RootButtonCount() THEN
+                    IF PointInRect(mx, my, root_x, RootButtonY(slot), root_w, root_h) THEN
+                        HandleRootAction(slot)
+                    END IF
+                END FOR
+            ELSE
+                IF PointInRect(mx, my, back_x, back_y, back_w, back_h) THEN
+                    sub_state = PAGE_ROOT
+                    RETURN
+                END IF
+
+                IF sub_state = PAGE_OPTIONS THEN HandleOptionsClick(mx, my) END IF
+                IF sub_state = PAGE_WORLD THEN HandleWorldClick(mx, my) END IF
+                IF sub_state = PAGE_CHARACTERS THEN HandleCharacterClick(mx, my) END IF
+                IF sub_state = PAGE_SAVE THEN HandleSaveClick(mx, my) END IF
+                IF sub_state = PAGE_LOAD THEN HandleLoadClick(mx, my) END IF
+            END IF
+        END IF
+    END PROCEDURE
+
+    PROCEDURE DrawRootPage()
+        LET slot AS U8 = 1
+        LET y AS S32 = 0
+        COLOR $FFB85C
+        DRAW TEXT(76, 72, "COLONY SIM")
+        COLOR $7EA0BF
+        IF menu_mode = MODE_PAUSE THEN
+            DRAW TEXT(76, 96, "PAUSED COMMAND DECK")
+        ELSE
+            DRAW TEXT(76, 96, "COLONY BOOTSTRAP TERMINAL")
+        END IF
+
+        FOR slot = 1 TO RootButtonCount() THEN
+            y = RootButtonY(slot)
+            DrawButton(root_x, y, root_w, root_h, RootButtonTint(slot), $90A6B8, RootLabel(slot))
+        END FOR
+
+        COLOR $FFFFFF
+        DRAW TEXT(430, 114, "READY ROOM")
+        COLOR $AAB6C2
+        IF menu_mode = MODE_PAUSE THEN
+            DRAW TEXT(430, 154, "FOOD: " | S32(Colony.GetFoodCount()) | "    WOOD: " | S32(Colony.GetWoodCount()) | "    STONE: " | S32(Colony.GetStoneCount()))
+            DRAW TEXT(430, 186, "COLONISTS: " | S32(Agents.GetAgentCount()) | "    BUILDINGS: " | S32(Buildings.GetBuildingCount()))
+            DRAW TEXT(430, 218, "TIME TICKS: " | S32(World.GetWorldTime()))
+            DRAW TEXT(430, 258, "OPEN SAVE SNAPSHOT TO ARCHIVE THIS EXACT RUN.")
+            DRAW TEXT(430, 286, "LOAD SNAPSHOT RESTORES THE WHOLE COLONY MEMORY IMAGE.")
+        ELSE
+            DRAW TEXT(430, 154, "NEXT START SEASON: " | SeasonLabel(Settings.GetStartSeason()))
+            DRAW TEXT(430, 186, "START HOUR: " | S32(Settings.GetStartHour()) | "    DAY LENGTH: " | S32(Settings.GetStartDayLength()))
+            DRAW TEXT(430, 218, "START COLONISTS: " | S32(Settings.GetStartAgents()) | "    START FOOD: " | S32(Settings.GetStartFood()))
+            DRAW TEXT(430, 258, "WORLD AND COLONY PRESETS SHAPE THE NEXT NEW GAME.")
+            DRAW TEXT(430, 286, "SAVE SNAPSHOTS APPEAR AFTER YOUR FIRST LIVE COLONY.")
+        END IF
+
+        COLOR $88A5B7
+        DRAW TEXT(430, 346, "STATUS: " | SaveGame.GetStatusText())
+        DRAW TEXT(430, 574, "TIP: PRESS ENTER IN THE SAVE PAGE AFTER TYPING A NAME.")
+    END PROCEDURE
+
+    PROCEDURE DrawPanelShell()
+        SET_ALPHA 1, 220
+        COLOR $111A24
+        FILL RECT panel_x, panel_y, panel_w, panel_h
+        SET_ALPHA 1, 255
+        COLOR $8BA2B8
+        DRAW RECT panel_x, panel_y, panel_w, panel_h
+        COLOR $FFB85C
+        DRAW TEXT(panel_x + 36, panel_y + 24, CONCAT(PanelTitle(), ""))
+    END PROCEDURE
+
+    PROCEDURE DrawAdjustRow(row AS U8, title AS STRING, value_text AS STRING)
+        LET y AS S32 = RowY(row)
+        COLOR $263240
+        FILL RECT row_x, y, row_w, row_h
+        COLOR $647C90
+        DRAW RECT row_x, y, row_w, row_h
+        COLOR $FFFFFF
+        DRAW TEXT(row_x + 18, y + 13, CONCAT(title, ""))
+        DrawButton(900, y, 34, row_h, $394554, $91A7BC, "<")
+        DrawButton(1074, y, 34, row_h, $394554, $91A7BC, ">")
+        COLOR $D8E2EB
+        DRAW TEXT(952, y + 13, CONCAT(value_text, ""))
+    END PROCEDURE
+
+    PROCEDURE DrawToggleRow(row AS U8, title AS STRING, value_text AS STRING)
+        LET y AS S32 = RowY(row)
+        COLOR $263240
+        FILL RECT row_x, y, row_w, row_h
+        COLOR $647C90
+        DRAW RECT row_x, y, row_w, row_h
+        COLOR $FFFFFF
+        DRAW TEXT(row_x + 18, y + 13, CONCAT(title, ""))
+        COLOR $D8E2EB
+        DRAW TEXT(962, y + 13, CONCAT(value_text, ""))
+    END PROCEDURE
+
+    PROCEDURE DrawOptionsPage()
+        DrawPanelShell()
+        DrawToggleRow(1, "SOUND", ToggleLabel(Settings.IsSoundOn()))
+        DrawToggleRow(2, "MUSIC", ToggleLabel(Settings.IsMusicOn()))
+        DrawToggleRow(3, "FULLSCREEN", ToggleLabel(Settings.IsFullscreen()))
+        DrawToggleRow(4, "STRETCHY WINDOW", ToggleLabel(Settings.IsStretchy()))
+        DrawToggleRow(5, "RESIZABLE WINDOW", ToggleLabel(Settings.IsResizable()))
+        DrawToggleRow(6, "SHOW FRAME HUD", ToggleLabel(Settings.IsShowFPS()))
+        DrawToggleRow(7, "DEVELOPER MODE", ToggleLabel(Settings.IsDevMode()))
+        COLOR $88A5B7
+        DRAW TEXT(430, 584, "CLICK ANY ROW TO TOGGLE IT IMMEDIATELY.")
+        DrawBackButton()
+    END PROCEDURE
+
+    PROCEDURE DrawControlsPage()
+        DrawPanelShell()
+        COLOR $D8E2EB
+        DRAW TEXT(430, 148, "WASD        MOVE CAMERA")
+        DRAW TEXT(430, 178, "Q / E       SHIFT VIEW LAYER")
+        DRAW TEXT(430, 208, "R / T       ZOOM IN / OUT")
+        DRAW TEXT(430, 238, "SPACE       PAUSE OR RESUME TIME")
+        DRAW TEXT(430, 268, "1 / 2 / 3 / 4  TIME SPEED")
+        DRAW TEXT(430, 298, "B           TOGGLE BUILD MODE")
+        DRAW TEXT(430, 328, "LMB DRAG    SELECT COLONISTS")
+        DRAW TEXT(430, 358, "SHIFT+LMB   DESELECT WITH A DRAG BOX")
+        DRAW TEXT(430, 388, "G           TOGGLE DRAFT FOR SELECTION")
+        DRAW TEXT(430, 418, "RMB         MOVE DRAFTED COLONISTS")
+        DRAW TEXT(430, 448, "ENTER       PLACE CURRENT BUILDING")
+        DRAW TEXT(430, 478, "H / F / ESC HUD, FULLSCREEN, COMMAND MENU")
+        COLOR $88A5B7
+        DRAW TEXT(430, 578, "THE SAVE PAGE LISTENS FOR A NAME AFTER YOU TYPE IT AND PRESS ENTER.")
+        DrawBackButton()
+    END PROCEDURE
+
+    PROCEDURE DrawWorldPage()
+        DrawPanelShell()
+        DrawAdjustRow(1, "STARTING SEASON", SeasonLabel(Settings.GetStartSeason()))
+        DrawAdjustRow(2, "START HOUR", CONCAT(NumberText(CAST(Settings.GetStartHour() AS U32)), ":00"))
+        DrawAdjustRow(3, "DAY LENGTH (TICKS)", NumberText(CAST(Settings.GetStartDayLength() AS U32)))
+        DrawAdjustRow(4, "STARTING BERRY PATCHES", NumberText(CAST(Settings.GetStartBerries() AS U32)))
+        DrawButton(900, RowY(5), 208, row_h, $394554, $91A7BC, "RESET ALL PRESETS")
+        COLOR $88A5B7
+        DRAW TEXT(430, 584, "THESE VALUES APPLY THE NEXT TIME YOU START A BRAND-NEW COLONY.")
+        DrawBackButton()
+    END PROCEDURE
+
+    PROCEDURE DrawCharactersPage()
+        DrawPanelShell()
+        DrawAdjustRow(1, "STARTING COLONISTS", NumberText(CAST(Settings.GetStartAgents() AS U32)))
+        DrawAdjustRow(2, "STARTING FOOD", NumberText(CAST(Settings.GetStartFood() AS U32)))
+        DrawAdjustRow(3, "STARTING WOOD", NumberText(CAST(Settings.GetStartWood() AS U32)))
+        DrawAdjustRow(4, "STARTING STONE", NumberText(CAST(Settings.GetStartStone() AS U32)))
+        DrawAdjustRow(5, "MOOD BONUS", NumberText(CAST(Settings.GetMoodBonus() AS U32)))
+        COLOR $88A5B7
+        DRAW TEXT(430, 584, "SETUP HERE DEFINES THE NEXT FRESH LANDING PARTY.")
+        DrawBackButton()
+    END PROCEDURE
+
+    PROCEDURE DrawSavePage()
+        DrawPanelShell()
+        COLOR $8BA2B8
+        DRAW RECT 430, 146, 198, 114
+        SaveGame.DrawLiveThumbnail(433, 149, 6)
+        COLOR $D8E2EB
+        DRAW TEXT(660, 152, "CURRENT VIEW THUMBNAIL")
+        DRAW TEXT(660, 182, "TYPE A SAVE NAME RIGHT HERE,")
+        DRAW TEXT(660, 210, "THEN CLICK SAVE SNAPSHOT.")
+        DRAW TEXT(660, 256, "NAME:")
+        COLOR $FFFFFF
+        DRAW TEXT(720, 256, CONCAT(SaveGame.GetPendingName(), ""))
+        COLOR $88A5B7
+        DRAW TEXT(430, 280, "BACKSPACE REMOVES A LETTER. ENTER LOCKS THE CURRENT NAME.")
+        DRAW TEXT(430, 308, "SNAPSHOTS NEVER OVERWRITE OLDER RUNS.")
+        DRAW TEXT(430, 336, "EACH SAVE IS WRITTEN TO A TEMP ROOT, VERIFIED,")
+        DRAW TEXT(430, 364, "AND ONLY THEN PROMOTED TO A NEW FINAL SAVE FILE SET.")
+        DRAW TEXT(430, 392, "CHECKSUMS COVER THE WHOLE COLONY MEMORY IMAGE.")
+        DRAW TEXT(430, 452, "STATUS: " | SaveGame.GetStatusText())
+        DrawButton(430, 588, 210, 44, $2F5D3A, $93B69D, "SAVE SNAPSHOT")
+        DrawButton(660, 588, 210, 44, $3C4756, $8BA2B8, "CLEAR NAME")
+        DrawBackButton()
+    END PROCEDURE
+
+    PROCEDURE DrawLoadPage()
+        DrawPanelShell()
+        COLOR $8BA2B8
+        DRAW RECT 430, 146, 198, 114
+        SaveGame.DrawSelectedThumbnail(433, 149, 6)
+        COLOR $D8E2EB
+        IF SaveGame.HasEntries() = 1 THEN
+            DRAW TEXT(660, 152, CONCAT(SaveGame.GetEntryLabel(SaveGame.GetSelectedIndex()), ""))
+            DRAW TEXT(660, 184, "ROOT: " | SaveGame.GetSelectedRoot())
+            DRAW TEXT(660, 216, "TIME TICKS: " | S32(SaveGame.GetSelectedWorldTime()))
+            DRAW TEXT(660, 248, "SEASON: " | SeasonLabel(SaveGame.GetSelectedSeason()))
+            DRAW TEXT(660, 280, "FOOD: " | S32(SaveGame.GetSelectedFood()) | "  WOOD: " | S32(SaveGame.GetSelectedWood()) | "  STONE: " | S32(SaveGame.GetSelectedStone()))
+            DRAW TEXT(660, 312, "LEVEL: " | S32(SaveGame.GetSelectedLevel()) | "  COLONISTS: " | S32(SaveGame.GetSelectedAgents()))
+            DRAW TEXT(430, 360, "CATALOG: " | S32(SaveGame.GetSelectedIndex()) | " / " | S32(SaveGame.GetCatalogCount()))
+        ELSE
+            DRAW TEXT(660, 184, "NO VERIFIED SNAPSHOTS FOUND YET.")
+            DRAW TEXT(660, 214, "START A COLONY, OPEN SAVE SNAPSHOT, AND ARCHIVE ONE.")
+        END IF
+        COLOR $88A5B7
+        DRAW TEXT(430, 452, "STATUS: " | SaveGame.GetStatusText())
+        DrawButton(430, 588, 120, 44, $3C4756, $8BA2B8, "PREV")
+        DrawButton(568, 588, 120, 44, $3C4756, $8BA2B8, "NEXT")
+        DrawButton(980, 588, 170, 44, $2F5D3A, $93B69D, "LOAD")
+        DrawBackButton()
+    END PROCEDURE
+
+    PROCEDURE DrawAchievementsPage()
+        LET save_badge AS U8 = 0
+        LET crew_badge AS U8 = 0
+        LET stock_badge AS U8 = 0
+        LET mason_badge AS U8 = 0
+        LET architect_badge AS U8 = 0
+
+        IF SaveGame.GetCatalogCount() >= 1 THEN save_badge = 1 END IF
+        IF Agents.GetAgentCount() >= 8 OR Settings.GetStartAgents() >= 8 THEN crew_badge = 1 END IF
+        IF Colony.GetFoodCount() >= 50 OR Settings.GetStartFood() >= 50 THEN stock_badge = 1 END IF
+        IF Colony.GetStoneCount() >= 100 OR Settings.GetStartStone() >= 100 THEN mason_badge = 1 END IF
+        IF Buildings.GetBuildingCount() >= 8 THEN architect_badge = 1 END IF
+
+        DrawPanelShell()
+        COLOR $D8E2EB
+        DRAW TEXT(430, 150, "[" | S32(save_badge) | "] ARCHIVIST        CREATE YOUR FIRST VERIFIED SNAPSHOT")
+        DRAW TEXT(430, 188, "[" | S32(crew_badge) | "] LARGE LANDING    REACH 8 COLONISTS OR START WITH THEM")
+        DRAW TEXT(430, 226, "[" | S32(stock_badge) | "] STOCKPILE        HOLD 50 FOOD")
+        DRAW TEXT(430, 264, "[" | S32(mason_badge) | "] QUARRY MASTER    HOLD 100 STONE")
+        DRAW TEXT(430, 302, "[" | S32(architect_badge) | "] ARCHITECT        PLACE 8 BUILDINGS")
+        COLOR $88A5B7
+        DRAW TEXT(430, 368, "THIS PAGE IS LIVE, SO YOUR CURRENT RUN OR PRESET CAN LIGHT THESE UP.")
+        DrawBackButton()
+    END PROCEDURE
+
+    PROCEDURE DrawCreditsPage()
+        DrawPanelShell()
+        COLOR $D8E2EB
+        DRAW TEXT(430, 154, "COLONY SIM")
+        DRAW TEXT(430, 188, "A LARGE-SCALE COLONY BUILDER IN ACTIVE CONSTRUCTION.")
+        DRAW TEXT(430, 236, "ENGINE: ADALOGIC BASIC TRANSPILE STACK")
+        DRAW TEXT(430, 268, "RUNTIMES: GDI, SDL3, JAVA, WEB EXPORTS")
+        DRAW TEXT(430, 316, "THIS MENU PASS WIRES IN REAL OPTIONS, SNAPSHOT SAVE/LOAD,")
+        DRAW TEXT(430, 344, "VERIFIED CHECKSUMS, AND THUMBNAIL PREVIEWS FOR EACH SAVE.")
+        DrawBackButton()
+    END PROCEDURE
+
+    PROCEDURE Stage3_Render()
+        IF menu_mode = MODE_PAUSE THEN
+            SET_ALPHA 1, 190
+            COLOR $081018
+            FILL RECT 0, 0, S32(VIRTUAL_WIDTH), S32(VIRTUAL_HEIGHT)
+            SET_ALPHA 1, 255
+        ELSE
+            CLEAR $09121E
+            COLOR $10243A
+            FILL RECT 0, 0, S32(VIRTUAL_WIDTH), 180
+            COLOR $1B314C
+            FILL RECT 0, 180, S32(VIRTUAL_WIDTH), 220
+            COLOR $122030
+            FILL RECT 0, 400, S32(VIRTUAL_WIDTH), 320
+        END IF
+
+        COLOR $15212D
+        FILL RECT 52, 52, 314, 614
+        COLOR $6F879B
+        DRAW RECT 52, 52, 314, 614
+
+        IF sub_state = PAGE_ROOT THEN DrawRootPage() END IF
+        IF sub_state = PAGE_OPTIONS THEN DrawOptionsPage() END IF
+        IF sub_state = PAGE_CONTROLS THEN DrawControlsPage() END IF
+        IF sub_state = PAGE_WORLD THEN DrawWorldPage() END IF
+        IF sub_state = PAGE_CHARACTERS THEN DrawCharactersPage() END IF
+        IF sub_state = PAGE_SAVE THEN DrawSavePage() END IF
+        IF sub_state = PAGE_LOAD THEN DrawLoadPage() END IF
+        IF sub_state = PAGE_ACHIEVEMENTS THEN DrawAchievementsPage() END IF
+        IF sub_state = PAGE_CREDITS THEN DrawCreditsPage() END IF
+    END PROCEDURE
+
+    FUNCTION IsInMenu() AS U8
+        RETURN menu_active
+    END FUNCTION
+
+    FUNCTION IsQuitting() AS U8
+        RETURN quit_requested
+    END FUNCTION
+
+    FUNCTION WantsGameplayBackdrop() AS U8
+        IF menu_mode = MODE_PAUSE AND AppState.IsGameInitialized() = 1 THEN RETURN 1 END IF
+        RETURN 0
+    END FUNCTION
+END MODULE

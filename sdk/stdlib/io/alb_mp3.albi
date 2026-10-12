@@ -1,0 +1,241 @@
+-- ============================================================================
+-- ALBMp3 — MPEG Layer III frame header (not a PCM decoder)
+-- ============================================================================
+-- Skips an ID3v2 tag ("ID3" + synchsafe size at bytes 7–10) then finds
+-- the first 11-bit sync (0xFF followed by 3 set bits). Layer() is the
+-- 2-bit MPEG layer field: 1 means Layer III (the kit target).
+-- BitrateIx() / SampleIx() are the raw 4-bit / 2-bit header fields.
+-- WalkFrames() then converts those to BitrateKb() / SampleHz() and
+-- counts frames in the window with the MPEG-1 Layer III length formula
+--   144 * kbps * 1000 / Hz + padding
+-- FrameN() is that count (0 until you call WalkFrames).
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_mp3.albi"
+--
+-- ProbeBuf()  0 if a Layer III header was found; 5 for other layers.
+-- PCM reconstruct is not implemented (ALBSkip kind 6). Window 4096.
+-- Feed with ALBWin.LoadPath.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBMp3
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION Layer() AS S32
+    FUNCTION BitrateIx() AS S32
+    FUNCTION SampleIx() AS S32
+    FUNCTION WalkFrames() AS S32
+    FUNCTION FrameN() AS S32
+    FUNCTION BitrateKb() AS S32
+    FUNCTION SampleHz() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBMp3
+
+    -- 1-based window. layer/br/sr from the first frame; nfr/brkb/hz from WalkFrames.
+    STRICT src[4096] AS U8
+    LET srclen AS S32 = 0
+    LET layer AS S32 = 0
+    LET br AS S32 = 0
+    LET sr AS S32 = 0
+    LET nfr AS S32 = 0
+    LET brkb AS S32 = 0
+    LET hz AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        layer = 0
+        br = 0
+        sr = 0
+        nfr = 0
+        brkb = 0
+        hz = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 4096 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION ProbeBuf() AS S32
+        LET i AS S32 = 1
+        LET b1 AS S32 = 0
+        LET b2 AS S32 = 0
+        LET b3 AS S32 = 0
+        layer = 0
+        br = 0
+        sr = 0
+        IF srclen < 4 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        -- Optional ID3v2: "ID3" then synchsafe size at bytes 7–10.
+        IF src[1] = 73 THEN
+            IF src[2] = 68 THEN
+                IF src[3] = 51 THEN
+                    i = 11
+                    IF srclen > 10 THEN
+                        i = 11 + CAST(src[7] AS S32) * 2097152 + CAST(src[8] AS S32) * 16384 + CAST(src[9] AS S32) * 128 + CAST(src[10] AS S32)
+                    END IF
+                END IF
+            END IF
+        END IF
+        -- 255 + top 3 bits of the next byte = 11-bit MPEG sync.
+        WHILE i + 3 <= srclen
+            IF src[i] = 255 THEN
+                b1 = CAST(src[i + 1] AS S32)
+                IF (b1 AND 224) = 224 THEN
+                    b2 = CAST(src[i + 2] AS S32)
+                    b3 = CAST(src[i + 3] AS S32)
+                    layer = (b1 / 2) AND 3
+                    br = (b2 / 16) AND 15
+                    sr = (b2 / 4) AND 3
+                    -- Field value 1 is Layer III (2 = II, 3 = I).
+                    IF layer = 1 THEN
+                        lastst = 0
+                        RETURN lastst
+                    END IF
+                    lastst = 5
+                    RETURN lastst
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+        lastst = 3
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION Layer() AS S32
+        RETURN layer
+    END FUNCTION
+
+    FUNCTION BitrateIx() AS S32
+        RETURN br
+    END FUNCTION
+
+    FUNCTION SampleIx() AS S32
+        RETURN sr
+    END FUNCTION
+
+    FUNCTION KbFromIx(ix AS S32) AS S32
+        IF ix = 1 THEN
+            RETURN 32
+        END IF
+        IF ix = 2 THEN
+            RETURN 40
+        END IF
+        IF ix = 3 THEN
+            RETURN 48
+        END IF
+        IF ix = 4 THEN
+            RETURN 56
+        END IF
+        IF ix = 5 THEN
+            RETURN 64
+        END IF
+        IF ix = 6 THEN
+            RETURN 80
+        END IF
+        IF ix = 7 THEN
+            RETURN 96
+        END IF
+        IF ix = 8 THEN
+            RETURN 112
+        END IF
+        IF ix = 9 THEN
+            RETURN 128
+        END IF
+        IF ix = 10 THEN
+            RETURN 160
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION HzFromIx(ix AS S32) AS S32
+        IF ix = 0 THEN
+            RETURN 44100
+        END IF
+        IF ix = 1 THEN
+            RETURN 48000
+        END IF
+        IF ix = 2 THEN
+            RETURN 32000
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION WalkFrames() AS S32
+        LET i AS S32 = 1
+        LET b1 AS S32 = 0
+        LET b2 AS S32 = 0
+        LET pad AS S32 = 0
+        LET flen AS S32 = 0
+        nfr = 0
+        lastst = ProbeBuf()
+        IF lastst <> 0 THEN
+            RETURN lastst
+        END IF
+        brkb = KbFromIx(br)
+        hz = HzFromIx(sr)
+        IF brkb < 1 THEN
+            lastst = 5
+            RETURN lastst
+        END IF
+        IF hz < 1 THEN
+            lastst = 5
+            RETURN lastst
+        END IF
+        WHILE i + 3 <= srclen
+            IF src[i] = 255 THEN
+                b1 = CAST(src[i + 1] AS S32)
+                IF (b1 AND 224) = 224 THEN
+                    b2 = CAST(src[i + 2] AS S32)
+                    pad = 0
+                    IF (b2 AND 2) <> 0 THEN
+                        pad = 1
+                    END IF
+                    -- MPEG-1 Layer III frame length in bytes.
+                    flen = (144 * brkb * 1000) / hz + pad
+                    IF flen < 4 THEN
+                        lastst = 5
+                        RETURN lastst
+                    END IF
+                    nfr = nfr + 1
+                    i = i + flen
+                ELSE
+                    i = i + 1
+                END IF
+            ELSE
+                i = i + 1
+            END IF
+        END WHILE
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION FrameN() AS S32
+        RETURN nfr
+    END FUNCTION
+
+    FUNCTION BitrateKb() AS S32
+        RETURN brkb
+    END FUNCTION
+
+    FUNCTION SampleHz() AS S32
+        RETURN hz
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

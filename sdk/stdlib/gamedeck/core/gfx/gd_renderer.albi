@@ -1,0 +1,119 @@
+-- Twin of Ada core_renderer. FB present + HUD overlay list (cap 128).
+VERSION 1.0
+
+#GD_REN_SLOTS = 128
+#GD_REN_LETTERBOX = 0
+#GD_REN_STRETCH = 1
+
+DECLARE MODULE GdRenderer
+    PROCEDURE Wipe()
+    PROCEDURE Note(slot AS S32, x AS S32, y AS S32, rgb AS S32)
+    PROCEDURE PresentList()
+    PROCEDURE PresentFb()
+    PROCEDURE Present()
+    PROCEDURE SetMode(m AS S32)
+    FUNCTION ModeOf() AS S32
+    FUNCTION CountN() AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdRenderer
+
+    STRICT px[128] AS S32
+    STRICT py[128] AS S32
+    STRICT col[128] AS S32
+    STRICT sz[128] AS S32
+    LET n AS S32 = 0
+    LET mode AS S32 = 0
+
+    PROCEDURE Wipe()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 128
+            px[i] = 0
+            py[i] = 0
+            col[i] = 0
+            sz[i] = 10
+            i = i + 1
+        END WHILE
+        n = 0
+    END PROCEDURE
+
+    PROCEDURE Note(slot AS S32, x AS S32, y AS S32, rgb AS S32)
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 128)
+        px[slot] = x
+        py[slot] = y
+        col[slot] = rgb
+        sz[slot] = 10
+        IF slot > n THEN
+            n = slot
+        END IF
+    END PROCEDURE
+
+    PROCEDURE PresentList()
+        LET i AS S32 = 1
+        LET rgb AS S32 = 0
+        LET s AS S32 = 10
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= n
+            rgb = col[i]
+            s = sz[i]
+            IF s < 1 THEN
+                s = 10
+            END IF
+            COLOR rgb
+            FILL RECT px[i], py[i], s, s
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PresentFb()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        GdVgpuBr.Present()
+        PresentList()
+    END PROCEDURE
+
+    PROCEDURE Present()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        PresentFb()
+    END PROCEDURE
+
+    PROCEDURE SetMode(m AS S32)
+        ASSERT(m >= 0)
+        ASSERT(m <= 1)
+        mode = m
+    END PROCEDURE
+
+    FUNCTION ModeOf() AS S32
+        ASSERT(mode >= 0)
+        ASSERT(mode <= 1)
+        RETURN mode
+    END FUNCTION
+
+    FUNCTION CountN() AS S32
+        ASSERT(n >= 0)
+        ASSERT(n <= 128)
+        RETURN n
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        Wipe()
+        Note(1, 10, 10, $FFFFFF)
+        Note(2, 20, 20, $FF0000)
+        SetMode(0)
+        IF CountN() = 2 THEN
+            IF ModeOf() = 0 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

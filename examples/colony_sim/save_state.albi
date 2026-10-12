@@ -1,0 +1,3 @@
+PUBLIC
+PROCEDURE save_game_state(filename AS STRING)
+PROCEDURE load_game_state(filename AS STRING)

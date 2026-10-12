@@ -1,0 +1,163 @@
+-- ============================================================================
+-- ALBXml — XML 1.0 tag walk (not a DOM)
+-- ============================================================================
+-- Counts start tags, empty tags `<x/>`, and end tags. DepthMax() is the
+-- deepest nesting. SawDecl() is 1 if the buffer starts with `<?`.
+-- Quoted attributes are skipped so `>` inside quotes does not close a tag.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_xml.albi"
+--
+-- ParseBuf()   0 ok. ElCount() elements (start + empty). Extra end tags
+--              → status 3. Unclosed `<` at EOF → status 4.
+-- Namespaces, DTDs, and CDATA are not interpreted. Window 8192.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBXml
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ParseBuf() AS S32
+    FUNCTION ElCount() AS S32
+    FUNCTION DepthMax() AS S32
+    FUNCTION SawDecl() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBXml
+
+    -- 1-based window. Depth-count of <tags>. Not entity-safe, not a DOM.
+    STRICT src[8192] AS U8
+    LET srclen AS S32 = 0
+    LET nel AS S32 = 0
+    LET dmax AS S32 = 0
+    LET decln AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        nel = 0
+        dmax = 0
+        decln = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 8192 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION ParseBuf() AS S32
+        LET i AS S32 = 1
+        LET c AS S32 = 0
+        LET depth AS S32 = 0
+        LET in_tag AS S32 = 0
+        LET slashn AS S32 = 0
+        LET qn AS S32 = 0
+        nel = 0
+        dmax = 0
+        decln = 0
+        IF srclen < 4 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        IF src[1] = 60 THEN
+            IF src[2] = 63 THEN
+                decln = 1
+            END IF
+        END IF
+        WHILE i <= srclen
+            c = CAST(src[i] AS S32)
+            IF in_tag = 0 THEN
+                IF c = 60 THEN
+                    in_tag = 1
+                    slashn = 0
+                    qn = 0
+                    IF i + 1 <= srclen THEN
+                        IF src[i + 1] = 47 THEN
+                            slashn = 1
+                        END IF
+                        IF src[i + 1] = 33 THEN
+                            in_tag = 2
+                        END IF
+                        IF src[i + 1] = 63 THEN
+                            in_tag = 3
+                        END IF
+                    END IF
+                END IF
+            ELSE
+                IF qn = 0 THEN
+                    IF c = 34 THEN
+                        qn = 1
+                    ELSE
+                        IF c = 47 THEN
+                            IF i + 1 <= srclen THEN
+                                IF src[i + 1] = 62 THEN
+                                    slashn = 2
+                                END IF
+                            END IF
+                        END IF
+                        IF c = 62 THEN
+                            IF in_tag = 1 THEN
+                                IF slashn = 1 THEN
+                                    depth = depth - 1
+                                    IF depth < 0 THEN
+                                        lastst = 3
+                                        RETURN lastst
+                                    END IF
+                                ELSE
+                                    IF slashn = 2 THEN
+                                        nel = nel + 1
+                                    ELSE
+                                        nel = nel + 1
+                                        depth = depth + 1
+                                        IF depth > dmax THEN
+                                            dmax = depth
+                                        END IF
+                                    END IF
+                                END IF
+                            END IF
+                            in_tag = 0
+                        END IF
+                    END IF
+                ELSE
+                    IF c = 34 THEN
+                        qn = 0
+                    END IF
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+        IF in_tag <> 0 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        IF nel < 1 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION ElCount() AS S32
+        RETURN nel
+    END FUNCTION
+
+    FUNCTION DepthMax() AS S32
+        RETURN dmax
+    END FUNCTION
+
+    FUNCTION SawDecl() AS S32
+        RETURN decln
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

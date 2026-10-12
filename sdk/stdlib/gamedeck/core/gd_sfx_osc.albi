@@ -1,0 +1,106 @@
+-- Twin of Ada core_sfx_oscillators. Phase + shape + 2-op FM. Phase 0..255.
+VERSION 1.0
+
+DECLARE MODULE GdSfxOsc
+    PROCEDURE Setup()
+    FUNCTION SampleAt(phase AS S32) AS S32
+    FUNCTION SampleShape(phase AS S32, shape AS S32) AS S32
+    FUNCTION FmAt(cph AS S32, mph AS S32, idx AS S32) AS S32
+    PROCEDURE Pulse()
+    FUNCTION Phase() AS S32
+    PROCEDURE PresentScope(ox AS S32, oy AS S32)
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdSfxOsc
+
+    LET ph AS S32 = 0
+
+    PROCEDURE Setup()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        ph = 0
+        GdCordic.Setup()
+    END PROCEDURE
+
+    FUNCTION SampleAt(phase AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN GdCordic.Sin8(phase)
+    END FUNCTION
+
+    FUNCTION SampleShape(phase AS S32, shape AS S32) AS S32
+        LET a AS S32 = phase MOD 256
+        ASSERT(shape >= 0)
+        ASSERT(shape <= 3)
+        IF a < 0 THEN
+            a = a + 256
+        END IF
+        IF shape = 1 THEN
+            IF a < 128 THEN
+                RETURN 80
+            END IF
+            RETURN 0 - 80
+        END IF
+        IF shape = 2 THEN
+            RETURN a - 128
+        END IF
+        IF shape = 3 THEN
+            IF a < 128 THEN
+                RETURN a - 64
+            END IF
+            RETURN 192 - a
+        END IF
+        RETURN GdCordic.Sin8(phase)
+    END FUNCTION
+
+    FUNCTION FmAt(cph AS S32, mph AS S32, idx AS S32) AS S32
+        LET m AS S32 = 0
+        ASSERT(idx >= 0)
+        ASSERT(idx <= 127)
+        m = (GdCordic.Sin8(mph) * idx) / 128
+        RETURN GdCordic.Sin8(cph + m)
+    END FUNCTION
+
+    PROCEDURE Pulse()
+        ASSERT(ph >= 0)
+        ASSERT(1 = 1)
+        ph = (ph + 6) MOD 256
+    END PROCEDURE
+
+    FUNCTION Phase() AS S32
+        ASSERT(ph >= 0)
+        ASSERT(ph <= 255)
+        RETURN ph
+    END FUNCTION
+
+    PROCEDURE PresentScope(ox AS S32, oy AS S32)
+        LET i AS S32 = 0
+        LET y AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $22C55E
+        WHILE i < 64
+            y = oy + SampleAt(ph + i * 4) / 4
+            FILL RECT ox + i * 4, y, 3, 3
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION SelfTest() AS S32
+        LET n AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF SampleAt(0) = SampleAt(256) THEN
+            n = n + 1
+        END IF
+        IF FmAt(0, 64, 40) <> SampleAt(0) THEN
+            n = n + 1
+        END IF
+        IF n = 2 THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

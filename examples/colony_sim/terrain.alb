@@ -1,0 +1,79 @@
+INCLUDE "terrain.albi"
+INCLUDE "../ALBHASH.ALBI"
+IMPORT Terrain
+IMPORT ALBHash
+
+MODULE Terrain
+    LET TILE_GRASS AS U8 = 1
+    LET TILE_DIRT AS U8 = 2
+    LET TILE_STONE AS U8 = 3
+    LET TILE_WATER AS U8 = 4
+    LET WORLD_W AS S32 = 48
+    LET WORLD_H AS S32 = 48
+    LET MAX_TILES AS U32 = 2304
+
+    STRICT grid[2304] AS U8
+
+    PROCEDURE Setup()
+        LET i AS U32 = 0
+        FOR i = 1 TO MAX_TILES THEN
+            grid[i] = TILE_GRASS
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE GenerateWorld()
+        LET tx AS S32 = 0
+        LET ty AS S32 = 0
+        LET idx AS U32 = 0
+        FOR ty = 0 TO WORLD_H - 1 THEN
+            FOR tx = 0 TO WORLD_W - 1 THEN
+                idx = U32(ty * WORLD_W + tx + 1)
+                LET val AS S32 = (tx * 7 + ty * 13) MOD 10
+                IF val < 2 THEN grid[idx] = TILE_WATER
+                ELSE
+                    IF val < 4 THEN grid[idx] = TILE_DIRT
+                    ELSE
+                        IF val < 8 THEN grid[idx] = TILE_GRASS
+                        ELSE grid[idx] = TILE_STONE
+                        END IF
+                    END IF
+                END IF
+            END FOR
+        END FOR
+    END PROCEDURE
+
+    FUNCTION GetTile(tx AS S32, ty AS S32) AS U8
+        IF tx < 0 OR tx >= WORLD_W THEN RETURN TILE_GRASS END IF
+        IF ty < 0 OR ty >= WORLD_H THEN RETURN TILE_GRASS END IF
+        LET idx AS U32 = U32(ty * WORLD_W + tx + 1)
+        RETURN grid[idx]
+    END FUNCTION
+
+    PROCEDURE SetTile(tx AS S32, ty AS S32, kind AS U8)
+        IF tx < 0 OR tx >= WORLD_W THEN RETURN END IF
+        IF ty < 0 OR ty >= WORLD_H THEN RETURN END IF
+        LET idx AS U32 = U32(ty * WORLD_W + tx + 1)
+        grid[idx] = kind
+    END PROCEDURE
+
+    PROCEDURE RestoreTile(idx AS U32, kind AS U8)
+        IF idx < 1 OR idx > MAX_TILES THEN RETURN END IF
+        grid[idx] = kind
+    END PROCEDURE
+
+    FUNCTION GetWorldW() AS S32
+        RETURN WORLD_W
+    END FUNCTION
+
+    FUNCTION GetWorldH() AS S32
+        RETURN WORLD_H
+    END FUNCTION
+
+    FUNCTION MixChecksum(hash_value AS U64) AS U64
+        LET i AS U32 = 0
+        FOR i = 1 TO MAX_TILES THEN
+            hash_value = ALBHash.MixU8(hash_value, grid[i])
+        END FOR
+        RETURN hash_value
+    END FUNCTION
+END MODULE

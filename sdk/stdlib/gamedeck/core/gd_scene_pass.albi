@@ -1,0 +1,61 @@
+-- Scene-key visit ledger. Marks on SwitchTo; HUD strip is the pass log.
+VERSION 1.0
+
+DECLARE MODULE GdScenePass
+    PROCEDURE Setup()
+    PROCEDURE Mark(scene AS S32)
+    FUNCTION SeenN() AS S32
+    FUNCTION SeenOf(scene AS S32) AS S32
+    PROCEDURE PresentStrip()
+END DECLARE MODULE
+
+MODULE GdScenePass
+
+    STRICT seen[33] AS S32
+
+    PROCEDURE Setup()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 33
+            seen[i] = 0
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE Mark(scene AS S32)
+        ASSERT(scene >= 0)
+        ASSERT(scene <= 47)
+        IF scene >= 1 THEN
+            IF scene <= 33 THEN
+                seen[scene] = 1
+            END IF
+        END IF
+    END PROCEDURE
+
+    FUNCTION SeenN() AS S32
+        LET i AS S32 = 1
+        LET n AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 33
+            n = n + seen[i]
+            i = i + 1
+        END WHILE
+        RETURN n
+    END FUNCTION
+
+    FUNCTION SeenOf(scene AS S32) AS S32
+        ASSERT(scene >= 1)
+        ASSERT(scene <= 33)
+        RETURN seen[scene]
+    END FUNCTION
+
+    PROCEDURE PresentStrip()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $94A3B8
+        DRAW TEXT 8, 348, "PASS " | SeenN() | "/33"
+    END PROCEDURE
+
+END MODULE

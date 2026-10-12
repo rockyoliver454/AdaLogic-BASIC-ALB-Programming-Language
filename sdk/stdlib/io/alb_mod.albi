@@ -1,0 +1,119 @@
+-- ============================================================================
+-- ALBMod — Amiga MOD and FastTracker XM
+-- ============================================================================
+-- XM: "Extended Module:" at the start, Kind()=2, Chn() from header byte 68.
+-- MOD: 1084-byte title+samples, magic at offset 1080 (1-based 1081):
+--      "M.K.", "4CHN", or "FLT4" → Kind()=1, Chn()=4.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_mod.albi"
+--
+-- ProbeBuf()  0 ok. Pattern data / instruments are not loaded.
+-- S3M, IT, and XM with a truncated header → status 3 or 4.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBMod
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION Kind() AS S32
+    FUNCTION Chn() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBMod
+
+    -- 1-based window. Kind 1 = MOD (M.K. at index 1081), Kind 2 = XM (Extended Module).
+    STRICT src[4096] AS U8
+    LET srclen AS S32 = 0
+    LET kindn AS S32 = 0
+    LET chnn AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        kindn = 0
+        chnn = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 4096 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION Four(i AS S32, a AS S32, b AS S32, c AS S32, d AS S32) AS S32
+        IF CAST(src[i] AS S32) <> a THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 1] AS S32) <> b THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 2] AS S32) <> c THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 3] AS S32) <> d THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        kindn = 0
+        chnn = 0
+        IF srclen < 17 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        IF Four(1, 69, 120, 116, 101) <> 0 THEN
+            IF Four(10, 77, 111, 100, 117) <> 0 THEN
+                kindn = 2
+                chnn = CAST(src[69] AS S32)
+                lastst = 0
+                RETURN lastst
+            END IF
+        END IF
+        IF srclen < 1084 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        IF Four(1081, 77, 46, 75, 46) <> 0 THEN
+            kindn = 1
+            chnn = 4
+            lastst = 0
+            RETURN lastst
+        END IF
+        IF Four(1081, 52, 67, 72, 78) <> 0 THEN
+            kindn = 1
+            chnn = 4
+            lastst = 0
+            RETURN lastst
+        END IF
+        IF Four(1081, 70, 76, 84, 52) <> 0 THEN
+            kindn = 1
+            chnn = 4
+            lastst = 0
+            RETURN lastst
+        END IF
+        lastst = 3
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION Kind() AS S32
+        RETURN kindn
+    END FUNCTION
+
+    FUNCTION Chn() AS S32
+        RETURN chnn
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

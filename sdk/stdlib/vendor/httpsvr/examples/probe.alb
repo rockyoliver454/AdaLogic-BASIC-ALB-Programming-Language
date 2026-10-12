@@ -1,0 +1,12 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_httpsvr.albi"
+
+LET rc = alb_httpsvr_test_probe()
+IF rc = 0 THEN
+  PRINT "httpsvr probe PASS"
+ELSE
+  PRINT "httpsvr probe FAIL " | rc
+END IF
+END
+

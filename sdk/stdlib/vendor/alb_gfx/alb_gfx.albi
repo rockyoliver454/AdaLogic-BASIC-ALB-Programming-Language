@@ -1,0 +1,72 @@
+-- ============================================================================
+-- alb_gfx.albi — Universal Graphics RHI for AdaLogic BASIC (ALB)
+-- ============================================================================
+-- Thick abstraction layer mapped at compile time via alb.exe --gfx=<backend>
+-- Routes to thin bindings: opengl, vulkan, d3d6..d3d12.
+-- System include: INCLUDE <alb_gfx.albi>
+-- ============================================================================
+
+VERSION 0.3
+
+-- Universal Topology Constants
+#GFX_TOPOLOGY_POINTLIST     = 1
+#GFX_TOPOLOGY_LINELIST      = 2
+#GFX_TOPOLOGY_TRIANGLELIST  = 4
+#GFX_TOPOLOGY_TRIANGLESTRIP = 5
+
+-- Universal Buffer Usage
+#GFX_BUFFER_USAGE_STATIC  = 0
+#GFX_BUFFER_USAGE_DYNAMIC = 1
+
+#GFX_OK = 0
+
+-- 1. Lifecycle & Swapchain
+IMPORT_DLL FUNCTION gfx_init(width AS S32, height AS S32) AS S64 FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_shutdown(ctx AS S64) FROM ("alb_gfx.dll")
+IMPORT_DLL FUNCTION gfx_begin_frame(ctx AS S64) AS S32 FROM ("alb_gfx.dll")
+IMPORT_DLL FUNCTION gfx_end_frame(ctx AS S64, vsync AS S32) AS S32 FROM ("alb_gfx.dll")
+
+-- 2. State & Clearing
+IMPORT_DLL PROCEDURE gfx_set_viewport(ctx AS S64, x AS S32, y AS S32, w AS S32, h AS S32) FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_set_scissor(ctx AS S64, x AS S32, y AS S32, w AS S32, h AS S32) FROM ("alb_gfx.dll")
+IMPORT_DLL FUNCTION gfx_clear(ctx AS S64, r AS F64, g AS F64, b AS F64, a AS F64) AS S32 FROM ("alb_gfx.dll")
+
+-- 3. Memory & Data Shuttling (Opaque Pointers)
+IMPORT_DLL FUNCTION gfx_alloc_memory(size_bytes AS S64) AS S64 FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_free_memory(data_ptr AS S64) FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_write_f32(data_ptr AS S64, index AS S32, value AS F64) FROM ("alb_gfx.dll")
+IMPORT_DLL FUNCTION gfx_read_f32(data_ptr AS S64, index AS S32) AS F64 FROM ("alb_gfx.dll")
+IMPORT_DLL FUNCTION gfx_read_f32_centi(data_ptr AS S64, index AS S32) AS S32 FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_write_i32(data_ptr AS S64, index AS S32, value AS S32) FROM ("alb_gfx.dll")
+IMPORT_DLL FUNCTION gfx_read_i32(data_ptr AS S64, index AS S32) AS S32 FROM ("alb_gfx.dll")
+
+-- 4. Hardware Resources (VRAM Buffers)
+IMPORT_DLL FUNCTION gfx_buffer_create(ctx AS S64, size_bytes AS S64, usage AS S32) AS S64 FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_buffer_update(ctx AS S64, buffer_id AS S64, offset AS S64, size AS S64, data_ptr AS S64) FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_buffer_destroy(ctx AS S64, buffer_id AS S64) FROM ("alb_gfx.dll")
+
+-- 5. Shaders & Pipelines
+IMPORT_DLL FUNCTION gfx_pipeline_create(ctx AS S64, vertex_src_ptr AS S64, pixel_src_ptr AS S64, topology AS S32) AS S64 FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_pipeline_bind(ctx AS S64, pipeline_id AS S64) FROM ("alb_gfx.dll")
+
+-- 6. The Raw Draw Commands
+IMPORT_DLL PROCEDURE gfx_bind_vertex_buffer(ctx AS S64, buffer_id AS S64) FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_draw_arrays(ctx AS S64, vertex_count AS S32, start_vertex AS S32) FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_draw_indexed(ctx AS S64, index_count AS S32, start_index AS S32, base_vertex AS S32) FROM ("alb_gfx.dll")
+
+-- 7. Window helpers (backend passthrough)
+IMPORT_DLL PROCEDURE gfx_poll_events() FROM ("alb_gfx.dll")
+IMPORT_DLL FUNCTION gfx_should_close(ctx AS S64) AS S32 FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_sleep_ms(ms AS S32) FROM ("alb_gfx.dll")
+
+-- 8. Advanced feature gates (OpenGL; other backends soft-nop)
+IMPORT_DLL PROCEDURE gfx_set_depth_test(ctx AS S64, enable AS S32) FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_set_wireframe(ctx AS S64, enable AS S32) FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_disable_scissor(ctx AS S64) FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_flush(ctx AS S64) FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_finish(ctx AS S64) FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_set_point_size(ctx AS S64, size AS F64) FROM ("alb_gfx.dll")
+IMPORT_DLL FUNCTION gfx_msaa_create(ctx AS S64, samples AS S32) AS S32 FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_msaa_begin(ctx AS S64) FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_msaa_end(ctx AS S64) FROM ("alb_gfx.dll")
+IMPORT_DLL PROCEDURE gfx_msaa_destroy(ctx AS S64) FROM ("alb_gfx.dll")

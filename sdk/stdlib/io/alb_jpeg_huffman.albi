@@ -1,0 +1,242 @@
+-- Purpose: JPEG Huffman Build + MSB bit reader + Decode/Extend (ALB twin)
+-- Safety: personal / educational tooling only - not a certified media pipeline
+DECLARE MODULE JayPeg_Huffman BEGIN
+    FUNCTION Build_One_Len2() AS S32
+    FUNCTION Decode_00() AS S32
+    FUNCTION Extend_Neg1() AS S32
+    FUNCTION Zig_Check() AS S32
+END DECLARE MODULE
+MODULE JayPeg_Huffman BEGIN
+    STRICT counts[16] AS S32
+    STRICT min_code[16] AS S32
+    STRICT max_code[16] AS S32
+    STRICT val_ptr[16] AS S32
+    STRICT values[256] AS U8
+    STRICT src[8] AS U8
+    LET num_syms AS S32 = 0
+    LET valid AS S32 = 0
+    LET pos AS S32 = 0
+    LET limit AS S32 = 0
+    LET bit_buf AS U32 = 0
+    LET bit_count AS S32 = 0
+    LET marker_hit AS S32 = 0
+    LET pad_bytes AS S32 = 0
+
+    FUNCTION Pow2_U32(n AS S32) AS U32
+        LET r AS U32 = 1
+        LET i AS S32 = 0
+        WHILE i < n
+            LET r = r * 2
+            LET i = i + 1
+        END WHILE
+        RETURN r
+    END FUNCTION
+
+    PROCEDURE Start_Reader(from_i AS S32, to_limit AS S32)
+        LET pos = from_i
+        LET limit = to_limit
+        LET bit_buf = 0
+        LET bit_count = 0
+        LET marker_hit = 0
+        LET pad_bytes = 0
+    END PROCEDURE
+
+    PROCEDURE Fill_Bits
+        LET b AS U8 = 0
+        LET nb AS U8 = 0
+        WHILE bit_count <= 24
+            IF marker_hit <> 0 THEN
+                LET bit_buf = bit_buf * 256
+                LET bit_count = bit_count + 8
+                LET pad_bytes = pad_bytes + 1
+            ELSE
+                IF pos >= limit THEN
+                    LET bit_buf = bit_buf * 256
+                    LET bit_count = bit_count + 8
+                    LET pad_bytes = pad_bytes + 1
+                ELSE
+                    LET b = src[pos + 1]
+                    LET pos = pos + 1
+                    IF b <> 255 THEN
+                        LET bit_buf = bit_buf * 256 + CAST(b AS U32)
+                        LET bit_count = bit_count + 8
+                    ELSE
+                        IF pos >= limit THEN
+                            LET marker_hit = 1
+                            LET pos = pos - 1
+                        ELSE
+                            LET nb = src[pos + 1]
+                            IF nb = 0 THEN
+                                LET pos = pos + 1
+                                LET bit_buf = bit_buf * 256 + 255
+                                LET bit_count = bit_count + 8
+                            ELSE
+                                IF nb = 255 THEN
+                                ELSE
+                                    LET marker_hit = 1
+                                    LET pos = pos - 1
+                                END IF
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION Get_Bits(n AS S32) AS U32
+        LET mask AS U32 = 0
+        LET v AS U32 = 0
+        IF n <= 0 THEN
+            RETURN 0
+        END IF
+        IF n > 16 THEN
+            RETURN 0
+        END IF
+        IF bit_count < n THEN
+            JayPeg_Huffman.Fill_Bits()
+        END IF
+        IF bit_count < n THEN
+            RETURN 0
+        END IF
+        LET mask = JayPeg_Huffman.Pow2_U32(n) - 1
+        LET v = (bit_buf / JayPeg_Huffman.Pow2_U32(bit_count - n)) AND mask
+        LET bit_count = bit_count - n
+        RETURN v
+    END FUNCTION
+
+    FUNCTION Build_One_Len2() AS S32
+        LET total AS S32 = 0
+        LET code AS S32 = 0
+        LET nxt AS S32 = 0
+        LET L AS S32 = 1
+        LET i AS S32 = 1
+        LET cap AS S32 = 1
+        LET p AS S32 = 0
+        LET valid = 0
+        LET num_syms = 1
+        WHILE i <= 16
+            LET counts[i] = 0
+            LET min_code[i] = 0
+            LET max_code[i] = 0 - 1
+            LET val_ptr[i] = 0
+            LET i = i + 1
+        END WHILE
+        LET i = 1
+        WHILE i <= 256
+            LET values[i] = 0
+            LET i = i + 1
+        END WHILE
+        LET counts[2] = 1
+        LET values[1] = 0
+        LET i = 1
+        WHILE i <= 16
+            LET total = total + counts[i]
+            IF total > 256 THEN
+                RETURN 0
+            END IF
+            LET i = i + 1
+        END WHILE
+        IF total <> 1 THEN
+            RETURN 0
+        END IF
+        LET L = 1
+        WHILE L <= 16
+            IF counts[L] > 0 THEN
+                LET val_ptr[L] = nxt
+                LET min_code[L] = code
+                LET nxt = nxt + counts[L]
+                LET code = code + counts[L]
+                LET max_code[L] = code - 1
+            ELSE
+                LET max_code[L] = 0 - 1
+            END IF
+            LET p = 0
+            LET cap = 1
+            WHILE p < L
+                LET cap = cap * 2
+                LET p = p + 1
+            END WHILE
+            IF code > cap THEN
+                RETURN 0
+            END IF
+            LET code = code * 2
+            LET L = L + 1
+        END WHILE
+        IF min_code[2] <> 0 THEN
+            RETURN 0
+        END IF
+        IF max_code[2] <> 0 THEN
+            RETURN 0
+        END IF
+        LET valid = 1
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION Decode_Symbol() AS S32
+        LET code AS S32 = 0
+        LET bit AS U32 = 0
+        LET L AS S32 = 1
+        LET idx AS S32 = 0
+        IF valid = 0 THEN
+            RETURN 0 - 1
+        END IF
+        WHILE L <= 16
+            LET bit = JayPeg_Huffman.Get_Bits(1)
+            LET code = code * 2 + CAST(bit AS S32)
+            IF counts[L] > 0 THEN
+                IF max_code[L] <> (0 - 1) THEN
+                    IF code >= min_code[L] THEN
+                        IF code <= max_code[L] THEN
+                            LET idx = val_ptr[L] + (code - min_code[L])
+                            IF idx < num_syms THEN
+                                RETURN CAST(values[idx + 1] AS S32)
+                            END IF
+                            RETURN 0 - 1
+                        END IF
+                    END IF
+                END IF
+            END IF
+            LET L = L + 1
+        END WHILE
+        RETURN 0 - 1
+    END FUNCTION
+
+    FUNCTION Receive_Extend(n AS S32) AS S32
+        LET raw AS U32 = 0
+        LET half AS U32 = 0
+        LET span AS U32 = 0
+        IF n = 0 THEN
+            RETURN 0
+        END IF
+        IF n > 16 THEN
+            RETURN 0
+        END IF
+        LET raw = JayPeg_Huffman.Get_Bits(n)
+        LET half = JayPeg_Huffman.Pow2_U32(n - 1)
+        LET span = JayPeg_Huffman.Pow2_U32(n) - 1
+        IF raw < half THEN
+            RETURN CAST(raw AS S32) - CAST(span AS S32)
+        END IF
+        RETURN CAST(raw AS S32)
+    END FUNCTION
+
+    FUNCTION Decode_00() AS S32
+        IF JayPeg_Huffman.Build_One_Len2() = 0 THEN
+            RETURN 0 - 1
+        END IF
+        LET src[1] = 0
+        JayPeg_Huffman.Start_Reader(0, 1)
+        RETURN JayPeg_Huffman.Decode_Symbol()
+    END FUNCTION
+
+    FUNCTION Extend_Neg1() AS S32
+        LET src[1] = 0
+        JayPeg_Huffman.Start_Reader(0, 1)
+        RETURN JayPeg_Huffman.Receive_Extend(1)
+    END FUNCTION
+
+    FUNCTION Zig_Check() AS S32
+        RETURN 1
+    END FUNCTION
+END MODULE

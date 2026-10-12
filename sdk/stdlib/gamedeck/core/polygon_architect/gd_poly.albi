@@ -1,0 +1,179 @@
+-- Twin of Ada polygon_architect. Triangle-soup verts (box = 24) onto VGPU.
+VERSION 1.0
+
+#GD_POLY_VERTS = 256
+
+DECLARE MODULE GdPoly
+    PROCEDURE Setup()
+    PROCEDURE PresentHull()
+    PROCEDURE MakeBox(cx AS S32, cy AS S32, cz AS S32, sx AS S32, sy AS S32, sz AS S32)
+    PROCEDURE MakePyr(cx AS S32, cy AS S32, cz AS S32, sx AS S32, h AS S32)
+    PROCEDURE MakeRamp(cx AS S32, cy AS S32, cz AS S32, sx AS S32, sy AS S32, sz AS S32)
+    PROCEDURE RotY(ang AS S32)
+    PROCEDURE DrawVgpu(ox AS S32, oy AS S32)
+    PROCEDURE ClearVerts()
+    PROCEDURE AddVert(x AS S32, y AS S32, z AS S32)
+    FUNCTION VertN() AS S32
+    FUNCTION VertX(i AS S32) AS S32
+    FUNCTION VertY(i AS S32) AS S32
+    FUNCTION VertZ(i AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdPoly
+
+    STRICT vx[256] AS S32
+    STRICT vy[256] AS S32
+    STRICT vz[256] AS S32
+    LET n AS S32 = 0
+
+    PROCEDURE PushV(x AS S32, y AS S32, z AS S32)
+        ASSERT(n < 256)
+        n = n + 1
+        vx[n] = x
+        vy[n] = y
+        vz[n] = z
+    END PROCEDURE
+
+    PROCEDURE Tri(x0 AS S32, y0 AS S32, z0 AS S32, x1 AS S32, y1 AS S32, z1 AS S32, x2 AS S32, y2 AS S32, z2 AS S32)
+        PushV(x0, y0, z0)
+        PushV(x1, y1, z1)
+        PushV(x2, y2, z2)
+    END PROCEDURE
+
+    PROCEDURE Setup()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        GdCordic.Setup()
+        GdPlanar.Bake(80, 80, 28)
+        n = 0
+    END PROCEDURE
+
+    PROCEDURE PresentHull()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        GdPlanar.PresentRing()
+    END PROCEDURE
+
+    PROCEDURE MakeBox(cx AS S32, cy AS S32, cz AS S32, sx AS S32, sy AS S32, sz AS S32)
+        LET x0 AS S32 = cx - sx
+        LET x1 AS S32 = cx + sx
+        LET y0 AS S32 = cy - sy
+        LET y1 AS S32 = cy + sy
+        LET z0 AS S32 = cz - sz
+        LET z1 AS S32 = cz + sz
+        ASSERT(sx > 0)
+        ASSERT(sy > 0)
+        n = 0
+        Tri(x0, y0, z0, x1, y0, z0, x1, y1, z0)
+        Tri(x0, y0, z0, x1, y1, z0, x0, y1, z0)
+        Tri(x0, y0, z1, x1, y1, z1, x1, y0, z1)
+        Tri(x0, y0, z1, x0, y1, z1, x1, y1, z1)
+        Tri(x0, y0, z0, x0, y1, z1, x0, y1, z0)
+        Tri(x0, y0, z0, x0, y0, z1, x0, y1, z1)
+        Tri(x1, y0, z0, x1, y1, z0, x1, y1, z1)
+        Tri(x1, y0, z0, x1, y1, z1, x1, y0, z1)
+    END PROCEDURE
+
+    PROCEDURE MakePyr(cx AS S32, cy AS S32, cz AS S32, sx AS S32, h AS S32)
+        ASSERT(sx > 0)
+        ASSERT(h > 0)
+        n = 0
+        Tri(cx - sx, cy, cz - sx, cx + sx, cy, cz - sx, cx, cy + h, cz)
+        Tri(cx + sx, cy, cz - sx, cx + sx, cy, cz + sx, cx, cy + h, cz)
+        Tri(cx + sx, cy, cz + sx, cx - sx, cy, cz + sx, cx, cy + h, cz)
+        Tri(cx - sx, cy, cz + sx, cx - sx, cy, cz - sx, cx, cy + h, cz)
+        Tri(cx - sx, cy, cz - sx, cx + sx, cy, cz + sx, cx + sx, cy, cz - sx)
+        Tri(cx - sx, cy, cz - sx, cx - sx, cy, cz + sx, cx + sx, cy, cz + sx)
+    END PROCEDURE
+
+    PROCEDURE MakeRamp(cx AS S32, cy AS S32, cz AS S32, sx AS S32, sy AS S32, sz AS S32)
+        ASSERT(sx > 0)
+        ASSERT(sy > 0)
+        n = 0
+        Tri(cx - sx, cy, cz - sz, cx + sx, cy, cz - sz, cx + sx, cy + sy, cz + sz)
+        Tri(cx - sx, cy, cz - sz, cx + sx, cy + sy, cz + sz, cx - sx, cy + sy, cz + sz)
+    END PROCEDURE
+
+    PROCEDURE ClearVerts()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        n = 0
+    END PROCEDURE
+
+    PROCEDURE AddVert(x AS S32, y AS S32, z AS S32)
+        ASSERT(n < 256)
+        PushV(x, y, z)
+    END PROCEDURE
+
+    PROCEDURE RotY(ang AS S32)
+        LET i AS S32 = 1
+        LET x AS S32 = 0
+        LET z AS S32 = 0
+        LET c AS S32 = 0
+        LET s AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        c = GdCordic.Cos8(ang)
+        s = GdCordic.Sin8(ang)
+        WHILE i <= n
+            x = vx[i]
+            z = vz[i]
+            vx[i] = (x * c - z * s) / 127
+            vz[i] = (x * s + z * c) / 127
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE DrawVgpu(ox AS S32, oy AS S32)
+        LET i AS S32 = 1
+        LET px AS S32 = 0
+        LET py AS S32 = 0
+        ASSERT(n >= 0)
+        ASSERT(n <= 256)
+        WHILE i <= n
+            px = ox + vx[i] + vz[i] / 2
+            py = oy + vy[i] - vz[i] / 2
+            GdVgpu.RectFill(px, py, 2, 2, 9)
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION VertN() AS S32
+        ASSERT(n >= 0)
+        ASSERT(n <= 256)
+        RETURN n
+    END FUNCTION
+
+    FUNCTION VertX(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= n)
+        RETURN vx[i]
+    END FUNCTION
+
+    FUNCTION VertY(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= n)
+        RETURN vy[i]
+    END FUNCTION
+
+    FUNCTION VertZ(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= n)
+        RETURN vz[i]
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        MakeBox(0, 0, 0, 4, 4, 4)
+        IF n = 24 THEN
+            MakePyr(0, 0, 0, 4, 8)
+            IF n = 18 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

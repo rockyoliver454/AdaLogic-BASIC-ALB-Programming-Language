@@ -1,0 +1,37 @@
+-- Twin of Ada EO_PGA2D. Integer point/line join, not a full multivector.
+VERSION 1.0
+
+DECLARE MODULE GdPga2d
+    FUNCTION JoinA(x1 AS S32, y1 AS S32, x2 AS S32, y2 AS S32) AS S32
+    FUNCTION JoinB(x1 AS S32, y1 AS S32, x2 AS S32, y2 AS S32) AS S32
+    FUNCTION JoinC(x1 AS S32, y1 AS S32, x2 AS S32, y2 AS S32) AS S32
+    FUNCTION SideOf(a AS S32, b AS S32, c AS S32, x AS S32, y AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdPga2d
+
+    FUNCTION JoinA(x1 AS S32, y1 AS S32, x2 AS S32, y2 AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN y1 - y2
+    END FUNCTION
+
+    FUNCTION JoinB(x1 AS S32, y1 AS S32, x2 AS S32, y2 AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN x2 - x1
+    END FUNCTION
+
+    FUNCTION JoinC(x1 AS S32, y1 AS S32, x2 AS S32, y2 AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN x1 * y2 - x2 * y1
+    END FUNCTION
+
+    FUNCTION SideOf(a AS S32, b AS S32, c AS S32, x AS S32, y AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN a * x + b * y + c
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,55 @@
+-- Twin of Ada core_noise_velvet. Sparse impulses on a 128 floor.
+VERSION 1.0
+
+DECLARE MODULE GdVelvet
+    FUNCTION VelvetAt(x AS S32, y AS S32, seed AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdVelvet
+
+    FUNCTION VelvetAt(x AS S32, y AS S32, seed AS S32) AS S32
+        LET h AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        h = GdHash.ByteOf(x * 17, y * 13, seed)
+        IF h < 4 THEN
+            RETURN 255
+        END IF
+        IF h > 251 THEN
+            RETURN 0
+        END IF
+        RETURN 128
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        LET i AS S32 = 0
+        LET saw AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        a = VelvetAt(0, 0, 3)
+        b = VelvetAt(1, 0, 3)
+        -- Search a small window so sparse spikes still yield a differing pair
+        WHILE i < 64
+            a = VelvetAt(i, 0, 3)
+            b = VelvetAt(i + 17, 5, 3)
+            IF a <> b THEN
+                saw = 1
+            END IF
+            IF a < 0 THEN
+                RETURN 0
+            END IF
+            IF a > 255 THEN
+                RETURN 0
+            END IF
+            i = i + 1
+        END WHILE
+        IF saw = 0 THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+END MODULE

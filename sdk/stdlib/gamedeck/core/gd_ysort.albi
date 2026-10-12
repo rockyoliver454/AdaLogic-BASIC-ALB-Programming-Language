@@ -1,0 +1,198 @@
+-- Twin of YSort.ALBI. Cap 256. Sort is public so hosts can blit after order.
+VERSION 1.0
+
+DECLARE MODULE GdYSort
+    PROCEDURE Reset()
+    PROCEDURE Push(tex_id AS S32, sx AS S32, sy AS S32, sw AS S32, sh AS S32, dx AS S32, dy AS S32, dw AS S32, dh AS S32, tint AS S32, sort_y AS S32)
+    PROCEDURE Sort()
+    PROCEDURE DrawRects()
+    PROCEDURE DrawAll()
+    FUNCTION GetCount() AS S32
+    FUNCTION GetTex(i AS S32) AS S32
+    FUNCTION GetDX(i AS S32) AS S32
+    FUNCTION GetDY(i AS S32) AS S32
+    FUNCTION GetDW(i AS S32) AS S32
+    FUNCTION GetDH(i AS S32) AS S32
+    FUNCTION GetCol(i AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdYSort
+
+    LET op_count AS S32 = 0
+    LET max_ops AS S32 = 256
+
+    STRICT op_tex[256] AS S32
+    STRICT op_sx[256] AS S32
+    STRICT op_sy[256] AS S32
+    STRICT op_sw[256] AS S32
+    STRICT op_sh[256] AS S32
+    STRICT op_dx[256] AS S32
+    STRICT op_dy[256] AS S32
+    STRICT op_dw[256] AS S32
+    STRICT op_dh[256] AS S32
+    STRICT op_col[256] AS S32
+    STRICT op_sort[256] AS S32
+
+    PROCEDURE Reset()
+        ASSERT(max_ops = 256)
+        ASSERT(op_count >= 0)
+        op_count = 0
+    END PROCEDURE
+
+    PROCEDURE Push(tex_id AS S32, sx AS S32, sy AS S32, sw AS S32, sh AS S32, dx AS S32, dy AS S32, dw AS S32, dh AS S32, tint AS S32, sort_y AS S32)
+        ASSERT(op_count >= 0)
+        ASSERT(max_ops = 256)
+        IF op_count < max_ops THEN
+            op_count = op_count + 1
+            op_tex[op_count] = tex_id
+            op_sx[op_count] = sx
+            op_sy[op_count] = sy
+            op_sw[op_count] = sw
+            op_sh[op_count] = sh
+            op_dx[op_count] = dx
+            op_dy[op_count] = dy
+            op_dw[op_count] = dw
+            op_dh[op_count] = dh
+            op_col[op_count] = tint
+            op_sort[op_count] = sort_y
+        END IF
+    END PROCEDURE
+
+    PROCEDURE Sort()
+        LET s AS S32 = 1
+        LET swapped AS U64 = 1
+        LET t_tex AS S32 = 0
+        LET t_sx AS S32 = 0
+        LET t_sy AS S32 = 0
+        LET t_sw AS S32 = 0
+        LET t_sh AS S32 = 0
+        LET t_dx AS S32 = 0
+        LET t_dy AS S32 = 0
+        LET t_dw AS S32 = 0
+        LET t_dh AS S32 = 0
+        LET t_col AS S32 = 0
+        LET t_sort AS S32 = 0
+        LET guard AS S32 = 0
+
+        ASSERT(op_count >= 0)
+        ASSERT(op_count <= 256)
+
+        IF op_count <= 1 THEN
+            RETURN
+        END IF
+
+        swapped = 1
+        WHILE swapped = 1
+            IF guard > 256 THEN
+                swapped = 0
+            ELSE
+                swapped = 0
+                s = 1
+                WHILE s < op_count
+                    IF op_sort[s] > op_sort[s + 1] THEN
+                        t_sort = op_sort[s]
+                        op_sort[s] = op_sort[s + 1]
+                        op_sort[s + 1] = t_sort
+                        t_tex = op_tex[s]
+                        op_tex[s] = op_tex[s + 1]
+                        op_tex[s + 1] = t_tex
+                        t_sx = op_sx[s]
+                        op_sx[s] = op_sx[s + 1]
+                        op_sx[s + 1] = t_sx
+                        t_sy = op_sy[s]
+                        op_sy[s] = op_sy[s + 1]
+                        op_sy[s + 1] = t_sy
+                        t_sw = op_sw[s]
+                        op_sw[s] = op_sw[s + 1]
+                        op_sw[s + 1] = t_sw
+                        t_sh = op_sh[s]
+                        op_sh[s] = op_sh[s + 1]
+                        op_sh[s + 1] = t_sh
+                        t_dx = op_dx[s]
+                        op_dx[s] = op_dx[s + 1]
+                        op_dx[s + 1] = t_dx
+                        t_dy = op_dy[s]
+                        op_dy[s] = op_dy[s + 1]
+                        op_dy[s + 1] = t_dy
+                        t_dw = op_dw[s]
+                        op_dw[s] = op_dw[s + 1]
+                        op_dw[s + 1] = t_dw
+                        t_dh = op_dh[s]
+                        op_dh[s] = op_dh[s + 1]
+                        op_dh[s + 1] = t_dh
+                        t_col = op_col[s]
+                        op_col[s] = op_col[s + 1]
+                        op_col[s + 1] = t_col
+                        swapped = 1
+                    END IF
+                    s = s + 1
+                END WHILE
+                guard = guard + 1
+            END IF
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE DrawRects()
+        LET s AS S32 = 1
+        ASSERT(op_count >= 0)
+        ASSERT(op_count <= 256)
+        WHILE s <= op_count
+            COLOR op_col[s]
+            FILL RECT op_dx[s], op_dy[s], op_dw[s], op_dh[s]
+            s = s + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE DrawAll()
+        ASSERT(op_count >= 0)
+        ASSERT(op_count <= 256)
+        IF op_count = 0 THEN
+            RETURN
+        END IF
+        Sort()
+        DrawRects()
+    END PROCEDURE
+
+    FUNCTION GetCount() AS S32
+        ASSERT(op_count >= 0)
+        ASSERT(op_count <= 256)
+        RETURN op_count
+    END FUNCTION
+
+    FUNCTION GetTex(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 256)
+        RETURN op_tex[i]
+    END FUNCTION
+
+    FUNCTION GetDX(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 256)
+        RETURN op_dx[i]
+    END FUNCTION
+
+    FUNCTION GetDY(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 256)
+        RETURN op_dy[i]
+    END FUNCTION
+
+    FUNCTION GetDW(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 256)
+        RETURN op_dw[i]
+    END FUNCTION
+
+    FUNCTION GetDH(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 256)
+        RETURN op_dh[i]
+    END FUNCTION
+
+    FUNCTION GetCol(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 256)
+        RETURN op_col[i]
+    END FUNCTION
+
+END MODULE

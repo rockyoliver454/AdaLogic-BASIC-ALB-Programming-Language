@@ -1,0 +1,36 @@
+-- Twin of Ada models: phone booth, monolith (integer extents, not a mesh dump).
+VERSION 1.0
+
+DECLARE MODULE GdModels
+    FUNCTION BoothH() AS S32
+    FUNCTION MonoH() AS S32
+    PROCEDURE PresentBooth(x AS S32, y AS S32)
+    PROCEDURE PresentMono(x AS S32, y AS S32)
+END DECLARE MODULE
+
+MODULE GdModels
+
+    FUNCTION BoothH() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 16
+    END FUNCTION
+    FUNCTION MonoH() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 16
+    END FUNCTION
+
+    PROCEDURE PresentBooth(x AS S32, y AS S32)
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        GdAdaTex.Present(122, x, y)
+    END PROCEDURE
+
+    PROCEDURE PresentMono(x AS S32, y AS S32)
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        GdAdaTex.Present(123, x, y)
+    END PROCEDURE
+
+END MODULE

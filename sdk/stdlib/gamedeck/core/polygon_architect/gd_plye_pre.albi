@@ -1,0 +1,43 @@
+-- Twin of Ada plyepreeve. Vert stamp cap, not a SPARK stream parser.
+VERSION 1.0
+
+DECLARE MODULE GdPlyePre
+    PROCEDURE Setup()
+    FUNCTION VertN() AS S32
+    FUNCTION VertX(i AS S32) AS S32
+    FUNCTION VertY(i AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdPlyePre
+
+    STRICT vx[8] AS S32
+    STRICT vy[8] AS S32
+
+    PROCEDURE Setup()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 8
+            vx[i] = 40 + i * 12
+            vy[i] = 80 + (i AND 1) * 10
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION VertN() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 8
+    END FUNCTION
+    FUNCTION VertX(i AS S32) AS S32
+        ASSERT(i >= 1)
+        ASSERT(i <= 8)
+        RETURN vx[i]
+    END FUNCTION
+    FUNCTION VertY(i AS S32) AS S32
+        ASSERT(i >= 1)
+        ASSERT(i <= 8)
+        RETURN vy[i]
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,41 @@
+-- Twin of Ada Weapons textures: magnum, snap, radial aim, holstered, aiming.
+VERSION 1.0
+
+DECLARE MODULE GdWepTex
+    FUNCTION RgbOf(kind AS S32) AS S32
+    PROCEDURE PresentGlyph(kind AS S32, x AS S32, y AS S32)
+    FUNCTION KindN() AS S32
+    FUNCTION AdaId(kind AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdWepTex
+
+    FUNCTION AdaId(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 4)
+        IF kind = 0 THEN RETURN 117 END IF
+        IF kind = 1 THEN RETURN 125 END IF
+        IF kind = 2 THEN RETURN 124 END IF
+        IF kind = 3 THEN RETURN 118 END IF
+        RETURN 119
+    END FUNCTION
+
+    FUNCTION RgbOf(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 4)
+        RETURN GdAdaTex.Rgb0(AdaId(kind))
+    END FUNCTION
+
+    PROCEDURE PresentGlyph(kind AS S32, x AS S32, y AS S32)
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 4)
+        GdAdaTex.Present(AdaId(kind), x, y)
+    END PROCEDURE
+
+    FUNCTION KindN() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 5
+    END FUNCTION
+
+END MODULE

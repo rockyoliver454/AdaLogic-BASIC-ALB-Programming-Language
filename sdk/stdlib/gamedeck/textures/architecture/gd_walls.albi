@@ -1,0 +1,49 @@
+-- Twin of Ada Walls: log, tin, rusty, retaining, sand-drift, graffiti.
+VERSION 1.0
+
+DECLARE MODULE GdWalls
+    FUNCTION RgbOf(kind AS S32) AS S32
+    FUNCTION ShadeAt(x AS S32, y AS S32, kind AS S32) AS S32
+    PROCEDURE PresentTile(kind AS S32, x AS S32, y AS S32)
+    FUNCTION KindN() AS S32
+    FUNCTION AdaId(kind AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdWalls
+
+    FUNCTION AdaId(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 5)
+        IF kind = 0 THEN RETURN 54 END IF
+        IF kind = 1 THEN RETURN 62 END IF
+        IF kind = 2 THEN RETURN 63 END IF
+        IF kind = 3 THEN RETURN 105 END IF
+        IF kind = 4 THEN RETURN 97 END IF
+        RETURN 92
+    END FUNCTION
+
+    FUNCTION RgbOf(kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 5)
+        RETURN GdAdaTex.Rgb0(AdaId(kind))
+    END FUNCTION
+
+    FUNCTION ShadeAt(x AS S32, y AS S32, kind AS S32) AS S32
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 5)
+        RETURN GdAdaTex.PixelRgb(AdaId(kind), x AND 15, y AND 15)
+    END FUNCTION
+
+    PROCEDURE PresentTile(kind AS S32, x AS S32, y AS S32)
+        ASSERT(kind >= 0)
+        ASSERT(kind <= 5)
+        GdAdaTex.Present(AdaId(kind), x, y)
+    END PROCEDURE
+
+    FUNCTION KindN() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN 6
+    END FUNCTION
+
+END MODULE

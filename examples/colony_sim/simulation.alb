@@ -1,0 +1,689 @@
+INCLUDE "../SCREEN.ALBI"
+INCLUDE "../INPUT.ALBI"
+INCLUDE "../ZLevels.ALBI"
+INCLUDE "../ZDepth.ALBI"
+INCLUDE "../YSort.ALBI"
+INCLUDE "world.albi"
+INCLUDE "agents.albi"
+INCLUDE "terrain.albi"
+INCLUDE "colony.albi"
+INCLUDE "renderer.albi"
+INCLUDE "sprites.albi"
+INCLUDE "controls.albi"
+INCLUDE "simulation.albi"
+INCLUDE "ai.albi"
+INCLUDE "gathering.albi"
+INCLUDE "buildings.albi"
+INCLUDE "weather.albi"
+INCLUDE "research.albi"
+INCLUDE "lighting.albi"
+INCLUDE "Settings.albi"
+INCLUDE "SaveGame.albi"
+IMPORT ZLevels
+IMPORT ZDepth
+IMPORT YSort
+IMPORT World
+IMPORT Agents
+IMPORT Terrain
+IMPORT Colony
+IMPORT Renderer
+IMPORT Sprites
+IMPORT Controls
+IMPORT Simulation
+IMPORT AI
+IMPORT Gathering
+IMPORT Buildings
+IMPORT Weather
+IMPORT Research
+IMPORT Lighting
+IMPORT Settings
+IMPORT SaveGame
+
+MODULE Simulation
+    LET frame_count AS U32 = 0
+
+    FUNCTION AbsS32(value AS S32) AS S32
+        IF value < 0 THEN RETURN 0 - value END IF
+        RETURN value
+    END FUNCTION
+
+    FUNCTION PointInRect(px AS S32, py AS S32, rx AS S32, ry AS S32, rw AS S32, rh AS S32) AS U8
+        IF px >= rx AND px < rx + rw AND py >= ry AND py < ry + rh THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION WorldToScreenX(world_x AS S32, cam_x AS S32, zoom AS S32) AS S32
+        LET cx AS S32 = S32(VIRTUAL_WIDTH) / 2
+        LET sx AS S32 = world_x - cam_x
+        RETURN cx + (sx - cx) * zoom / 100
+    END FUNCTION
+
+    FUNCTION WorldToScreenY(world_y AS S32, cam_y AS S32, zoom AS S32) AS S32
+        LET cy AS S32 = S32(VIRTUAL_HEIGHT) / 2
+        LET sy AS S32 = world_y - cam_y
+        RETURN cy + (sy - cy) * zoom / 100
+    END FUNCTION
+
+    FUNCTION ScreenToWorldX(screen_x AS S32, cam_x AS S32, zoom AS S32) AS S32
+        LET cx AS S32 = S32(VIRTUAL_WIDTH) / 2
+        RETURN cam_x + cx + (screen_x - cx) * 100 / zoom
+    END FUNCTION
+
+    FUNCTION ScreenToWorldY(screen_y AS S32, cam_y AS S32, zoom AS S32) AS S32
+        LET cy AS S32 = S32(VIRTUAL_HEIGHT) / 2
+        RETURN cam_y + cy + (screen_y - cy) * 100 / zoom
+    END FUNCTION
+
+    PROCEDURE ClearAgentSelection()
+        LET i AS U16 = 1
+        WHILE i <= Agents.GetAgentCount()
+            Agents.SetAgentSelected(i, 0)
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION FindAgentAtScreenPoint(px AS S32, py AS S32) AS U16
+        LET cam_x AS S32 = Controls.GetCamX()
+        LET cam_y AS S32 = Controls.GetCamY()
+        LET zoom AS S32 = Controls.GetZoom()
+        LET hit_radius AS S32 = (18 * zoom) / 100
+        LET i AS U16 = 1
+        LET best_idx AS U16 = 0
+        LET best_dist AS S32 = 999999
+        LET sx AS S32 = 0
+        LET sy AS S32 = 0
+        LET dx AS S32 = 0
+        LET dy AS S32 = 0
+        LET dist AS S32 = 0
+
+        IF hit_radius < 8 THEN hit_radius = 8 END IF
+
+        WHILE i <= Agents.GetAgentCount()
+            IF Agents.GetAgentState(i) != 0 THEN
+                sx = WorldToScreenX(Agents.GetAgentX(i), cam_x, zoom)
+                sy = WorldToScreenY(Agents.GetAgentY(i), cam_y, zoom)
+                dx = AbsS32(px - sx)
+                dy = AbsS32(py - sy)
+                IF dx <= hit_radius AND dy <= hit_radius THEN
+                    dist = dx + dy
+                    IF dist < best_dist THEN
+                        best_dist = dist
+                        best_idx = i
+                    END IF
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+
+        RETURN best_idx
+    END FUNCTION
+
+    PROCEDURE ApplySelectionDrag(subtract_mode AS U8, x0 AS S32, y0 AS S32, x1 AS S32, y1 AS S32)
+        LET min_x AS S32 = x0
+        LET min_y AS S32 = y0
+        LET max_x AS S32 = x1
+        LET max_y AS S32 = y1
+        LET dx AS S32 = AbsS32(x1 - x0)
+        LET dy AS S32 = AbsS32(y1 - y0)
+        LET hit_idx AS U16 = 0
+        LET i AS U16 = 1
+        LET cam_x AS S32 = Controls.GetCamX()
+        LET cam_y AS S32 = Controls.GetCamY()
+        LET zoom AS S32 = Controls.GetZoom()
+        LET sx AS S32 = 0
+        LET sy AS S32 = 0
+
+        IF subtract_mode = 0 THEN ClearAgentSelection() END IF
+
+        IF dx <= 6 AND dy <= 6 THEN
+            hit_idx = FindAgentAtScreenPoint(x1, y1)
+            IF hit_idx > 0 THEN
+                IF subtract_mode = 1 THEN
+                    Agents.SetAgentSelected(hit_idx, 0)
+                ELSE
+                    Agents.SetAgentSelected(hit_idx, 1)
+                END IF
+            END IF
+            RETURN
+        END IF
+
+        IF min_x > max_x THEN
+            LET swap_x AS S32 = min_x
+            min_x = max_x
+            max_x = swap_x
+        END IF
+        IF min_y > max_y THEN
+            LET swap_y AS S32 = min_y
+            min_y = max_y
+            max_y = swap_y
+        END IF
+
+        WHILE i <= Agents.GetAgentCount()
+            IF Agents.GetAgentState(i) != 0 THEN
+                sx = WorldToScreenX(Agents.GetAgentX(i), cam_x, zoom)
+                sy = WorldToScreenY(Agents.GetAgentY(i), cam_y, zoom)
+                IF PointInRect(sx, sy, min_x, min_y, max_x - min_x + 1, max_y - min_y + 1) THEN
+                    IF subtract_mode = 1 THEN
+                        Agents.SetAgentSelected(i, 0)
+                    ELSE
+                        Agents.SetAgentSelected(i, 1)
+                    END IF
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE ToggleDraftForSelection()
+        LET i AS U16 = 1
+        LET any_selected AS U8 = 0
+        LET all_drafted AS U8 = 1
+        LET next_value AS U8 = 1
+
+        WHILE i <= Agents.GetAgentCount()
+            IF Agents.IsAgentSelected(i) = 1 THEN
+                any_selected = 1
+                IF Agents.IsAgentDrafted(i) = 0 THEN all_drafted = 0 END IF
+            END IF
+            i = i + 1
+        END WHILE
+
+        IF any_selected = 0 THEN RETURN END IF
+        IF all_drafted = 1 THEN next_value = 0 END IF
+
+        i = 1
+        WHILE i <= Agents.GetAgentCount()
+            IF Agents.IsAgentSelected(i) = 1 THEN
+                Agents.SetAgentDrafted(i, next_value)
+                Agents.SetAgentWanderTimer(i, 0)
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE IssueDraftMoveOrder(screen_x AS S32, screen_y AS S32)
+        LET i AS U16 = 1
+        LET selected_count AS U16 = 0
+        LET slot AS S32 = 0
+        LET cols AS S32 = 1
+        LET spacing AS S32 = 22
+        LET cam_x AS S32 = Controls.GetCamX()
+        LET cam_y AS S32 = Controls.GetCamY()
+        LET zoom AS S32 = Controls.GetZoom()
+        LET target_x AS S32 = ScreenToWorldX(screen_x, cam_x, zoom)
+        LET target_y AS S32 = ScreenToWorldY(screen_y, cam_y, zoom)
+        LET world_max AS S32 = 48 * 32 - 1
+        LET total_rows AS S32 = 1
+        LET total_width AS S32 = 0
+        LET total_height AS S32 = 0
+        LET col AS S32 = 0
+        LET row AS S32 = 0
+        LET offset_x AS S32 = 0
+        LET offset_y AS S32 = 0
+
+        IF target_x < 0 THEN target_x = 0 END IF
+        IF target_y < 0 THEN target_y = 0 END IF
+        IF target_x > world_max THEN target_x = world_max END IF
+        IF target_y > world_max THEN target_y = world_max END IF
+
+        WHILE i <= Agents.GetAgentCount()
+            IF Agents.IsAgentSelected(i) = 1 AND Agents.IsAgentDrafted(i) = 1 THEN
+                selected_count = selected_count + 1
+            END IF
+            i = i + 1
+        END WHILE
+
+        IF selected_count = 0 THEN RETURN END IF
+
+        IF selected_count > 1 THEN cols = 2 END IF
+        IF selected_count > 4 THEN cols = 3 END IF
+        IF selected_count > 9 THEN cols = 4 END IF
+        total_rows = (S32(selected_count) + cols - 1) / cols
+        total_width = (cols - 1) * spacing
+        total_height = (total_rows - 1) * spacing
+
+        i = 1
+        WHILE i <= Agents.GetAgentCount()
+            IF Agents.IsAgentSelected(i) = 1 AND Agents.IsAgentDrafted(i) = 1 THEN
+                col = slot MOD cols
+                row = slot / cols
+                offset_x = col * spacing - total_width / 2
+                offset_y = row * spacing - total_height / 2
+                Agents.SetAgentTarget(i, target_x + offset_x, target_y + offset_y, Agents.GetAgentZ(i))
+                Agents.SetAgentWanderTimer(i, 0)
+                slot = slot + 1
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE Setup()
+        LET i AS U16 = 1
+        LET next_mood AS S32 = 0
+        World.Setup()
+        World.SetDayLength(Settings.GetStartDayLength())
+        World.SetTickCount(0)
+        Terrain.Setup()
+        Terrain.GenerateWorld()
+        Agents.Setup()
+        Colony.Setup()
+        Gathering.Setup()
+        AI.Setup()
+        Renderer.Setup()
+        Sprites.Setup()
+        Controls.Setup()
+        Buildings.Setup()
+        Weather.Setup()
+        Research.Setup()
+        ZLevels.SetViewZ(0)
+        ZLevels.SetPlayerZ(0)
+        World.SetWorldTime(U32(U32(Settings.GetStartSeason()) * World.GetSeasonLength() + (World.GetDayLength() * U32(Settings.GetStartHour())) / 24))
+        Gathering.SpawnBerries(Settings.GetStartBerries())
+        Colony.SetFoodCount(Settings.GetStartFood())
+        Colony.SetWoodCount(Settings.GetStartWood())
+        Colony.SetStoneCount(Settings.GetStartStone())
+        Colony.SetPopulation(Settings.GetStartAgents())
+
+        FOR i = 1 TO Settings.GetStartAgents() THEN
+            Agents.SpawnAgent(1, S32(i) * 64 + 200, S32(i) * 48 + 160, 0)
+            next_mood = S32(Agents.GetAgentMood(i)) + S32(Settings.GetMoodBonus())
+            IF next_mood > 100 THEN next_mood = 100 END IF
+            Agents.SetAgentMood(i, U8(next_mood))
+        END FOR
+
+        Buildings.PlaceBuilding(10, 10, 0, 1)
+        Buildings.PlaceBuilding(10, 11, 0, 1)
+        Buildings.PlaceBuilding(10, 12, 0, 1)
+        Buildings.PlaceBuilding(11, 10, 0, 1)
+        Buildings.PlaceBuilding(11, 12, 0, 1)
+        Buildings.PlaceBuilding(12, 10, 0, 1)
+        Buildings.PlaceBuilding(12, 11, 0, 1)
+        Buildings.PlaceBuilding(12, 12, 0, 1)
+    END PROCEDURE
+
+    PROCEDURE Stage1_Input()
+        LET cz AS S32 = 0
+        LET cx AS S32 = 0
+        LET cy AS S32 = 0
+        LET tile_x AS S32 = 0
+        LET tile_y AS S32 = 0
+        LET k AS U8 = 0
+        Controls.ReadInput()
+        cz = Controls.GetCamZ()
+        ZLevels.SetViewZ(cz)
+
+        IF Controls.ConsumeSelectionRelease() = 1 THEN
+            ApplySelectionDrag(Controls.IsSelectionSubtracting(), Controls.GetSelectionStartX(), Controls.GetSelectionStartY(), Controls.GetSelectionEndX(), Controls.GetSelectionEndY())
+        END IF
+
+        IF Controls.ConsumeDraftToggleRequest() = 1 THEN
+            ToggleDraftForSelection()
+        END IF
+
+        IF Controls.ConsumeMoveOrderRequest() = 1 THEN
+            IssueDraftMoveOrder(Controls.GetMoveOrderScreenX(), Controls.GetMoveOrderScreenY())
+        END IF
+
+        IF Controls.IsBuildMode() THEN
+            IF KEY(#K_1) THEN Buildings.SetBuildKind(1) END IF
+            IF KEY(#K_2) THEN Buildings.SetBuildKind(2) END IF
+            IF KEY(#K_3) THEN Buildings.SetBuildKind(3) END IF
+            IF KEY(#K_4) THEN Buildings.SetBuildKind(4) END IF
+
+            cx = Controls.GetCamX()
+            cy = Controls.GetCamY()
+            tile_x = (cx + S32(VIRTUAL_WIDTH) / 2) / 32
+            tile_y = (cy + S32(VIRTUAL_HEIGHT) / 2) / 32
+            Buildings.SetCursorPos(tile_x, tile_y)
+
+            IF KEY(#K_ENTER) THEN
+                k = Buildings.GetBuildKind()
+                Buildings.PlaceBuilding(tile_x, tile_y, cz, k)
+            END IF
+        END IF
+    END PROCEDURE
+
+    PROCEDURE Stage2_Simulate()
+        LET speed AS U8 = Controls.GetTimeSpeed()
+        IF Controls.IsPaused() THEN RETURN END IF
+        LET iter AS U8 = 1
+        IF speed = 1 THEN iter = 1 END IF
+        IF speed = 2 THEN iter = 2 END IF
+        IF speed = 3 THEN iter = 4 END IF
+        IF speed = 4 THEN iter = 8 END IF
+
+        LET n AS U8 = 1
+        FOR n = 1 TO iter THEN
+            World.Process()
+
+            LET i AS U16 = 1
+            WHILE i <= Agents.GetAgentCount()
+                AI.TickAgent(i)
+                i = i + 1
+            END WHILE
+
+            Agents.TickAll()
+            Colony.Process()
+            Gathering.TickBerries()
+            Buildings.ProcessAll()
+            Weather.Process()
+            Research.Process()
+
+            frame_count = frame_count + 1
+        END FOR
+    END PROCEDURE
+
+    PROCEDURE Stage3_Render()
+        CLEAR $0A1628
+        YSort.Reset()
+
+        LET cam_x AS S32 = Controls.GetCamX()
+        LET cam_y AS S32 = Controls.GetCamY()
+        LET cam_z AS S32 = Controls.GetCamZ()
+        LET scr_w AS S32 = S32(VIRTUAL_WIDTH)
+        LET scr_h AS S32 = S32(VIRTUAL_HEIGHT)
+        LET TILE_SIZE AS S32 = 32
+        LET day_time AS U32 = World.GetWorldTime()
+        LET day_len AS U32 = World.GetDayLength()
+        LET day_clock AS U32 = 0
+        LET season AS U8 = World.GetSeason()
+        IF day_len > 0 THEN
+            day_clock = day_time MOD day_len
+        END IF
+        LET hour AS U32 = 0
+        LET minute AS U32 = 0
+        IF day_len > 0 THEN
+            hour = (day_clock * 24) / day_len
+            minute = ((day_clock * 1440) / day_len) MOD 60
+        END IF
+
+        LET weather AS U8 = Weather.GetWeather()
+        LET w_intensity AS U8 = Weather.GetWeatherIntensity()
+        LET brightness AS U8 = Lighting.GetAmbientBrightness(day_clock, day_len, season, weather)
+        LET dim_val AS S32 = S32(255 - brightness)
+        IF dim_val > 60 THEN dim_val = 60 END IF
+
+        LET tz AS S32 = 0
+        LET tx AS S32 = 0
+        LET ty AS S32 = 0
+        LET sx AS S32 = 0
+        LET sy AS S32 = 0
+        LET vis AS S32 = 0
+        LET kind AS U8 = 0
+        LET col AS S32 = 0
+        LET priority AS S32 = 0
+        LET cur_sx AS S32 = 0
+        LET cur_sy AS S32 = 0
+        LET cur_cx AS S32 = 0
+        LET cur_cy AS S32 = 0
+        LET cur_zoom AS S32 = 0
+        LET cur_ssize AS S32 = 0
+        LET terrain_zoom AS S32 = Controls.GetZoom()
+        LET terrain_size AS S32 = 0
+        LET bld_i AS U16 = 1
+        LET berry_idx AS U16 = 1
+        LET agent_idx AS U16 = 1
+        LET akind AS U8 = 0
+        LET body_col AS S32 = 0
+        LET skin_col AS S32 = 0
+        LET clothes_col AS S32 = 0
+        LET hair_col AS S32 = 0
+        LET mood AS U8 = 0
+        LET mood_col AS S32 = 0
+        LET food_s AS S32 = 0
+        LET lvl_s AS S32 = 0
+        LET a_s AS S32 = 0
+        LET b_s AS S32 = 0
+        LET wood_s AS S32 = 0
+        LET stone_s AS S32 = 0
+        LET hour_s AS S32 = 0
+        LET min_s AS S32 = 0
+        LET season_s AS S32 = 0
+        LET weather_s AS S32 = 0
+        LET zoom_s AS S32 = 0
+        LET frame_s AS S32 = 0
+        LET is_night AS U8 = 0
+        LET bk_s AS S32 = 0
+        LET spd_s AS S32 = 0
+        LET overlay_zoom AS S32 = Controls.GetZoom()
+        LET marker_w AS S32 = 0
+        LET marker_h AS S32 = 0
+        LET rect_x AS S32 = 0
+        LET rect_y AS S32 = 0
+        LET box_x0 AS S32 = 0
+        LET box_y0 AS S32 = 0
+        LET box_x1 AS S32 = 0
+        LET box_y1 AS S32 = 0
+
+        terrain_size = (32 * terrain_zoom) / 100
+        IF terrain_size < 4 THEN terrain_size = 4 END IF
+
+        vis = ZLevels.GetVisibility(0)
+        IF vis > 0 THEN
+            FOR ty = 0 TO 47 THEN
+                FOR tx = 0 TO 47 THEN
+                    cur_sx = WorldToScreenX(tx * TILE_SIZE, cam_x, terrain_zoom)
+                    cur_sy = WorldToScreenY(ty * TILE_SIZE, cam_y, terrain_zoom)
+                    IF cur_sx > 0 - terrain_size AND cur_sx < scr_w AND cur_sy > 0 - terrain_size AND cur_sy < scr_h THEN
+                        kind = Terrain.GetTile(tx, ty)
+                        col = Renderer.GetTileColor(kind)
+                        col = col - dim_val
+                        IF col < 0 THEN col = 0 END IF
+                        COLOR col
+                        FILL RECT cur_sx, cur_sy, terrain_size, terrain_size
+                    END IF
+                END FOR
+            END FOR
+        END IF
+
+        WHILE bld_i <= Buildings.GetBuildingCount()
+            tx = Buildings.GetBuildingX(bld_i)
+            ty = Buildings.GetBuildingY(bld_i)
+            sx = tx * TILE_SIZE - cam_x
+            sy = ty * TILE_SIZE - cam_y
+            IF sx > -TILE_SIZE AND sx < scr_w AND sy > -TILE_SIZE AND sy < scr_h THEN
+                kind = Buildings.GetBuildingKind(bld_i)
+                col = Renderer.GetBuildColor(kind)
+                col = col - dim_val
+                IF col < 0 THEN col = 0 END IF
+                priority = ZDepth.GetRenderPriority(sy, 50)
+                Sprites.DrawBuilding(sx, sy, kind, col, priority)
+            END IF
+            bld_i = bld_i + 1
+        END WHILE
+
+        IF ZLevels.GetVisibility(0) > 0 THEN
+            WHILE berry_idx <= Gathering.GetBerryCount()
+                sx = Gathering.GetBerryX(berry_idx) - cam_x
+                sy = Gathering.GetBerryY(berry_idx) - cam_y
+                priority = ZDepth.GetRenderPriority(sy, 100)
+                Sprites.DrawBerry(sx, sy, priority)
+                berry_idx = berry_idx + 1
+            END WHILE
+
+            WHILE agent_idx <= Agents.GetAgentCount()
+                sx = Agents.GetAgentX(agent_idx) - cam_x
+                sy = Agents.GetAgentY(agent_idx) - cam_y
+                akind = Agents.GetAgentKind(agent_idx)
+                body_col = $443366
+                IF akind = 2 THEN body_col = $554433
+                ELSE
+                    IF akind = 3 THEN body_col = $335577 END IF
+                END IF
+                skin_col = Renderer.GetSkinColor(akind)
+                clothes_col = Renderer.GetClothesColor(akind)
+                hair_col = Renderer.GetHairColor(akind)
+                mood = Agents.GetAgentMood(agent_idx)
+                mood_col = Renderer.GetMoodColor(mood)
+                body_col = body_col - dim_val
+                IF body_col < 0 THEN body_col = 0 END IF
+                skin_col = skin_col - dim_val
+                IF skin_col < 0 THEN skin_col = 0 END IF
+                clothes_col = clothes_col - dim_val
+                IF clothes_col < 0 THEN clothes_col = 0 END IF
+                hair_col = hair_col - dim_val
+                IF hair_col < 0 THEN hair_col = 0 END IF
+                mood_col = mood_col - dim_val
+                IF mood_col < 0 THEN mood_col = 0 END IF
+                priority = ZDepth.GetRenderPriority(sy, 100)
+                Sprites.DrawColonist(sx, sy, body_col, clothes_col, skin_col, hair_col, mood_col, priority)
+                agent_idx = agent_idx + 1
+            END WHILE
+        END IF
+
+        IF Controls.IsBuildMode() THEN
+            tx = Buildings.GetCursorX()
+            ty = Buildings.GetCursorY()
+            sx = tx * TILE_SIZE - cam_x
+            sy = ty * TILE_SIZE - cam_y
+            cur_cx = S32(VIRTUAL_WIDTH) / 2
+            cur_cy = S32(VIRTUAL_HEIGHT) / 2
+            cur_zoom = Controls.GetZoom()
+            cur_sx = cur_cx + (sx - cur_cx) * cur_zoom / 100
+            cur_sy = cur_cy + (sy - cur_cy) * cur_zoom / 100
+            cur_ssize = (32 * cur_zoom) / 100
+            IF cur_ssize < 4 THEN cur_ssize = 4 END IF
+            YSort.Push(0, 0, 0, 0, 0, cur_sx, cur_sy, cur_ssize, cur_ssize, $88AAFF, 999999)
+        END IF
+
+        YSort.DrawAll()
+
+        IF ZLevels.GetVisibility(0) > 0 THEN
+            marker_w = (20 * overlay_zoom) / 100
+            marker_h = (12 * overlay_zoom) / 100
+            IF marker_w < 10 THEN marker_w = 10 END IF
+            IF marker_h < 6 THEN marker_h = 6 END IF
+
+            agent_idx = 1
+            WHILE agent_idx <= Agents.GetAgentCount()
+                sx = WorldToScreenX(Agents.GetAgentX(agent_idx), cam_x, overlay_zoom)
+                sy = WorldToScreenY(Agents.GetAgentY(agent_idx), cam_y, overlay_zoom)
+                rect_x = sx - marker_w / 2
+                rect_y = sy - marker_h / 2
+                IF Agents.IsAgentDrafted(agent_idx) = 1 THEN
+                    COLOR $FFAA44
+                    DRAW RECT rect_x, rect_y, marker_w, marker_h
+                    FILL RECT sx - 2, rect_y - 6, 5, 3
+                END IF
+                IF Agents.IsAgentSelected(agent_idx) = 1 THEN
+                    COLOR $55DDFF
+                    DRAW RECT rect_x - 2, rect_y - 2, marker_w + 4, marker_h + 4
+                END IF
+                agent_idx = agent_idx + 1
+            END WHILE
+        END IF
+
+        IF Controls.IsSelectionDragging() = 1 THEN
+            box_x0 = Controls.GetSelectionStartX()
+            box_y0 = Controls.GetSelectionStartY()
+            box_x1 = Controls.GetSelectionEndX()
+            box_y1 = Controls.GetSelectionEndY()
+            IF box_x0 > box_x1 THEN
+                LET swap_x AS S32 = box_x0
+                box_x0 = box_x1
+                box_x1 = swap_x
+            END IF
+            IF box_y0 > box_y1 THEN
+                LET swap_y AS S32 = box_y0
+                box_y0 = box_y1
+                box_y1 = swap_y
+            END IF
+            IF Controls.IsSelectionSubtracting() = 1 THEN
+                COLOR $FF8888
+            ELSE
+                COLOR $55DDFF
+            END IF
+            DRAW RECT box_x0, box_y0, box_x1 - box_x0 + 1, box_y1 - box_y0 + 1
+        END IF
+
+        IF Controls.IsUIVisible() THEN
+            food_s = S32(Colony.GetFoodCount())
+            lvl_s = S32(Colony.GetColonyLevel())
+            a_s = S32(Agents.GetAgentCount())
+            b_s = S32(Gathering.GetBerryCount())
+            wood_s = S32(Colony.GetWoodCount())
+            stone_s = S32(Colony.GetStoneCount())
+            hour_s = S32(hour)
+            min_s = S32(minute)
+            season_s = S32(season)
+            weather_s = S32(weather)
+            zoom_s = Controls.GetZoom()
+            frame_s = S32(frame_count)
+            is_night = 0
+            IF day_clock > day_len / 2 THEN is_night = 1 END IF
+
+            COLOR $FFFFFF
+            DRAW TEXT(8, 8, "TIME: " | hour_s | ":" | min_s)
+            DRAW TEXT(8, 24, "FOOD: " | food_s)
+            DRAW TEXT(8, 40, "LEVEL: " | lvl_s)
+            DRAW TEXT(8, 56, "COLONISTS: " | a_s)
+            DRAW TEXT(8, 72, "BERRIES: " | b_s)
+            DRAW TEXT(8, 88, "WOOD: " | wood_s)
+            DRAW TEXT(8, 104, "STONE: " | stone_s)
+            DRAW TEXT(8, 120, "SEASON: " | season_s)
+            DRAW TEXT(8, 136, "WEATHER: " | weather_s)
+
+            IF is_night THEN
+                COLOR $8888FF
+                DRAW TEXT(8, 152, "NIGHT")
+            END IF
+
+            COLOR $FFFFFF
+            DRAW TEXT(8, 168, "ZOOM: " | zoom_s)
+
+            IF Controls.IsBuildMode() THEN
+                COLOR $88AAFF
+                DRAW TEXT(8, 184, "BUILD MODE [1-4]:TYPE  ENTER:PLACE")
+                bk_s = S32(Buildings.GetBuildKind())
+                DRAW TEXT(8, 200, "CURRENT: " | bk_s)
+            ELSE
+                COLOR $55DDFF
+                DRAW TEXT(8, 184, "LMB:SELECT  SHIFT+LMB:DESELECT  G:DRAFT  RMB:MOVE")
+            END IF
+
+            IF Controls.IsPaused() THEN
+                COLOR $FF4444
+                DRAW TEXT(8, scr_h - 16, "PAUSED")
+            ELSE
+                spd_s = S32(Controls.GetTimeSpeed())
+                IF spd_s = 1 THEN
+                    COLOR $88CC88
+                    DRAW TEXT(8, scr_h - 16, "1X SPEED")
+                ELSE
+                    IF spd_s = 2 THEN
+                        COLOR $FFAA44
+                        DRAW TEXT(8, scr_h - 16, "2X SPEED")
+                    ELSE
+                        IF spd_s = 3 THEN
+                            COLOR $FF6644
+                            DRAW TEXT(8, scr_h - 16, "4X SPEED")
+                        ELSE
+                            IF spd_s = 4 THEN
+                                COLOR $FF2222
+                                DRAW TEXT(8, scr_h - 16, "8X SPEED")
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+            COLOR $88AACC
+            DRAW TEXT(8, scr_h - 32, "WASD:MOVE  Q/E:LAYERS  B:BUILD  H:UI  SPACE:PAUSE  1-4:SPEED  R/T:ZOOM  F:FULLSCREEN")
+            IF Settings.IsShowFPS() = 1 THEN
+                DRAW TEXT(8, scr_h - 48, "FRAME: " | frame_s)
+                COLOR $FFAA00
+                DRAW TEXT(8, scr_h - 64, "LAYER: " | cam_z)
+            END IF
+        END IF
+
+    END PROCEDURE
+
+    FUNCTION GetFrameCount() AS U32
+        RETURN frame_count
+    END FUNCTION
+
+    PROCEDURE SetFrameCount(value AS U32)
+        frame_count = value
+    END PROCEDURE
+END MODULE

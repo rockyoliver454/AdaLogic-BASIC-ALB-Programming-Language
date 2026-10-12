@@ -1,0 +1,63 @@
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+
+LET cs AS F64 = 0.0
+LET sn AS F64 = 0.0
+LET st AS S32 = 0
+LET gfx AS S64 = 0
+LET vb AS S64 = 0
+LET pipe AS S64 = 0
+LET verts AS S64 = 0
+LET i AS S32 = 0
+LET rot AS F64 = 0.5
+
+PRINT "albt fasm mini start"
+LET cs = COS(rot)
+LET sn = SIN(rot)
+PRINT "regs mangled ok"
+
+LET gfx = gfx_init(640, 480)
+IF gfx = 0 THEN
+  PRINT "gfx_init FAIL"
+ELSE
+  LET verts = gfx_alloc_memory(84)
+  CALL gfx_write_f32(verts, 0, 0.0)
+  CALL gfx_write_f32(verts, 1, 0.7)
+  CALL gfx_write_f32(verts, 2, 0.0)
+  CALL gfx_write_f32(verts, 3, 0.2)
+  CALL gfx_write_f32(verts, 4, 0.8)
+  CALL gfx_write_f32(verts, 5, 1.0)
+  CALL gfx_write_f32(verts, 6, 1.0)
+  CALL gfx_write_f32(verts, 7, -0.7)
+  CALL gfx_write_f32(verts, 8, -0.6)
+  CALL gfx_write_f32(verts, 9, 0.0)
+  CALL gfx_write_f32(verts, 10, 1.0)
+  CALL gfx_write_f32(verts, 11, 0.3)
+  CALL gfx_write_f32(verts, 12, 0.2)
+  CALL gfx_write_f32(verts, 13, 1.0)
+  CALL gfx_write_f32(verts, 14, 0.7)
+  CALL gfx_write_f32(verts, 15, -0.6)
+  CALL gfx_write_f32(verts, 16, 0.0)
+  CALL gfx_write_f32(verts, 17, 0.3)
+  CALL gfx_write_f32(verts, 18, 1.0)
+  CALL gfx_write_f32(verts, 19, 0.2)
+  CALL gfx_write_f32(verts, 20, 1.0)
+  LET vb = gfx_buffer_create(gfx, 84, #GFX_BUFFER_USAGE_DYNAMIC)
+  CALL gfx_buffer_update(gfx, vb, 0, 84, verts)
+  LET pipe = gfx_pipeline_create(gfx, 0, 0, #GFX_TOPOLOGY_TRIANGLELIST)
+  CALL gfx_pipeline_bind(gfx, pipe)
+  CALL gfx_bind_vertex_buffer(gfx, vb)
+  FOR i = 1 TO 90 THEN
+    CALL gfx_poll_events()
+    LET st = gfx_begin_frame(gfx)
+    LET st = gfx_clear(gfx, 0.05, 0.15, 0.35, 1.0)
+    CALL gfx_draw_arrays(gfx, 3, 0)
+    LET st = gfx_end_frame(gfx, 1)
+  END FOR
+  CALL gfx_buffer_destroy(gfx, vb)
+  CALL gfx_free_memory(verts)
+  CALL gfx_shutdown(gfx)
+  PRINT "albt fasm mini OK blue+triangle"
+END IF
+END

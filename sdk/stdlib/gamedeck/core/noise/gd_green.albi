@@ -1,0 +1,60 @@
+-- Twin of Ada core_noise_green. Bandpass-ish: pink + blue formulas, no other noise modules.
+VERSION 1.0
+
+DECLARE MODULE GdGreen
+    FUNCTION GreenAt(x AS S32, y AS S32, seed AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdGreen
+
+    FUNCTION GreenAt(x AS S32, y AS S32, seed AS S32) AS S32
+        LET o0 AS S32 = 0
+        LET o1 AS S32 = 0
+        LET o2 AS S32 = 0
+        LET o3 AS S32 = 0
+        LET pink AS S32 = 0
+        LET w AS S32 = 0
+        LET wp AS S32 = 0
+        LET blue AS S32 = 0
+        LET g AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        o0 = GdHash.ByteOf(x / 8, y / 8, seed)
+        o1 = GdHash.ByteOf(x / 4, y / 4, seed + 1)
+        o2 = GdHash.ByteOf(x / 2, y / 2, seed + 2)
+        o3 = GdHash.ByteOf(x, y, seed + 3)
+        pink = (o0 * 8 + o1 * 4 + o2 * 2 + o3) / 15
+        w = GdHash.ByteOf(x, y, seed)
+        wp = GdHash.ByteOf(x - 1, y, seed)
+        blue = w - wp + 128
+        g = (pink + blue) / 2
+        RETURN GdVec2.ClipI(g, 0, 255)
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        a = GreenAt(0, 0, 3)
+        b = GreenAt(40, 24, 3)
+        IF a = b THEN
+            RETURN 0
+        END IF
+        IF a < 0 THEN
+            RETURN 0
+        END IF
+        IF a > 255 THEN
+            RETURN 0
+        END IF
+        IF b < 0 THEN
+            RETURN 0
+        END IF
+        IF b > 255 THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+END MODULE

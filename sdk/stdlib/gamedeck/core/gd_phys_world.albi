@@ -1,0 +1,163 @@
+-- Twin of Ada core_physics world. 2D AABB SoA, Euler, overlap push. Caps 64.
+VERSION 1.0
+
+DECLARE MODULE GdPhysWorld
+    PROCEDURE Reset()
+    FUNCTION AddBody(x AS S32, y AS S32, bw AS S32, bh AS S32, kind AS S32) AS S32
+    PROCEDURE SetVel(id AS S32, vxn AS S32, vyn AS S32)
+    PROCEDURE StepWorld()
+    FUNCTION PosX(id AS S32) AS S32
+    FUNCTION PosY(id AS S32) AS S32
+    FUNCTION CountN() AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdPhysWorld
+
+    STRICT px[64] AS S32
+    STRICT py[64] AS S32
+    STRICT vx[64] AS S32
+    STRICT vy[64] AS S32
+    STRICT bw[64] AS S32
+    STRICT bh[64] AS S32
+    STRICT kind[64] AS S32
+    LET n AS S32 = 0
+
+    PROCEDURE Reset()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 64
+            kind[i] = 0
+            i = i + 1
+        END WHILE
+        n = 0
+    END PROCEDURE
+
+    FUNCTION AddBody(x AS S32, y AS S32, boxw AS S32, boxh AS S32, k AS S32) AS S32
+        LET i AS S32 = 1
+        ASSERT(boxw > 0)
+        ASSERT(boxh > 0)
+        WHILE i <= 64
+            IF kind[i] = 0 THEN
+                px[i] = x
+                py[i] = y
+                vx[i] = 0
+                vy[i] = 0
+                bw[i] = boxw
+                bh[i] = boxh
+                kind[i] = k
+                n = n + 1
+                RETURN i
+            END IF
+            i = i + 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    PROCEDURE SetVel(id AS S32, vxn AS S32, vyn AS S32) REQUIRE id >= 1
+        ASSERT(id >= 1)
+        ASSERT(id <= 64)
+        vx[id] = vxn
+        vy[id] = vyn
+    END PROCEDURE
+
+    PROCEDURE PushPair(a AS S32, b AS S32)
+        LET dy AS S32 = 0
+        ASSERT(a >= 1)
+        ASSERT(b >= 1)
+        IF COLLIDE_RECT(px[a], py[a], bw[a], bh[a], px[b], py[b], bw[b], bh[b]) THEN
+            dy = (py[a] + bh[a]) - py[b]
+            IF dy > 0 THEN
+                IF kind[a] = 2 THEN
+                    py[a] = py[a] - dy
+                    IF vy[a] > 0 THEN
+                        vy[a] = 0 - vy[a] / 2
+                    END IF
+                END IF
+            END IF
+        END IF
+    END PROCEDURE
+
+    PROCEDURE Solve()
+        LET i AS S32 = 1
+        LET j AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 64
+            IF kind[i] = 2 THEN
+                j = 1
+                WHILE j <= 64
+                    IF kind[j] = 1 THEN
+                        PushPair(i, j)
+                    END IF
+                    j = j + 1
+                END WHILE
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE StepWorld()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 64
+            IF kind[i] = 2 THEN
+                vy[i] = vy[i] + 1
+                IF vy[i] > 8 THEN
+                    vy[i] = 8
+                END IF
+                px[i] = px[i] + vx[i]
+                py[i] = py[i] + vy[i]
+            END IF
+            i = i + 1
+        END WHILE
+        Solve()
+    END PROCEDURE
+
+    FUNCTION PosX(id AS S32) AS S32 REQUIRE id >= 1
+        ASSERT(id >= 1)
+        ASSERT(id <= 64)
+        RETURN px[id]
+    END FUNCTION
+
+    FUNCTION PosY(id AS S32) AS S32 REQUIRE id >= 1
+        ASSERT(id >= 1)
+        ASSERT(id <= 64)
+        RETURN py[id]
+    END FUNCTION
+
+    FUNCTION CountN() AS S32
+        ASSERT(n >= 0)
+        ASSERT(n <= 64)
+        RETURN n
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET f AS S32 = 0
+        LET k AS S32 = 0
+        LET y0 AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        Reset()
+        f = AddBody(10, 80, 40, 8, 1)
+        a = AddBody(16, 10, 8, 8, 2)
+        SetVel(a, 0, 0)
+        y0 = PosY(a)
+        WHILE k < 40
+            StepWorld()
+            k = k + 1
+        END WHILE
+        IF CountN() = 2 THEN
+            IF PosY(a) > y0 THEN
+                IF PosY(a) <= 80 THEN
+                    RETURN 1
+                END IF
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

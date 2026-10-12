@@ -1,0 +1,23 @@
+-- Twin of Ada core_primitives3d. Iso box, no GLSL.
+VERSION 1.0
+
+DECLARE MODULE GdPrim3d
+    PROCEDURE PresentBox(x AS S32, y AS S32, z AS S32)
+END DECLARE MODULE
+
+MODULE GdPrim3d
+
+    PROCEDURE PresentBox(x AS S32, y AS S32, z AS S32)
+        LET px AS S32 = 0
+        LET py AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        px = GdIso.ProjX(x, y)
+        py = GdIso.ProjY(x, y) - z
+        COLOR $334155
+        FILL RECT px, py, 12, 8
+        COLOR $94A3B8
+        FILL RECT px + 2, py - 4, 12, 4
+    END PROCEDURE
+
+END MODULE

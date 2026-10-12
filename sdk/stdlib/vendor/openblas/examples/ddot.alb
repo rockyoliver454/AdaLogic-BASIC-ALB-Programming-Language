@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_openblas.albi"
+
+LET rc = alb_openblas_test_ddot()
+IF rc = 0 THEN
+  PRINT "openblas ddot PASS"
+ELSE
+  PRINT "openblas ddot FAIL " | rc
+END IF
+END

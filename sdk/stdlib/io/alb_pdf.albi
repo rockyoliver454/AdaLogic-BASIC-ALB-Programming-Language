@@ -1,0 +1,235 @@
+-- ============================================================================
+-- ALBPdf — PDF header, /Count, and "xref"
+-- ============================================================================
+-- Bytes 1–4 must be "%PDF". Major() is the digit at byte 6 (%PDF-1.4
+-- → 1). PageN() is the integer after the first "/Count" in the window
+-- (often the Pages tree count, not a catalog walk). SawXref() is 1 if
+-- the four letters "xref" appear.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_pdf.albi"
+--
+-- ProbeBuf()  0 after a valid %PDF- header even if /Count is missing
+-- (PageN stays 0). Flate content streams and xref tables are not
+-- decoded. Window 8192. Feed with ALBWin.LoadPath (binary is safer
+-- than LoadText if binary streams sit in the first 8 KiB).
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBPdf
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION Major() AS S32
+    FUNCTION Minor() AS S32
+    FUNCTION PageN() AS S32
+    FUNCTION ObjectCount() AS S32
+    FUNCTION StartXref() AS S32
+    FUNCTION SawXref() AS S32
+    FUNCTION SawXrefStream() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBPdf
+
+    -- 1-based window. maj from %PDF-n. npage from /Count. xrefn from "xref".
+    STRICT src[8192] AS U8
+    LET srclen AS S32 = 0
+    LET maj AS S32 = 0
+    LET min AS S32 = 0
+    LET npage AS S32 = 0
+    LET objn AS S32 = 0
+    LET startx AS S32 = 0
+    LET xrefn AS S32 = 0
+    LET xrefstream AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        maj = 0
+        min = 0
+        npage = 0
+        objn = 0
+        startx = 0
+        xrefn = 0
+        xrefstream = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 8192 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION Dig(c AS S32) AS S32
+        IF c >= 48 THEN
+            IF c <= 57 THEN
+                RETURN 1
+            END IF
+        END IF
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        LET i AS S32 = 1
+        LET c AS S32 = 0
+        LET v AS S32 = 0
+        maj = 0
+        min = 0
+        npage = 0
+        objn = 0
+        startx = 0
+        xrefn = 0
+        xrefstream = 0
+        IF srclen < 8 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        -- 37 80 68 70 = "%PDF"
+        IF src[1] <> 37 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[2] <> 80 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[3] <> 68 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[4] <> 70 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[6] >= 48 THEN
+            IF src[6] <= 57 THEN
+                maj = CAST(src[6] AS S32) - 48
+            END IF
+        END IF
+        IF src[8] >= 48 THEN
+            IF src[8] <= 57 THEN
+                min = CAST(src[8] AS S32) - 48
+            END IF
+        END IF
+        WHILE i + 6 <= srclen
+            -- 47 = '/'. Next five bytes "Count" → decimal page count.
+            IF src[i] = 47 THEN
+                IF src[i + 1] = 67 THEN
+                    IF src[i + 2] = 111 THEN
+                        IF src[i + 3] = 117 THEN
+                            IF src[i + 4] = 110 THEN
+                                IF src[i + 5] = 116 THEN
+                                    v = 0
+                                    c = i + 6
+                                    WHILE c <= srclen
+                                        IF Dig(CAST(src[c] AS S32)) <> 0 THEN
+                                            v = v * 10 + CAST(src[c] AS S32) - 48
+                                            c = c + 1
+                                        ELSE
+                                            IF CAST(src[c] AS S32) = 32 THEN
+                                                c = c + 1
+                                            ELSE
+                                                c = srclen + 1
+                                            END IF
+                                        END IF
+                                    END WHILE
+                                    npage = v
+                                END IF
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+            -- 120 114 101 102 = "xref"
+            IF src[i] = 120 THEN
+                IF src[i + 1] = 114 THEN
+                    IF src[i + 2] = 101 THEN
+                        IF src[i + 3] = 102 THEN
+                            xrefn = 1
+                        END IF
+                    END IF
+                END IF
+            END IF
+            IF src[i] = 32 THEN
+                IF src[i + 1] = 111 THEN
+                    IF src[i + 2] = 98 THEN
+                        IF src[i + 3] = 106 THEN objn = objn + 1 END IF
+                    END IF
+                END IF
+            END IF
+            IF i + 10 <= srclen THEN
+                IF src[i] = 115 AND src[i + 1] = 116 AND src[i + 2] = 97 AND src[i + 3] = 114 AND src[i + 4] = 116 AND src[i + 5] = 120 AND src[i + 6] = 114 AND src[i + 7] = 101 AND src[i + 8] = 102 THEN
+                    c = i + 9
+                    WHILE c <= srclen
+                        IF src[c] = 10 OR src[c] = 13 OR src[c] = 32 THEN
+                            c = c + 1
+                        ELSE
+                            c = srclen + 1
+                        END IF
+                    END WHILE
+                    c = i + 9
+                    WHILE c <= srclen
+                        IF src[c] = 10 OR src[c] = 13 OR src[c] = 32 THEN
+                            c = c + 1
+                        ELSE
+                            v = 0
+                            WHILE c <= srclen
+                                IF Dig(CAST(src[c] AS S32)) <> 0 THEN
+                                    v = v * 10 + CAST(src[c] AS S32) - 48
+                                    c = c + 1
+                                ELSE
+                                    c = srclen + 1
+                                END IF
+                            END WHILE
+                        END IF
+                    END WHILE
+                    startx = v
+                END IF
+                IF src[i] = 47 AND src[i + 1] = 84 AND src[i + 2] = 121 AND src[i + 3] = 112 AND src[i + 4] = 101 AND src[i + 5] = 32 AND src[i + 6] = 47 AND src[i + 7] = 88 AND src[i + 8] = 82 AND src[i + 9] = 101 AND src[i + 10] = 102 THEN
+                    xrefstream = 1
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION Major() AS S32
+        RETURN maj
+    END FUNCTION
+
+    FUNCTION Minor() AS S32
+        RETURN min
+    END FUNCTION
+
+    FUNCTION PageN() AS S32
+        RETURN npage
+    END FUNCTION
+
+    FUNCTION ObjectCount() AS S32
+        RETURN objn
+    END FUNCTION
+
+    FUNCTION StartXref() AS S32
+        RETURN startx
+    END FUNCTION
+
+    FUNCTION SawXref() AS S32
+        RETURN xrefn
+    END FUNCTION
+
+    FUNCTION SawXrefStream() AS S32
+        RETURN xrefstream
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

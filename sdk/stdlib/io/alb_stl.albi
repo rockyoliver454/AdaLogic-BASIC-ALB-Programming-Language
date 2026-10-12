@@ -1,0 +1,102 @@
+-- ============================================================================
+-- ALBStl — STL ASCII or binary triangle count
+-- ============================================================================
+-- ASCII: starts with "solid". Binary: 80-byte header + U32 LE triangle
+-- count (no "solid" at the front).
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_stl.albi"
+--
+-- ProbeBuf()   0 ok. IsAscii() 1 or 0. TriCount() for binary; ASCII
+--              reports 0 triangles (count the `facet` lines yourself).
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBStl
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION IsAscii() AS S32
+    FUNCTION TriCount() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBStl
+
+    -- 1-based window. Binary STL: 80-byte header + U32 triangle count.
+    STRICT src[8192] AS U8
+    LET srclen AS S32 = 0
+    LET ascii AS S32 = 0
+    LET ntri AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        ascii = 0
+        ntri = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 8192 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION U32LE(i AS S32) AS S32
+        RETURN CAST(src[i] AS S32) + CAST(src[i + 1] AS S32) * 256 + CAST(src[i + 2] AS S32) * 65536 + CAST(src[i + 3] AS S32) * 16777216
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        ascii = 0
+        ntri = 0
+        IF srclen < 6 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        IF src[1] = 115 THEN
+            IF src[2] = 111 THEN
+                IF src[3] = 108 THEN
+                    IF src[4] = 105 THEN
+                        IF src[5] = 100 THEN
+                            ascii = 1
+                            lastst = 0
+                            RETURN lastst
+                        END IF
+                    END IF
+                END IF
+            END IF
+        END IF
+        IF srclen < 84 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        ntri = U32LE(81)
+        IF ntri < 0 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF ntri > 4096 THEN
+            lastst = 2
+            RETURN lastst
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION IsAscii() AS S32
+        RETURN ascii
+    END FUNCTION
+
+    FUNCTION TriCount() AS S32
+        RETURN ntri
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,41 @@
+alb_gfx=300  alb_openblas=200  alb_nuklear=200
+
+Opening alb_gfx + Nuklear live overhaul...
+(GPU gates MSAA/tex/timestamps are soft-skipped on the RHI path)
+
+live v2 ready (STAR default). ESC / Quit / close a window to exit.
+note: MSAA/tex/timestamps toggles are UI-only on alb_gfx RHI
+f=30 shape=2 blas=0.901 inst=1 | DGEMM+DGEMV nrm2=0.901
+f=60 shape=2 blas=0.867 inst=1 | DGEMM+DGEMV nrm2=0.867
+f=90 shape=2 blas=0.766 inst=1 | DGEMM+DGEMV nrm2=0.766
+f=120 shape=2 blas=0.624 inst=1 | DGEMM+DGEMV nrm2=0.624
+f=150 shape=2 blas=0.444 inst=1 | DGEMM+DGEMV nrm2=0.444
+f=180 shape=2 blas=0.236 inst=1 | DGEMM+DGEMV nrm2=0.236
+f=210 shape=2 blas=0.018 inst=1 | DGEMM+DGEMV nrm2=0.018
+f=240 shape=2 blas=0.210 inst=1 | DGEMM+DGEMV nrm2=0.210
+f=270 shape=2 blas=0.420 inst=1 | DGEMM+DGEMV nrm2=0.420
+f=300 shape=2 blas=0.604 inst=1 | DGEMM+DGEMV nrm2=0.604
+f=330 shape=2 blas=0.751 inst=1 | DGEMM+DGEMV nrm2=0.751
+f=360 shape=2 blas=0.851 inst=1 | DGEMM+DGEMV nrm2=0.851
+f=390 shape=2 blas=0.898 inst=1 | DGEMM+DGEMV nrm2=0.898
+f=420 shape=2 blas=0.889 inst=1 | DGEMM+DGEMV nrm2=0.889
+f=450 shape=2 blas=0.819 inst=1 | DGEMM+DGEMV nrm2=0.819
+f=480 shape=2 blas=0.701 inst=1 | DGEMM+DGEMV nrm2=0.701
+f=510 shape=2 blas=0.550 inst=1 | DGEMM+DGEMV nrm2=0.550
+f=540 shape=2 blas=0.357 inst=1 | DGEMM+DGEMV nrm2=0.357
+f=570 shape=2 blas=0.141 inst=1 | DGEMM+DGEMV nrm2=0.141
+f=600 shape=2 blas=0.085 inst=1 | DGEMM+DGEMV nrm2=0.085
+f=630 shape=2 blas=0.691 inst=1 | DGEMM+DGEMV nrm2=0.691
+f=660 shape=2 blas=0.813 inst=1 | DGEMM+DGEMV nrm2=0.813
+f=690 shape=2 blas=0.884 inst=1 | DGEMM+DGEMV nrm2=0.884
+f=720 shape=2 blas=0.900 inst=1 | DGEMM+DGEMV nrm2=0.900
+f=750 shape=2 blas=0.860 inst=1 | DGEMM+DGEMV nrm2=0.860
+f=780 shape=2 blas=0.767 inst=1 | DGEMM+DGEMV nrm2=0.767
+f=810 shape=2 blas=0.626 inst=1 | DGEMM+DGEMV nrm2=0.626
+f=840 shape=2 blas=0.446 inst=1 | DGEMM+DGEMV nrm2=0.446
+f=870 shape=2 blas=0.238 inst=1 | DGEMM+DGEMV nrm2=0.238
+f=900 shape=2 blas=0.019 inst=1 | DGEMM+DGEMV nrm2=0.019
+f=930 shape=2 blas=0.208 inst=1 | DGEMM+DGEMV nrm2=0.208
+f=960 shape=2 blas=0.418 inst=1 | DGEMM+DGEMV nrm2=0.418
+f=990 shape=2 blas=0.603 inst=1 | DGEMM+DGEMV nrm2=0.603
+f=1020 shape=2 blas=0.750 inst=1 | DGEMM+DGEMV nrm2=0.750

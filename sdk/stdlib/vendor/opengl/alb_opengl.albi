@@ -1,0 +1,273 @@
+-- ============================================================================
+-- alb_opengl.albi â€” REAL thin ALB binding for vendor/opengl (ABI 0.3)
+-- ============================================================================
+-- Place alb_opengl.dll beside the program (uses system opengl32.dll).
+--   INCLUDE "../stdlib/vendor/opengl/alb_opengl.albi"
+--
+-- DLL = WGL lifecycle + raw alb_gl* only. Application builds demos itself.
+-- Handles are opaque S64. Status 0 = OK.
+-- ALB | is STRING CONCAT (not bitwise OR).
+-- ============================================================================
+
+VERSION 0.3
+
+-- Status
+#ALB_OPENGL_OK = 0
+#ALB_OPENGL_ERR_INVALID_ARG = 1
+#ALB_OPENGL_ERR_NO_LOADER = 2
+#ALB_OPENGL_ERR_WINDOW = 3
+#ALB_OPENGL_ERR_DC = 4
+#ALB_OPENGL_ERR_PIXEL_FORMAT = 5
+#ALB_OPENGL_ERR_CONTEXT = 6
+#ALB_OPENGL_ERR_CURRENT = 7
+#ALB_OPENGL_ERR_HWND = 8
+#ALB_OPENGL_ERR_NOT_READY = 9
+#ALB_OPENGL_ERR_INTERNAL = 100
+
+-- GL constants (ALB_GL_*)
+#ALB_GL_FALSE = 0
+#ALB_GL_TRUE = 1
+#ALB_GL_FLOAT = 5126
+#ALB_GL_UNSIGNED_BYTE = 5121
+#ALB_GL_UNSIGNED_INT = 5125
+#ALB_GL_UNSIGNED_SHORT = 5123
+
+#ALB_GL_POINTS = 0
+#ALB_GL_LINES = 1
+#ALB_GL_LINE_LOOP = 2
+#ALB_GL_LINE_STRIP = 3
+#ALB_GL_TRIANGLES = 4
+#ALB_GL_TRIANGLE_STRIP = 5
+#ALB_GL_TRIANGLE_FAN = 6
+#ALB_GL_QUADS = 7
+
+#ALB_GL_DEPTH_BUFFER_BIT = 256
+#ALB_GL_STENCIL_BUFFER_BIT = 1024
+#ALB_GL_COLOR_BUFFER_BIT = 16384
+
+#ALB_GL_NEVER = 512
+#ALB_GL_LESS = 513
+#ALB_GL_EQUAL = 514
+#ALB_GL_LEQUAL = 515
+#ALB_GL_GREATER = 516
+#ALB_GL_NOTEQUAL = 517
+#ALB_GL_GEQUAL = 518
+#ALB_GL_ALWAYS = 519
+
+#ALB_GL_ZERO = 0
+#ALB_GL_ONE = 1
+#ALB_GL_SRC_ALPHA = 770
+#ALB_GL_ONE_MINUS_SRC_ALPHA = 771
+
+#ALB_GL_FRONT = 1028
+#ALB_GL_BACK = 1029
+#ALB_GL_FRONT_AND_BACK = 1032
+#ALB_GL_CW = 2304
+#ALB_GL_CCW = 2305
+#ALB_GL_POINT = 6912
+#ALB_GL_LINE = 6913
+#ALB_GL_FILL = 6914
+
+#ALB_GL_DEPTH_TEST = 2929
+#ALB_GL_CULL_FACE = 2884
+#ALB_GL_BLEND = 3042
+#ALB_GL_SCISSOR_TEST = 3089
+#ALB_GL_TEXTURE_2D = 3553
+#ALB_GL_LIGHTING = 2896
+
+#ALB_GL_MODELVIEW = 5888
+#ALB_GL_PROJECTION = 5889
+#ALB_GL_TEXTURE = 5890
+
+#ALB_GL_VERTEX_ARRAY = 32884
+#ALB_GL_NORMAL_ARRAY = 32885
+#ALB_GL_COLOR_ARRAY = 32886
+#ALB_GL_TEXTURE_COORD_ARRAY = 32888
+
+#ALB_GL_TEXTURE_MAG_FILTER = 10240
+#ALB_GL_TEXTURE_MIN_FILTER = 10241
+#ALB_GL_NEAREST = 9728
+#ALB_GL_LINEAR = 9729
+#ALB_GL_RGBA = 6408
+#ALB_GL_RGB = 6407
+#ALB_GL_DEPTH_COMPONENT = 6402
+
+#ALB_GL_ARRAY_BUFFER = 34962
+#ALB_GL_ELEMENT_ARRAY_BUFFER = 34963
+#ALB_GL_STREAM_DRAW = 35040
+#ALB_GL_STATIC_DRAW = 35044
+#ALB_GL_DYNAMIC_DRAW = 35048
+
+#ALB_GL_FRAGMENT_SHADER = 35632
+#ALB_GL_VERTEX_SHADER = 35633
+#ALB_GL_COMPILE_STATUS = 35713
+#ALB_GL_LINK_STATUS = 35714
+
+#ALB_GL_FRAMEBUFFER = 36160
+#ALB_GL_RENDERBUFFER = 36161
+#ALB_GL_COLOR_ATTACHMENT0 = 36064
+#ALB_GL_DEPTH_ATTACHMENT = 36096
+#ALB_GL_FRAMEBUFFER_COMPLETE = 36053
+
+#ALB_GL_TEXTURE0 = 33984
+#ALB_GL_NO_ERROR = 0
+#ALB_GL_VENDOR = 7936
+#ALB_GL_RENDERER = 7937
+#ALB_GL_VERSION = 7938
+
+-- WGL lifecycle
+IMPORT_DLL FUNCTION alb_opengl_version() AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_loader_init() AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_opengl_loader_shutdown() FROM ("alb_opengl.dll")
+
+IMPORT_DLL FUNCTION alb_opengl_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_opengl_device_destroy(device AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_device_native(device AS S64) AS S64 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_device_hdc(device AS S64) AS S64 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_device_hwnd(device AS S64) AS S64 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_device_make_current(device AS S64) AS S32 FROM ("alb_opengl.dll")
+
+IMPORT_DLL FUNCTION alb_opengl_context_create(desc AS S64, out_ctx AS S64) AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_context_create_simple(width AS S32, height AS S32) AS S64 FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_opengl_context_destroy(ctx AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_context_resize(ctx AS S64, width AS S32, height AS S32) AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_context_begin_frame(ctx AS S64) AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_context_clear(ctx AS S64, r AS F64, g AS F64, b AS F64, a AS F64) AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_context_end_frame(ctx AS S64, vsync AS S32) AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_context_device(ctx AS S64) AS S64 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_context_width(ctx AS S64) AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_context_height(ctx AS S64) AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_opengl_context_should_close(ctx AS S64) AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_opengl_context_set_should_close(ctx AS S64, v AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_opengl_poll_events() FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_opengl_sleep_ms(ms AS S32) FROM ("alb_opengl.dll")
+
+IMPORT_DLL PROCEDURE alb_gl_load() FROM ("alb_opengl.dll")
+
+-- Memory helpers
+IMPORT_DLL FUNCTION alb_gl_alloc(size AS S64) AS S64 FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_gl_free(data_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_gl_write_f32(data_ptr AS S64, index AS S32, value AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_gl_write_i32(data_ptr AS S64, index AS S32, value AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_gl_read_u32(data_ptr AS S64, index AS S32) AS S32 FROM ("alb_opengl.dll")
+
+-- State
+IMPORT_DLL PROCEDURE alb_glViewport(x AS S32, y AS S32, w AS S32, h AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glClearColor(r AS F64, g AS F64, b AS F64, a AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glClear(mask AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glEnable(cap AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDisable(cap AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDepthFunc(func AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDepthMask(flag AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glColorMask(r AS S32, g AS S32, b AS S32, a AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glScissor(x AS S32, y AS S32, w AS S32, h AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glBlendFunc(sfactor AS S32, dfactor AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glLineWidth(width AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glPointSize(size AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glCullFace(mode AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glFrontFace(mode AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glPolygonMode(face AS S32, mode AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_glGetError() AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_glGetString(name AS S32) AS S64 FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glFlush() FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glFinish() FROM ("alb_opengl.dll")
+
+-- Immediate
+IMPORT_DLL PROCEDURE alb_glBegin(mode AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glEnd() FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glVertex2f(x AS F64, y AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glVertex3f(x AS F64, y AS F64, z AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glColor3f(r AS F64, g AS F64, b AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glColor4f(r AS F64, g AS F64, b AS F64, a AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glTexCoord2f(s AS F64, t AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glNormal3f(x AS F64, y AS F64, z AS F64) FROM ("alb_opengl.dll")
+
+-- Matrix
+IMPORT_DLL PROCEDURE alb_glMatrixMode(mode AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glLoadIdentity() FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glOrtho(left AS F64, right AS F64, bottom AS F64, top AS F64, zNear AS F64, zFar AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glFrustum(left AS F64, right AS F64, bottom AS F64, top AS F64, zNear AS F64, zFar AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glPushMatrix() FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glPopMatrix() FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glTranslatef(x AS F64, y AS F64, z AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glRotatef(angle AS F64, x AS F64, y AS F64, z AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glScalef(x AS F64, y AS F64, z AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glMultMatrixf(m_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glLoadMatrixf(m_ptr AS S64) FROM ("alb_opengl.dll")
+
+-- Client arrays
+IMPORT_DLL PROCEDURE alb_glEnableClientState(cap AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDisableClientState(cap AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glVertexPointer(size AS S32, gltype AS S32, stride_n AS S32, data_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glColorPointer(size AS S32, gltype AS S32, stride_n AS S32, data_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glTexCoordPointer(size AS S32, gltype AS S32, stride_n AS S32, data_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glNormalPointer(gltype AS S32, stride_n AS S32, data_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDrawArrays(mode AS S32, first AS S32, count AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDrawElements(mode AS S32, count AS S32, gltype AS S32, indices_ptr AS S64) FROM ("alb_opengl.dll")
+
+-- Textures
+IMPORT_DLL PROCEDURE alb_glGenTextures(n AS S32, textures_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDeleteTextures(n AS S32, textures_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glBindTexture(target AS S32, texture AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glTexImage2D(target AS S32, level AS S32, internalformat AS S32, width AS S32, height AS S32, border AS S32, format AS S32, gltype AS S32, pixels_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glTexParameteri(target AS S32, pname AS S32, param AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glTexParameterf(target AS S32, pname AS S32, param AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glActiveTexture(texture AS S32) FROM ("alb_opengl.dll")
+
+-- Buffers (soft)
+IMPORT_DLL PROCEDURE alb_glGenBuffers(n AS S32, buffers_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDeleteBuffers(n AS S32, buffers_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glBindBuffer(target AS S32, buffer_id AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glBufferData(target AS S32, size AS S64, data_ptr AS S64, usage AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glBufferSubData(target AS S32, offset AS S64, size AS S64, data_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_glMapBuffer(target AS S32, access AS S32) AS S64 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_glUnmapBuffer(target AS S32) AS S32 FROM ("alb_opengl.dll")
+
+-- Shaders (soft)
+IMPORT_DLL FUNCTION alb_glCreateShader(gltype AS S32) AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glShaderSource(shader AS S32, count AS S32, string_ptr AS S64, len_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glCompileShader(shader AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDeleteShader(shader AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_glCreateProgram() AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glAttachShader(program AS S32, shader AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glLinkProgram(program AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glUseProgram(program AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDeleteProgram(program AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glGetShaderiv(shader AS S32, pname AS S32, params_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glGetProgramiv(program AS S32, pname AS S32, params_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glGetShaderInfoLog(shader AS S32, maxLength AS S32, length_ptr AS S64, infoLog_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glGetProgramInfoLog(program AS S32, maxLength AS S32, length_ptr AS S64, infoLog_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_glGetAttribLocation(program AS S32, name_ptr AS S64) AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_glGetUniformLocation(program AS S32, name_ptr AS S64) AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glBindAttribLocation(program AS S32, index AS S32, name_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glEnableVertexAttribArray(index AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDisableVertexAttribArray(index AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glVertexAttribPointer(index AS S32, size AS S32, gltype AS S32, normalized AS S32, stride_n AS S32, data_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glUniform1f(location AS S32, v0 AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glUniform2f(location AS S32, v0 AS F64, v1 AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glUniform3f(location AS S32, v0 AS F64, v1 AS F64, v2 AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glUniform4f(location AS S32, v0 AS F64, v1 AS F64, v2 AS F64, v3 AS F64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glUniform1i(location AS S32, v0 AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glUniformMatrix4fv(location AS S32, count AS S32, transpose AS S32, value_ptr AS S64) FROM ("alb_opengl.dll")
+
+-- FBO / query (soft)
+IMPORT_DLL PROCEDURE alb_glGenFramebuffers(n AS S32, ids_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glBindFramebuffer(target AS S32, framebuffer AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDeleteFramebuffers(n AS S32, ids_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glGenRenderbuffers(n AS S32, ids_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glBindRenderbuffer(target AS S32, renderbuffer AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDeleteRenderbuffers(n AS S32, ids_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glRenderbufferStorageMultisample(target AS S32, samples AS S32, internalformat AS S32, width AS S32, height AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glFramebufferRenderbuffer(target AS S32, attachment AS S32, renderbuffertarget AS S32, renderbuffer AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL FUNCTION alb_glCheckFramebufferStatus(target AS S32) AS S32 FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glBlitFramebuffer(srcX0 AS S32, srcY0 AS S32, srcX1 AS S32, srcY1 AS S32, dstX0 AS S32, dstY0 AS S32, dstX1 AS S32, dstY1 AS S32, mask AS S32, filter AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glGenQueries(n AS S32, ids_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDeleteQueries(n AS S32, ids_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glBeginQuery(target AS S32, id AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glEndQuery(target AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glGetQueryObjectuiv(id AS S32, pname AS S32, params_ptr AS S64) FROM ("alb_opengl.dll")
+
+-- Misc
+IMPORT_DLL PROCEDURE alb_glReadPixels(x AS S32, y AS S32, width AS S32, height AS S32, format AS S32, gltype AS S32, pixels_ptr AS S64) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glDrawBuffer(mode AS S32) FROM ("alb_opengl.dll")
+IMPORT_DLL PROCEDURE alb_glReadBuffer(mode AS S32) FROM ("alb_opengl.dll")

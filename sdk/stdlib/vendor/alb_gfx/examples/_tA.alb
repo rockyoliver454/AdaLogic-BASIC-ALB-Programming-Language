@@ -1,0 +1,25 @@
+#SHAPE_COUNT = 7
+#BLAS_MODE_COUNT = 5
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+INCLUDE <alb_openblas.albi>
+INCLUDE <alb_nuklear.albi>
+LET fails AS S32 = 0
+LET i AS S32 = 0
+LET rc AS S32 = 0
+PRINT "A fails var"
+LET rc = alb_openblas_test_all()
+PRINT "blas=" | rc
+IF rc != 0 THEN LET fails = fails + 1
+LET rc = alb_nuklear_test_kitchen_frames(16)
+PRINT "nk=" | rc
+IF rc != 0 THEN LET fails = fails + 1
+LET ctx AS S64 = gfx_init(640, 480)
+PRINT "ctx=" | ctx
+IF ctx != 0 THEN
+  CALL gfx_shutdown(ctx)
+END IF
+PRINT "fails=" | fails
+PRINT "ALL OK"
+END

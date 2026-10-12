@@ -1,0 +1,22 @@
+INCLUDE "AppState.albi"
+IMPORT AppState
+
+MODULE AppState
+    LET game_initialized AS U8 = 0
+
+    PROCEDURE ResetForBoot()
+        game_initialized = 0
+    END PROCEDURE
+
+    PROCEDURE SetGameInitialized(flag AS U8)
+        IF flag > 0 THEN
+            game_initialized = 1
+        ELSE
+            game_initialized = 0
+        END IF
+    END PROCEDURE
+
+    FUNCTION IsGameInitialized() AS U8
+        RETURN game_initialized
+    END FUNCTION
+END MODULE

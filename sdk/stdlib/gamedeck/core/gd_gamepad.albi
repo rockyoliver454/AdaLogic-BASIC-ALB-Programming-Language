@@ -1,0 +1,25 @@
+-- Mouse-as-stick. Twin of core_gamepad_mouse without Raylib.
+VERSION 1.0
+
+DECLARE MODULE GdGamepad
+    FUNCTION StickX() AS S32
+    FUNCTION StickY() AS S32
+END DECLARE MODULE
+
+MODULE GdGamepad
+
+    FUNCTION StickX() AS S32
+        LET v AS S32 = VMOUSE_X
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN v - 160
+    END FUNCTION
+
+    FUNCTION StickY() AS S32
+        LET v AS S32 = VMOUSE_Y
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN v - 100
+    END FUNCTION
+
+END MODULE

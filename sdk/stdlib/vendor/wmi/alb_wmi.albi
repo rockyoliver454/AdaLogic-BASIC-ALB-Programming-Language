@@ -1,0 +1,20 @@
+-- ============================================================================
+-- alb_wmi.albi — thin ALB binding for vendor/wmi (Wbem)
+-- ============================================================================
+VERSION 0.1
+
+IMPORT_DLL FUNCTION alb_wmi_version() AS S32 FROM ("alb_wmi.dll")
+IMPORT_DLL FUNCTION alb_wmi_loader_init() AS S32 FROM ("alb_wmi.dll")
+IMPORT_DLL PROCEDURE alb_wmi_loader_shutdown() FROM ("alb_wmi.dll")
+IMPORT_DLL FUNCTION alb_wmi_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_wmi.dll")
+IMPORT_DLL PROCEDURE alb_wmi_device_destroy(device AS S64) FROM ("alb_wmi.dll")
+IMPORT_DLL FUNCTION alb_wmi_connect(namespace AS S64, out_session AS S64) AS S32 FROM ("alb_wmi.dll")
+IMPORT_DLL PROCEDURE alb_wmi_disconnect(session AS S64) FROM ("alb_wmi.dll")
+IMPORT_DLL FUNCTION alb_wmi_query(session AS S64, wql AS S64, out_enum AS S64) AS S32 FROM ("alb_wmi.dll")
+IMPORT_DLL FUNCTION alb_wmi_enum_next(en AS S64) AS S32 FROM ("alb_wmi.dll")
+IMPORT_DLL FUNCTION alb_wmi_enum_get_string(en AS S64, prop AS S64, buf AS S64, buflen AS S32) AS S32 FROM ("alb_wmi.dll")
+IMPORT_DLL FUNCTION alb_wmi_enum_get_int64(en AS S64, prop AS S64, out_value AS S64) AS S32 FROM ("alb_wmi.dll")
+IMPORT_DLL PROCEDURE alb_wmi_enum_destroy(en AS S64) FROM ("alb_wmi.dll")
+IMPORT_DLL FUNCTION alb_wmi_query_first_string(ns AS S64, wql AS S64, prop AS S64, buf AS S64, buflen AS S32) AS S32 FROM ("alb_wmi.dll")
+IMPORT_DLL FUNCTION alb_wmi_last_hresult() AS S32 FROM ("alb_wmi.dll")
+IMPORT_DLL FUNCTION alb_wmi_test_probe() AS S32 FROM ("alb_wmi.dll")

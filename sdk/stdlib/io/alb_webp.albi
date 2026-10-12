@@ -1,0 +1,101 @@
+-- ============================================================================
+-- ALBWebp — RIFF WebP chunk type
+-- ============================================================================
+-- RIFF....WEBP then Kind(): 1 "VP8 ", 2 "VP8L", 3 "VP8X".
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_webp.albi"
+--
+-- ProbeBuf()  0 ok. VP8 bitstream / lossless decode is not implemented.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBWebp
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION Kind() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBWebp
+
+    -- 1-based window. Four() matches four ASCII bytes. RIFF at 1, WEBP at 9, VP8x at 13.
+    STRICT src[4096] AS U8
+    LET srclen AS S32 = 0
+    LET kindn AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        kindn = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 4096 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION Four(i AS S32, a AS S32, b AS S32, c AS S32, d AS S32) AS S32
+        IF CAST(src[i] AS S32) <> a THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 1] AS S32) <> b THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 2] AS S32) <> c THEN
+            RETURN 0
+        END IF
+        IF CAST(src[i + 3] AS S32) <> d THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+    FUNCTION ProbeBuf() AS S32
+        LET i AS S32 = 13
+        kindn = 0
+        IF srclen < 20 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        -- 82 73 70 70 = RIFF, 87 69 66 80 = WEBP, then VP8 / VP8L / VP8X.
+        IF Four(1, 82, 73, 70, 70) = 0 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF Four(9, 87, 69, 66, 80) = 0 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF Four(13, 86, 80, 56, 32) <> 0 THEN
+            kindn = 1
+        END IF
+        IF Four(13, 86, 80, 56, 76) <> 0 THEN
+            kindn = 2
+        END IF
+        IF Four(13, 86, 80, 56, 88) <> 0 THEN
+            kindn = 3
+        END IF
+        IF kindn = 0 THEN
+            lastst = 5
+            RETURN lastst
+        END IF
+        lastst = 0
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION Kind() AS S32
+        RETURN kindn
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

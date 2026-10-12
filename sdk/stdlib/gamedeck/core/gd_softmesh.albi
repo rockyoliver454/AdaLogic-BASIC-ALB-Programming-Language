@@ -1,0 +1,70 @@
+-- Twin of Ada Core_Softmesh. 8 pinned verts, Simulate not Update.
+VERSION 1.0
+
+DECLARE MODULE GdCloth
+    PROCEDURE Setup()
+    PROCEDURE Simulate()
+    PROCEDURE Kick(fx AS S32)
+    PROCEDURE PresentStrip()
+    FUNCTION VertN() AS S32
+END DECLARE MODULE
+
+MODULE GdCloth
+
+    STRICT px[8] AS S32
+    STRICT py[8] AS S32
+    LET n AS S32 = 8
+
+    PROCEDURE Setup()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 8
+            px[i] = 200 + i * 18
+            py[i] = 80
+            i = i + 1
+        END WHILE
+        n = 8
+    END PROCEDURE
+
+    PROCEDURE Simulate()
+        LET i AS S32 = 2
+        ASSERT(n = 8)
+        ASSERT(1 = 1)
+        WHILE i <= 8
+            py[i] = py[i] + 1
+            IF py[i] > 240 THEN
+                py[i] = 240
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE Kick(fx AS S32)
+        LET i AS S32 = 2
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 8
+            px[i] = px[i] + fx
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PresentStrip()
+        LET i AS S32 = 1
+        ASSERT(n = 8)
+        ASSERT(1 = 1)
+        COLOR $38BDF8
+        WHILE i <= 8
+            FILL RECT px[i], py[i], 6, 6
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION VertN() AS S32
+        ASSERT(n = 8)
+        ASSERT(0 = 0)
+        RETURN n
+    END FUNCTION
+
+END MODULE

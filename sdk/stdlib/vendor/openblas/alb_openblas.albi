@@ -1,0 +1,71 @@
+-- ============================================================================
+-- alb_openblas.albi — thin ALB binding for vendor/openblas (C ABI) v0.2
+-- ============================================================================
+-- System include: INCLUDE <alb_openblas.albi>
+-- Place alb_openblas.dll AND libopenblas.dll beside the program.
+-- ============================================================================
+
+VERSION 0.2
+
+#ALB_OPENBLAS_ROW_MAJOR = 101
+#ALB_OPENBLAS_COL_MAJOR = 102
+#ALB_OPENBLAS_NO_TRANS = 111
+#ALB_OPENBLAS_TRANS = 112
+#ALB_OPENBLAS_UPPER = 121
+#ALB_OPENBLAS_LOWER = 122
+#ALB_OPENBLAS_NON_UNIT = 131
+#ALB_OPENBLAS_UNIT = 132
+#ALB_OPENBLAS_LEFT = 141
+#ALB_OPENBLAS_RIGHT = 142
+IMPORT_DLL FUNCTION alb_openblas_version() AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_loader_init() AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_loader_shutdown() FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_has(symbol_name AS S64) AS S32 FROM ("alb_openblas.dll")
+
+IMPORT_DLL FUNCTION alb_openblas_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_device_destroy(device AS S64) FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_set_num_threads(n AS S32) FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_get_num_threads() AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_get_num_procs() AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_get_parallel() AS S32 FROM ("alb_openblas.dll")
+
+-- Level-1
+IMPORT_DLL FUNCTION alb_openblas_ddot(n AS S32, x AS S64, incx AS S32, y AS S64, incy AS S32) AS F64 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_sdot(n AS S32, x AS S64, incx AS S32, y AS S64, incy AS S32) AS F64 FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_daxpy(n AS S32, alpha AS F64, x AS S64, incx AS S32, y AS S64, incy AS S32) FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_dnrm2(n AS S32, x AS S64, incx AS S32) AS F64 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_dasum(n AS S32, x AS S64, incx AS S32) AS F64 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_idamax(n AS S32, x AS S64, incx AS S32) AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_dscal(n AS S32, alpha AS F64, x AS S64, incx AS S32) FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_dcopy(n AS S32, x AS S64, incx AS S32, y AS S64, incy AS S32) FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_dswap(n AS S32, x AS S64, incx AS S32, y AS S64, incy AS S32) FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_drot(n AS S32, x AS S64, incx AS S32, y AS S64, incy AS S32, c AS F64, s AS F64) FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_drotg(a AS S64, b AS S64, c AS S64, s AS S64) FROM ("alb_openblas.dll")
+
+-- Level-2 / Level-3
+IMPORT_DLL PROCEDURE alb_openblas_dgemv(order AS S32, trans AS S32, m AS S32, n AS S32, alpha AS F64, a AS S64, lda AS S32, x AS S64, incx AS S32, beta AS F64, y AS S64, incy AS S32) FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_dger(order AS S32, m AS S32, n AS S32, alpha AS F64, x AS S64, incx AS S32, y AS S64, incy AS S32, a AS S64, lda AS S32) FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_dtrsv(order AS S32, uplo AS S32, trans AS S32, diag AS S32, n AS S32, a AS S64, lda AS S32, x AS S64, incx AS S32) FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_dgemm(order AS S32, transa AS S32, transb AS S32, m AS S32, n AS S32, k AS S32, alpha AS F64, a AS S64, lda AS S32, b AS S64, ldb AS S32, beta AS F64, c AS S64, ldc AS S32) FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_sgemm(order AS S32, transa AS S32, transb AS S32, m AS S32, n AS S32, k AS S32, alpha AS F64, a AS S64, lda AS S32, b AS S64, ldb AS S32, beta AS F64, c AS S64, ldc AS S32) FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_dsyrk(order AS S32, uplo AS S32, trans AS S32, n AS S32, k AS S32, alpha AS F64, a AS S64, lda AS S32, beta AS F64, c AS S64, ldc AS S32) FROM ("alb_openblas.dll")
+IMPORT_DLL PROCEDURE alb_openblas_dtrsm(order AS S32, side AS S32, uplo AS S32, transa AS S32, diag AS S32, m AS S32, n AS S32, alpha AS F64, a AS S64, lda AS S32, b AS S64, ldb AS S32) FROM ("alb_openblas.dll")
+
+-- LAPACKE
+IMPORT_DLL FUNCTION alb_openblas_dgesv(layout AS S32, n AS S32, nrhs AS S32, a AS S64, lda AS S32, ipiv AS S64, b AS S64, ldb AS S32) AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_dgetrf(layout AS S32, m AS S32, n AS S32, a AS S64, lda AS S32, ipiv AS S64) AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_dpotrf(layout AS S32, uplo AS S32, n AS S32, a AS S64, lda AS S32) AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_dpotrs(layout AS S32, uplo AS S32, n AS S32, nrhs AS S32, a AS S64, lda AS S32, b AS S64, ldb AS S32) AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_dgels(layout AS S32, trans AS S32, m AS S32, n AS S32, nrhs AS S32, a AS S64, lda AS S32, b AS S64, ldb AS S32) AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_dgesvd(layout AS S32, jobu AS S64, jobvt AS S64, m AS S32, n AS S32, a AS S64, lda AS S32, s AS S64, u AS S64, ldu AS S32, vt AS S64, ldvt AS S32) AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_dsyev(layout AS S32, jobz AS S64, uplo AS S32, n AS S32, a AS S64, lda AS S32, w AS S64) AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_dlange(layout AS S32, norm AS S64, m AS S32, n AS S32, a AS S64, lda AS S32) AS F64 FROM ("alb_openblas.dll")
+
+-- Tests
+IMPORT_DLL FUNCTION alb_openblas_test_ddot() AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_test_dgemm() AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_test_level1() AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_test_level2() AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_test_level3() AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_test_lapack() AS S32 FROM ("alb_openblas.dll")
+IMPORT_DLL FUNCTION alb_openblas_test_all() AS S32 FROM ("alb_openblas.dll")

@@ -1,0 +1,407 @@
+-- Twin of Ada Core_Isotope. 4 channels + MML parse (no C FFI / Play_File).
+-- ParseMml("T120 O4 C8D8E8") fills note table; PlayMml starts channel.
+VERSION 1.0
+
+DECLARE MODULE GdIsotope
+    PROCEDURE Setup()
+    PROCEDURE CueCh(ch AS S32)
+    PROCEDURE StopCh(ch AS S32)
+    PROCEDURE SetVol(ch AS S32, voln AS S32)
+    PROCEDURE SetWave(ch AS S32, wkind AS S32)
+    PROCEDURE SetAdsr(ch AS S32, a AS S32, d AS S32, s AS S32, r AS S32)
+    PROCEDURE NoteAt(i AS S32, midi AS S32, dur AS S32)
+    PROCEDURE StartSeq(ch AS S32)
+    PROCEDURE PulseSeq()
+    PROCEDURE ParseMml()
+    PROCEDURE PlayMml(ch AS S32)
+    FUNCTION LastCh() AS S32
+    FUNCTION VolOf(ch AS S32) AS S32
+    FUNCTION CurMidi() AS S32
+    FUNCTION Playing() AS S32
+    FUNCTION EventN() AS S32
+    FUNCTION Tempo() AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdIsotope
+
+    STRICT vol[4] AS S32
+    STRICT wave[4] AS S32
+    STRICT midi[32] AS S32
+    STRICT dur[32] AS S32
+    STRICT mml[64] AS S32
+    LET mml_n AS S32 = 0
+    LET last_ch AS S32 = 1
+    LET seq_i AS S32 = 1
+    LET waitn AS S32 = 0
+    LET live AS S32 = 0
+    LET cur_m AS S32 = 0
+    LET events AS S32 = 0
+    LET tempo AS S32 = 120
+    LET octave AS S32 = 4
+    LET deflen AS S32 = 8
+
+    PROCEDURE Setup()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 4
+            vol[i] = 64
+            wave[i] = 0
+            i = i + 1
+        END WHILE
+        i = 1
+        WHILE i <= 32
+            midi[i] = 0
+            dur[i] = 0
+            i = i + 1
+        END WHILE
+        i = 1
+        WHILE i <= 64
+            mml[i] = 0
+            i = i + 1
+        END WHILE
+        mml_n = 0
+        last_ch = 1
+        live = 0
+        cur_m = 0
+        seq_i = 1
+        waitn = 0
+        events = 0
+        tempo = 120
+        octave = 4
+        deflen = 8
+    END PROCEDURE
+
+    PROCEDURE CueCh(ch AS S32) REQUIRE ch >= 1
+        ASSERT(ch >= 1)
+        ASSERT(ch <= 4)
+        last_ch = ch
+        GdSfxOsc.Pulse()
+    END PROCEDURE
+
+    PROCEDURE StopCh(ch AS S32) REQUIRE ch >= 1
+        ASSERT(ch >= 1)
+        ASSERT(ch <= 4)
+        vol[ch] = 0
+        live = 0
+        cur_m = 0
+    END PROCEDURE
+
+    PROCEDURE SetVol(ch AS S32, voln AS S32) REQUIRE ch >= 1
+        ASSERT(ch >= 1)
+        ASSERT(ch <= 4)
+        vol[ch] = GdVec2.ClipI(voln, 0, 127)
+    END PROCEDURE
+
+    PROCEDURE SetWave(ch AS S32, wkind AS S32) REQUIRE ch >= 1
+        ASSERT(ch >= 1)
+        ASSERT(ch <= 4)
+        wave[ch] = GdVec2.ClipI(wkind, 0, 3)
+    END PROCEDURE
+
+    PROCEDURE SetAdsr(ch AS S32, a AS S32, d AS S32, s AS S32, r AS S32) REQUIRE ch >= 1
+        ASSERT(ch >= 1)
+        ASSERT(ch <= 4)
+        ASSERT(a >= 0)
+        ASSERT(d >= 0)
+        ASSERT(r >= 0)
+        vol[ch] = GdVec2.ClipI(s, 0, 127)
+    END PROCEDURE
+
+    PROCEDURE NoteAt(i AS S32, m AS S32, d AS S32) REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 32)
+        midi[i] = GdVec2.ClipI(m, 0, 127)
+        dur[i] = GdVec2.ClipI(d, 0, 64)
+        IF i > events THEN
+            events = i
+        END IF
+    END PROCEDURE
+
+    PROCEDURE StartSeq(ch AS S32) REQUIRE ch >= 1
+        ASSERT(ch >= 1)
+        ASSERT(ch <= 4)
+        last_ch = ch
+        seq_i = 1
+        waitn = dur[1]
+        cur_m = midi[1]
+        live = 1
+        CueCh(ch)
+    END PROCEDURE
+
+    PROCEDURE PulseSeq()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF live = 0 THEN
+            RETURN
+        END IF
+        IF waitn > 0 THEN
+            waitn = waitn - 1
+            RETURN
+        END IF
+        seq_i = seq_i + 1
+        IF seq_i > events THEN
+            live = 0
+            cur_m = 0
+            RETURN
+        END IF
+        cur_m = midi[seq_i]
+        waitn = dur[seq_i]
+        IF dur[seq_i] = 0 THEN
+            IF midi[seq_i] = 0 THEN
+                live = 0
+                cur_m = 0
+            END IF
+        END IF
+    END PROCEDURE
+
+    PROCEDURE PushMml(ch AS S32)
+        ASSERT(ch >= 0)
+        ASSERT(ch <= 255)
+        IF mml_n < 64 THEN
+            mml_n = mml_n + 1
+            mml[mml_n] = ch
+        END IF
+    END PROCEDURE
+
+    FUNCTION DigitOf(c AS S32) AS S32
+        IF c >= 48 THEN
+            IF c <= 57 THEN
+                RETURN c - 48
+            END IF
+        END IF
+        RETURN -1
+    END FUNCTION
+
+    FUNCTION NoteBase(c AS S32) AS S32
+        LET k AS S32 = c
+        IF k >= 97 THEN
+            IF k <= 122 THEN
+                k = k - 32
+            END IF
+        END IF
+        IF k = 67 THEN
+            RETURN 0
+        END IF
+        IF k = 68 THEN
+            RETURN 2
+        END IF
+        IF k = 69 THEN
+            RETURN 4
+        END IF
+        IF k = 70 THEN
+            RETURN 5
+        END IF
+        IF k = 71 THEN
+            RETURN 7
+        END IF
+        IF k = 65 THEN
+            RETURN 9
+        END IF
+        IF k = 66 THEN
+            RETURN 11
+        END IF
+        RETURN -1
+    END FUNCTION
+
+    PROCEDURE ParseMml()
+        LET i AS S32 = 1
+        LET c AS S32 = 0
+        LET nb AS S32 = 0
+        LET ln AS S32 = 0
+        LET dgt AS S32 = 0
+        LET m AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        events = 0
+        i = 1
+        WHILE i <= 32
+            midi[i] = 0
+            dur[i] = 0
+            i = i + 1
+        END WHILE
+        i = 1
+        WHILE i <= mml_n
+            c = mml[i]
+            IF c = 84 THEN
+                i = i + 1
+                tempo = 0
+                dgt = DigitOf(mml[i])
+                WHILE dgt >= 0
+                    tempo = tempo * 10 + dgt
+                    i = i + 1
+                    IF i > mml_n THEN
+                        dgt = -1
+                    ELSE
+                        dgt = DigitOf(mml[i])
+                    END IF
+                END WHILE
+                IF tempo < 40 THEN
+                    tempo = 120
+                END IF
+                i = i - 1
+            ELSE
+                IF c = 79 THEN
+                    i = i + 1
+                    dgt = DigitOf(mml[i])
+                    IF dgt >= 0 THEN
+                        octave = dgt
+                    END IF
+                ELSE
+                    IF c = 76 THEN
+                        i = i + 1
+                        ln = 0
+                        dgt = DigitOf(mml[i])
+                        WHILE dgt >= 0
+                            ln = ln * 10 + dgt
+                            i = i + 1
+                            IF i > mml_n THEN
+                                dgt = -1
+                            ELSE
+                                dgt = DigitOf(mml[i])
+                            END IF
+                        END WHILE
+                        IF ln > 0 THEN
+                            deflen = ln
+                        END IF
+                        i = i - 1
+                    ELSE
+                        nb = NoteBase(c)
+                        IF nb >= 0 THEN
+                            i = i + 1
+                            IF i <= mml_n THEN
+                                IF mml[i] = 35 THEN
+                                    nb = nb + 1
+                                    i = i + 1
+                                ELSE
+                                    IF mml[i] = 43 THEN
+                                        nb = nb + 1
+                                        i = i + 1
+                                    ELSE
+                                        IF mml[i] = 45 THEN
+                                            nb = nb - 1
+                                            i = i + 1
+                                        END IF
+                                    END IF
+                                END IF
+                            END IF
+                            ln = 0
+                            IF i <= mml_n THEN
+                                dgt = DigitOf(mml[i])
+                                WHILE dgt >= 0
+                                    ln = ln * 10 + dgt
+                                    i = i + 1
+                                    IF i > mml_n THEN
+                                        dgt = -1
+                                    ELSE
+                                        dgt = DigitOf(mml[i])
+                                    END IF
+                                END WHILE
+                                i = i - 1
+                            END IF
+                            IF ln = 0 THEN
+                                ln = deflen
+                            END IF
+                            m = 12 * (octave + 1) + nb
+                            IF events < 32 THEN
+                                events = events + 1
+                                midi[events] = GdVec2.ClipI(m, 0, 127)
+                                dur[events] = GdVec2.ClipI(64 / ln, 1, 64)
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    PROCEDURE PlayMml(ch AS S32) REQUIRE ch >= 1
+        ASSERT(ch >= 1)
+        ASSERT(ch <= 4)
+        IF events < 1 THEN
+            RETURN
+        END IF
+        StartSeq(ch)
+    END PROCEDURE
+
+    FUNCTION LastCh() AS S32
+        ASSERT(last_ch >= 1)
+        ASSERT(last_ch <= 4)
+        RETURN last_ch
+    END FUNCTION
+
+    FUNCTION VolOf(ch AS S32) AS S32 REQUIRE ch >= 1
+        ASSERT(ch >= 1)
+        ASSERT(ch <= 4)
+        RETURN vol[ch]
+    END FUNCTION
+
+    FUNCTION CurMidi() AS S32
+        ASSERT(cur_m >= 0)
+        ASSERT(cur_m <= 127)
+        RETURN cur_m
+    END FUNCTION
+
+    FUNCTION Playing() AS S32
+        ASSERT(live >= 0)
+        ASSERT(live <= 1)
+        RETURN live
+    END FUNCTION
+
+    FUNCTION EventN() AS S32
+        ASSERT(events >= 0)
+        ASSERT(events <= 32)
+        RETURN events
+    END FUNCTION
+
+    FUNCTION Tempo() AS S32
+        ASSERT(tempo >= 40)
+        ASSERT(tempo <= 400)
+        RETURN tempo
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET n AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        Setup()
+        -- T120 O4 C8D8E8
+        PushMml(84)
+        PushMml(49)
+        PushMml(50)
+        PushMml(48)
+        PushMml(79)
+        PushMml(52)
+        PushMml(67)
+        PushMml(56)
+        PushMml(68)
+        PushMml(56)
+        PushMml(69)
+        PushMml(56)
+        ParseMml()
+        IF events >= 3 THEN
+            n = n + 1
+        END IF
+        IF tempo = 120 THEN
+            n = n + 1
+        END IF
+        IF midi[1] = 60 THEN
+            n = n + 1
+        END IF
+        PlayMml(1)
+        IF Playing() = 1 THEN
+            n = n + 1
+        END IF
+        StopCh(1)
+        IF Playing() = 0 THEN
+            n = n + 1
+        END IF
+        IF n = 5 THEN
+            RETURN 1
+        END IF
+        RETURN 0
+    END FUNCTION
+
+END MODULE

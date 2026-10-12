@@ -1,0 +1,33 @@
+-- Twin of Ada Geo_Voxel_Ops CSG. 8^3 ball stamp on GdVoxel.
+VERSION 1.0
+
+DECLARE MODULE GdVoxelOps
+    PROCEDURE FillBall(cx AS S32, cy AS S32, cz AS S32, rad AS S32, flag AS U64)
+END DECLARE MODULE
+
+MODULE GdVoxelOps
+
+    PROCEDURE FillBall(cx AS S32, cy AS S32, cz AS S32, rad AS S32, flag AS U64)
+        LET x AS S32 = 0
+        LET y AS S32 = 0
+        LET z AS S32 = 0
+        LET r2 AS S32 = rad * rad
+        ASSERT(rad >= 0)
+        ASSERT(flag <= 1)
+        WHILE z < 8
+            y = 0
+            WHILE y < 8
+                x = 0
+                WHILE x < 8
+                    IF GdVec2.Dist2(x, y, cx, cy) + (z - cz) * (z - cz) <= r2 THEN
+                        GdVoxel.SetCell(x, y, z, flag)
+                    END IF
+                    x = x + 1
+                END WHILE
+                y = y + 1
+            END WHILE
+            z = z + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

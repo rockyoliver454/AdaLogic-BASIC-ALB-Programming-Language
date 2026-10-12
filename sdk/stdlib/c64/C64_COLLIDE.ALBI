@@ -1,0 +1,27 @@
+-- ====================================================================
+-- C64_COLLIDE.ALBI
+-- Axis-aligned box overlap tests for arcade games.
+-- ====================================================================
+
+FUNCTION C64Hit_Overlap(x1 AS U16, y1 AS U16, w1 AS U16, h1 AS U16,
+                        x2 AS U16, y2 AS U16, w2 AS U16, h2 AS U16) AS BOOL
+    IF x1 + w1 <= x2 THEN RETURN FALSE END IF
+    IF x2 + w2 <= x1 THEN RETURN FALSE END IF
+    IF y1 + h1 <= y2 THEN RETURN FALSE END IF
+    IF y2 + h2 <= y1 THEN RETURN FALSE END IF
+    RETURN TRUE
+END FUNCTION
+
+FUNCTION C64Hit_PointInBox(px AS U16, py AS U16,
+                           bx AS U16, by AS U16, bw AS U16, bh AS U16) AS BOOL
+    IF px < bx THEN RETURN FALSE END IF
+    IF py < by THEN RETURN FALSE END IF
+    IF px >= bx + bw THEN RETURN FALSE END IF
+    IF py >= by + bh THEN RETURN FALSE END IF
+    RETURN TRUE
+END FUNCTION
+
+FUNCTION C64Hit_PointInCell(px AS U16, py AS U16,
+                            cx AS U16, cy AS U16, cell AS U16) AS BOOL
+    RETURN C64Hit_PointInBox(px, py, cx * cell, cy * cell, cell, cell)
+END FUNCTION

@@ -1,0 +1,30 @@
+-- Twin of Ada geo_partition. Integer quadrant / bin.
+VERSION 1.0
+
+DECLARE MODULE GdPartition
+    FUNCTION BinOf(x AS S32, y AS S32, cell AS S32) AS S32
+    FUNCTION QuadOf(x AS S32, y AS S32, cx AS S32, cy AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdPartition
+
+    FUNCTION BinOf(x AS S32, y AS S32, cell AS S32) AS S32 REQUIRE cell > 0
+        ASSERT(cell > 0)
+        ASSERT(cell <= 64)
+        RETURN (x / cell) + (y / cell) * 16
+    END FUNCTION
+
+    FUNCTION QuadOf(x AS S32, y AS S32, cx AS S32, cy AS S32) AS S32
+        LET q AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF x >= cx THEN
+            q = q + 1
+        END IF
+        IF y >= cy THEN
+            q = q + 2
+        END IF
+        RETURN q
+    END FUNCTION
+
+END MODULE

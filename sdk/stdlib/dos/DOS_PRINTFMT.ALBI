@@ -1,0 +1,211 @@
+-- ====================================================================
+-- DOS_PRINTFMT.ALBI
+-- String-formatting helpers for reports, tables, and console output.
+-- ====================================================================
+
+FUNCTION DOSFMT_Digit_Text(value AS U16) AS STRING
+    SELECT value
+        CASE 0 => RETURN "0"
+        CASE 1 => RETURN "1"
+        CASE 2 => RETURN "2"
+        CASE 3 => RETURN "3"
+        CASE 4 => RETURN "4"
+        CASE 5 => RETURN "5"
+        CASE 6 => RETURN "6"
+        CASE 7 => RETURN "7"
+        CASE 8 => RETURN "8"
+        CASE ELSE => RETURN "9"
+    END SELECT
+END FUNCTION
+
+FUNCTION DOSFMT_U16(value AS U16) AS STRING
+    LET out_text AS STRING = ""
+    LET digit_value AS U16 = 0
+    LET started AS BOOL = FALSE
+
+    digit_value = value / 10000
+    IF digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSFMT_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = (value / 1000) MOD 10
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSFMT_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = (value / 100) MOD 10
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSFMT_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    digit_value = (value / 10) MOD 10
+    IF started OR digit_value > 0 THEN
+        out_text = CONCAT(out_text, DOSFMT_Digit_Text(digit_value))
+        started = TRUE
+    END IF
+
+    out_text = CONCAT(out_text, DOSFMT_Digit_Text(value MOD 10))
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFMT_U32(value AS U32) AS STRING
+    LET hi_value AS U16 = CAST(value / 10000 AS U16)
+    LET lo_value AS U16 = CAST(value MOD 10000 AS U16)
+    LET out_text AS STRING = ""
+    LET started AS BOOL = FALSE
+    LET digit_value AS U16 = 0
+
+    IF hi_value > 0 THEN
+        out_text = DOSFMT_U16(hi_value)
+        started = TRUE
+
+        digit_value = lo_value / 1000
+        out_text = CONCAT(out_text, DOSFMT_Digit_Text(digit_value))
+        digit_value = (lo_value / 100) MOD 10
+        out_text = CONCAT(out_text, DOSFMT_Digit_Text(digit_value))
+        digit_value = (lo_value / 10) MOD 10
+        out_text = CONCAT(out_text, DOSFMT_Digit_Text(digit_value))
+        out_text = CONCAT(out_text, DOSFMT_Digit_Text(lo_value MOD 10))
+        RETURN CONCAT(out_text, "")
+    END IF
+
+    IF started = FALSE THEN RETURN CONCAT(DOSFMT_U16(lo_value), "") END IF
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFMT_S32(value AS S32) AS STRING
+    LET out_text AS STRING = ""
+    LET abs_value AS U32 = 0
+
+    IF value < 0 THEN
+        out_text = "-"
+        abs_value = CAST(0 - value AS U32)
+    ELSE
+        abs_value = CAST(value AS U32)
+    END IF
+
+    out_text = CONCAT(out_text, DOSFMT_U32(abs_value))
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFMT_Bool(value AS BOOL) AS STRING
+    IF value THEN RETURN "TRUE" END IF
+    RETURN "FALSE"
+END FUNCTION
+
+FUNCTION DOSFMT_Repeat(fill_text AS STRING, count AS U16) AS STRING
+    LET out_text AS STRING = ""
+    LET idx AS U16 = 1
+
+    IF count = 0 THEN RETURN "" END IF
+    IF LEN(fill_text) = 0 THEN RETURN "" END IF
+
+    FOR idx = 1 TO count THEN
+        out_text = CONCAT(out_text, fill_text)
+    END FOR
+
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFMT_Pad_Right(source_text AS STRING, width AS U16) AS STRING
+    LET src_copy AS STRING = CONCAT(source_text, "")
+    LET out_text AS STRING = ""
+    LET idx AS U16 = 1
+    LET text_len AS U16 = CAST(LEN(src_copy) AS U16)
+
+    IF width = 0 THEN RETURN "" END IF
+
+    FOR idx = 1 TO width THEN
+        IF idx <= text_len THEN
+            out_text = CONCAT(out_text, MID$(src_copy, idx, 1))
+        ELSE
+            out_text = CONCAT(out_text, " ")
+        END IF
+    END FOR
+
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFMT_Pad_Left(source_text AS STRING, width AS U16) AS STRING
+    LET text_len AS U16 = CAST(LEN(source_text) AS U16)
+    LET pad_count AS U16 = 0
+
+    IF width = 0 THEN RETURN "" END IF
+    IF text_len >= width THEN RETURN DOSFMT_Pad_Right(source_text, width) END IF
+
+    pad_count = width - text_len
+    RETURN CONCAT(DOSFMT_Repeat(" ", pad_count), source_text)
+END FUNCTION
+
+FUNCTION DOSFMT_Center(source_text AS STRING, width AS U16) AS STRING
+    LET text_len AS U16 = CAST(LEN(source_text) AS U16)
+    LET pad_total AS U16 = 0
+    LET left_pad AS U16 = 0
+    LET right_pad AS U16 = 0
+    LET out_text AS STRING = ""
+
+    IF width = 0 THEN RETURN "" END IF
+    IF text_len >= width THEN RETURN DOSFMT_Pad_Right(source_text, width) END IF
+
+    pad_total = width - text_len
+    left_pad = pad_total / 2
+    right_pad = width - text_len - left_pad
+
+    out_text = DOSFMT_Repeat(" ", left_pad)
+    out_text = CONCAT(out_text, source_text)
+    out_text = CONCAT(out_text, DOSFMT_Repeat(" ", right_pad))
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFMT_Divider(width AS U16) AS STRING
+    RETURN DOSFMT_Repeat("-", width)
+END FUNCTION
+
+FUNCTION DOSFMT_Label_Value(label_text AS STRING, value_text AS STRING, label_width AS U16) AS STRING
+    LET out_text AS STRING = DOSFMT_Pad_Right(label_text, label_width)
+
+    out_text = CONCAT(out_text, " : ")
+    out_text = CONCAT(out_text, value_text)
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFMT_Row2(col1_text AS STRING, width1 AS U16, col2_text AS STRING) AS STRING
+    LET out_text AS STRING = DOSFMT_Pad_Right(col1_text, width1)
+
+    out_text = CONCAT(out_text, " ")
+    out_text = CONCAT(out_text, col2_text)
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFMT_Row3(col1_text AS STRING, width1 AS U16, col2_text AS STRING, width2 AS U16, col3_text AS STRING) AS STRING
+    LET out_text AS STRING = DOSFMT_Pad_Right(col1_text, width1)
+
+    out_text = CONCAT(out_text, " ")
+    out_text = CONCAT(out_text, DOSFMT_Pad_Right(col2_text, width2))
+    out_text = CONCAT(out_text, " ")
+    out_text = CONCAT(out_text, col3_text)
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFMT_Row4(col1_text AS STRING, width1 AS U16, col2_text AS STRING, width2 AS U16, col3_text AS STRING, width3 AS U16, col4_text AS STRING) AS STRING
+    LET out_text AS STRING = DOSFMT_Pad_Right(col1_text, width1)
+
+    out_text = CONCAT(out_text, " ")
+    out_text = CONCAT(out_text, DOSFMT_Pad_Right(col2_text, width2))
+    out_text = CONCAT(out_text, " ")
+    out_text = CONCAT(out_text, DOSFMT_Pad_Right(col3_text, width3))
+    out_text = CONCAT(out_text, " ")
+    out_text = CONCAT(out_text, col4_text)
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSFMT_Box_Title(title_text AS STRING, width AS U16) AS STRING
+    LET out_text AS STRING = "["
+
+    out_text = CONCAT(out_text, DOSFMT_Center(title_text, width))
+    out_text = CONCAT(out_text, "]")
+    RETURN CONCAT(out_text, "")
+END FUNCTION

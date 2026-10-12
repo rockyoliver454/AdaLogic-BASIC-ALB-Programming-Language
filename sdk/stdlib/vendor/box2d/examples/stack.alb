@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_box2d.albi"
+
+LET rc = alb_box2d_test_stack()
+IF rc = 0 THEN
+  PRINT "box2d stack PASS"
+ELSE
+  PRINT "box2d stack FAIL " | rc
+END IF
+END

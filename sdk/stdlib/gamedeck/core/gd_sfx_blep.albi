@@ -1,0 +1,16 @@
+-- Twin of C sf_polyblep. Cheap slope correct.
+VERSION 1.0
+
+DECLARE MODULE GdSfxBlep
+    FUNCTION Slope(x AS S32, nxt AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdSfxBlep
+
+    FUNCTION Slope(x AS S32, nxt AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN x - ((nxt - x) / 8)
+    END FUNCTION
+
+END MODULE

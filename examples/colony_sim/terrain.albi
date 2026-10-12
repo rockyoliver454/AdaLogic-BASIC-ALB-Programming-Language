@@ -1,0 +1,10 @@
+DECLARE MODULE Terrain
+    PROCEDURE Setup()
+    PROCEDURE GenerateWorld()
+    FUNCTION GetTile(tx AS S32, ty AS S32) AS U8
+    PROCEDURE SetTile(tx AS S32, ty AS S32, kind AS U8)
+    PROCEDURE RestoreTile(idx AS U32, kind AS U8)
+    FUNCTION GetWorldW() AS S32
+    FUNCTION GetWorldH() AS S32
+    FUNCTION MixChecksum(hash_value AS U64) AS U64
+END DECLARE MODULE

@@ -1,0 +1,190 @@
+-- ============================================================================
+-- ALBWin — bounded disk window for every alb_* parser
+-- ============================================================================
+-- Hold up to #IO_CAP bytes (65536) in a 1-based STRICT array. Call LoadPath
+-- (or LoadText) once, then feed ALBXxx.PutByte(ALBWin.GetB(i)).
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_win.albi"
+--
+-- LoadPath(path)  size with FILELEN, OPEN, READ one byte at a time.
+--                 Safe for PNG, ZIP, GIF, and anything with 0x00 bytes.
+-- LoadText(path)  READ in #IO_WIN (4096) chunks. Faster for UTF-8 / XML /
+--                 TOML. On the FASM backend a NUL inside a chunk ends the
+--                 C-string early — do not use this for binary formats.
+-- Count()         how many bytes are stored (0 if the file was missing or
+--                 larger than #IO_CAP).
+-- GetB(i)         byte at 1-based index i (0 if i is out of range).
+-- U16LE / U16BE / U32LE / U32BE  integer peeks at index i.
+-- Err()           0 ok, 1 missing/open failed, 2 file bigger than #IO_CAP.
+-- Wipe()          clear the window without touching disk.
+--
+-- There is no search path on INCLUDE. Keep this file next to the parsers
+-- or write a relative path from the program that INCLUDEs it.
+-- ============================================================================
+
+VERSION 1.0
+
+#IO_WIN = 4096
+#IO_CAP = 65536
+
+DECLARE MODULE ALBWin
+    PROCEDURE Wipe()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION LoadPath(path AS STRING) AS S32
+    FUNCTION LoadText(path AS STRING) AS S32
+    FUNCTION Count() AS S32
+    FUNCTION GetB(i AS S32) AS U8
+    FUNCTION U16LE(i AS S32) AS S32
+    FUNCTION U16BE(i AS S32) AS S32
+    FUNCTION U32LE(i AS S32) AS S32
+    FUNCTION U32BE(i AS S32) AS S32
+    FUNCTION Err() AS S32
+END DECLARE MODULE
+
+MODULE ALBWin
+
+    -- 1-based. n is Count(). errn 0 ok, 1 missing, 2 over #IO_CAP.
+    STRICT data[#IO_CAP] AS U8
+    LET n AS S32 = 0
+    LET errn AS S32 = 0
+
+    PROCEDURE Wipe()
+        n = 0
+        errn = 0
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF n >= #IO_CAP THEN
+            errn = 2
+            RETURN
+        END IF
+        n = n + 1
+        data[n] = b
+    END PROCEDURE
+
+    FUNCTION LoadPath(path AS STRING) AS S32
+        -- Binary load: FILELEN first, refuse > #IO_CAP, then READ 1 byte
+        -- at a time so a 0x00 in the file is never treated as EOF.
+        LET flen AS S32 = 0
+        LET h AS S32 = 0
+        LET left AS S32 = 0
+        LET chunk AS STRING = ""
+        LET b AS S32 = 0
+        Wipe()
+        flen = CAST(FILELEN(path) AS S32)
+        IF flen <= 0 THEN
+            errn = 1
+            RETURN 0
+        END IF
+        IF flen > #IO_CAP THEN
+            errn = 2
+            RETURN 0
+        END IF
+        h = CAST(OPEN(path, "r") AS S32)
+        IF h = 0 THEN
+            errn = 1
+            RETURN 0
+        END IF
+        left = flen
+        WHILE left > 0
+            -- One-byte READ. ASC of the first character is the file byte.
+            chunk = READ(h, 1)
+            b = ASC(MID$(chunk, 1, 1))
+            PutByte(CAST(b AS U8))
+            left = left - 1
+        END WHILE
+        CLOSE h
+        RETURN n
+    END FUNCTION
+
+    FUNCTION LoadText(path AS STRING) AS S32
+        -- Chunked load (#IO_WIN). Faster for UTF-8 / XML / TOML. On FASM
+        -- a NUL inside a chunk ends the C-string early — use LoadPath for
+        -- binary formats (PNG, ZIP, GIF, SQLite, …).
+        LET flen AS S32 = 0
+        LET h AS S32 = 0
+        LET left AS S32 = 0
+        LET want AS S32 = 0
+        LET chunk AS STRING = ""
+        LET k AS S32 = 0
+        LET i AS S32 = 0
+        Wipe()
+        flen = CAST(FILELEN(path) AS S32)
+        IF flen <= 0 THEN
+            errn = 1
+            RETURN 0
+        END IF
+        IF flen > #IO_CAP THEN
+            errn = 2
+            RETURN 0
+        END IF
+        h = CAST(OPEN(path, "r") AS S32)
+        IF h = 0 THEN
+            errn = 1
+            RETURN 0
+        END IF
+        left = flen
+        WHILE left > 0
+            want = #IO_WIN
+            IF want > left THEN
+                want = left
+            END IF
+            chunk = READ(h, want)
+            k = CAST(LEN(chunk) AS S32)
+            IF k <= 0 THEN
+                left = 0
+            ELSE
+                i = 1
+                WHILE i <= k
+                    PutByte(CAST(ASC(MID$(chunk, i, 1)) AS U8))
+                    i = i + 1
+                END WHILE
+                left = left - k
+                IF k < want THEN
+                    left = 0
+                END IF
+            END IF
+        END WHILE
+        CLOSE h
+        RETURN n
+    END FUNCTION
+
+    FUNCTION Count() AS S32
+        RETURN n
+    END FUNCTION
+
+    FUNCTION GetB(i AS S32) AS U8
+        -- 1-based. Out of range → 0 (not an error).
+        IF i < 1 THEN
+            RETURN 0
+        END IF
+        IF i > n THEN
+            RETURN 0
+        END IF
+        RETURN data[i]
+    END FUNCTION
+
+    FUNCTION U16LE(i AS S32) AS S32
+        -- Little-endian 16-bit starting at i (low byte first).
+        RETURN CAST(GetB(i) AS S32) + CAST(GetB(i + 1) AS S32) * 256
+    END FUNCTION
+
+    FUNCTION U16BE(i AS S32) AS S32
+        -- Big-endian 16-bit starting at i (high byte first).
+        RETURN CAST(GetB(i) AS S32) * 256 + CAST(GetB(i + 1) AS S32)
+    END FUNCTION
+
+    FUNCTION U32LE(i AS S32) AS S32
+        RETURN U16LE(i) + U16LE(i + 2) * 65536
+    END FUNCTION
+
+    FUNCTION U32BE(i AS S32) AS S32
+        RETURN U16BE(i) * 65536 + U16BE(i + 2)
+    END FUNCTION
+
+    FUNCTION Err() AS S32
+        RETURN errn
+    END FUNCTION
+
+END MODULE

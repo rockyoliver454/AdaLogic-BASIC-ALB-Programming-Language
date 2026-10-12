@@ -1,0 +1,91 @@
+-- ============================================================================
+-- ALBSvg — look for an <svg / <SVG tag
+-- ============================================================================
+-- Walks the window for ASCII "<svg" or "<SVG". SawSvg() is 1 after a
+-- successful ProbeBuf. This is not a DOM and does not read viewBox,
+-- width/height attributes, or nested documents.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_svg.albi"
+--
+-- Pair with alb_xml.albi on the same bytes if you want element counts.
+-- Window 8192. Feed with ALBWin.LoadText for .svg, or LoadPath if the
+-- file may contain a NUL.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBSvg
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION ProbeBuf() AS S32
+    FUNCTION SawSvg() AS S32
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBSvg
+
+    -- 1-based window. lastst: 5 empty, 4 too short, 3 no <svg, 0 found.
+    STRICT src[8192] AS U8
+    LET srclen AS S32 = 0
+    LET saw AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        saw = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 8192 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION ProbeBuf() AS S32
+        LET i AS S32 = 1
+        saw = 0
+        IF srclen < 4 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        WHILE i + 3 <= srclen
+            -- 60 = '<'. Then "svg" or "SVG".
+            IF src[i] = 60 THEN
+                IF src[i + 1] = 115 THEN
+                    IF src[i + 2] = 118 THEN
+                        IF src[i + 3] = 103 THEN
+                            saw = 1
+                            lastst = 0
+                            RETURN lastst
+                        END IF
+                    END IF
+                END IF
+                IF src[i + 1] = 83 THEN
+                    IF src[i + 2] = 86 THEN
+                        IF src[i + 3] = 71 THEN
+                            saw = 1
+                            lastst = 0
+                            RETURN lastst
+                        END IF
+                    END IF
+                END IF
+            END IF
+            i = i + 1
+        END WHILE
+        lastst = 3
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION SawSvg() AS S32
+        RETURN saw
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

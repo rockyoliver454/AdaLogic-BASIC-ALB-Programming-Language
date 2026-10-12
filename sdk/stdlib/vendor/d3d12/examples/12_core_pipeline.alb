@@ -1,0 +1,11 @@
+BEGIN
+VERSION 1.0
+INCLUDE "../alb_d3d12.albi"
+
+LET rc = alb_d3d12_test_core_pipeline(32)
+IF rc = 0 THEN
+  PRINT "core pipeline PASS"
+ELSE
+  PRINT "core pipeline FAIL " | rc
+END IF
+END

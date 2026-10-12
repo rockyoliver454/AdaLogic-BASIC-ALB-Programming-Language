@@ -1,0 +1,194 @@
+-- ============================================================================
+-- alb_d3d9.albi — REAL thin ALB binding for vendor/d3d9 (ABI 0.3)
+-- ============================================================================
+-- Place alb_d3d9.dll beside the program (uses system d3d9.dll).
+--   INCLUDE "../stdlib/vendor/d3d9/alb_d3d9.albi"
+--
+-- DLL = D3D9 lifecycle + raw alb_d3d9_* only. Application builds demos itself.
+-- Handles are opaque S64. Status 0 = OK. Raw wrappers take device as first arg.
+-- ALB | is STRING CONCAT (not bitwise OR).
+-- ============================================================================
+
+VERSION 0.3
+
+-- Status
+#ALB_D3D9_OK = 0
+#ALB_D3D9_ERR_INVALID_ARG = 1
+#ALB_D3D9_ERR_NO_LOADER = 2
+#ALB_D3D9_ERR_D3D = 3
+#ALB_D3D9_ERR_DEVICE = 4
+#ALB_D3D9_ERR_HWND = 5
+#ALB_D3D9_ERR_WINDOW = 6
+#ALB_D3D9_ERR_NOT_READY = 7
+#ALB_D3D9_ERR_LOST = 8
+#ALB_D3D9_ERR_INTERNAL = 100
+
+-- Primitive topologies (D3DPT_*)
+#ALB_D3D9_PT_POINTLIST = 1
+#ALB_D3D9_PT_LINELIST = 2
+#ALB_D3D9_PT_LINESTRIP = 3
+#ALB_D3D9_PT_TRIANGLELIST = 4
+#ALB_D3D9_PT_TRIANGLESTRIP = 5
+#ALB_D3D9_PT_TRIANGLEFAN = 6
+
+-- Clear
+#ALB_D3D9_CLEAR_TARGET = 1
+#ALB_D3D9_CLEAR_ZBUFFER = 2
+#ALB_D3D9_CLEAR_STENCIL = 4
+
+-- FVF
+#ALB_D3D9_FVF_XYZ = 2
+#ALB_D3D9_FVF_XYZRHW = 4
+#ALB_D3D9_FVF_DIFFUSE = 64
+#ALB_D3D9_FVF_TEX1 = 256
+
+-- Common render states
+#ALB_D3D9_RS_ZENABLE = 7
+#ALB_D3D9_RS_FILLMODE = 8
+#ALB_D3D9_RS_ZWRITEENABLE = 14
+#ALB_D3D9_RS_SRCBLEND = 19
+#ALB_D3D9_RS_DESTBLEND = 20
+#ALB_D3D9_RS_CULLMODE = 22
+#ALB_D3D9_RS_ALPHABLENDENABLE = 27
+#ALB_D3D9_RS_LIGHTING = 137
+#ALB_D3D9_RS_POINTSIZE = 154
+#ALB_D3D9_RS_SCISSORTESTENABLE = 174
+
+-- Transforms
+#ALB_D3D9_TS_VIEW = 2
+#ALB_D3D9_TS_PROJECTION = 3
+#ALB_D3D9_TS_WORLD = 256
+
+-- Pool / usage
+#ALB_D3D9_POOL_DEFAULT = 0
+#ALB_D3D9_POOL_MANAGED = 1
+#ALB_D3D9_POOL_SYSTEMMEM = 2
+#ALB_D3D9_USAGE_DYNAMIC = 512
+#ALB_D3D9_USAGE_WRITEONLY = 8
+
+-- Formats
+#ALB_D3D9_FMT_A8R8G8B8 = 21
+#ALB_D3D9_FMT_X8R8G8B8 = 22
+#ALB_D3D9_FMT_D24S8 = 75
+#ALB_D3D9_FMT_INDEX16 = 101
+#ALB_D3D9_FMT_INDEX32 = 102
+
+-- Lock
+#ALB_D3D9_LOCK_READONLY = 16
+#ALB_D3D9_LOCK_DISCARD = 8192
+#ALB_D3D9_LOCK_NOOVERWRITE = 4096
+
+-- Blend / cull / fill
+#ALB_D3D9_BLEND_ZERO = 1
+#ALB_D3D9_BLEND_ONE = 2
+#ALB_D3D9_BLEND_SRCALPHA = 5
+#ALB_D3D9_BLEND_INVSRCALPHA = 6
+#ALB_D3D9_CULL_NONE = 1
+#ALB_D3D9_CULL_CW = 2
+#ALB_D3D9_CULL_CCW = 3
+#ALB_D3D9_FILL_SOLID = 3
+#ALB_D3D9_FILL_WIREFRAME = 2
+
+-- Query
+#ALB_D3D9_QUERYTYPE_EVENT = 8
+#ALB_D3D9_QUERYTYPE_OCCLUSION = 9
+#ALB_D3D9_ISSUE_END = 1
+#ALB_D3D9_GETDATA_FLUSH = 1
+
+-- Lifecycle
+IMPORT_DLL FUNCTION alb_d3d9_version() AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_loader_init() AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL PROCEDURE alb_d3d9_loader_shutdown() FROM ("alb_d3d9.dll")
+
+IMPORT_DLL FUNCTION alb_d3d9_device_create(desc AS S64, out_device AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL PROCEDURE alb_d3d9_device_destroy(device AS S64) FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_device_native(device AS S64) AS S64 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_device_d3d(device AS S64) AS S64 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_device_hwnd(device AS S64) AS S64 FROM ("alb_d3d9.dll")
+
+IMPORT_DLL FUNCTION alb_d3d9_context_create(desc AS S64, out_ctx AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_context_create_simple(width AS S32, height AS S32) AS S64 FROM ("alb_d3d9.dll")
+IMPORT_DLL PROCEDURE alb_d3d9_context_destroy(ctx AS S64) FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_context_resize(ctx AS S64, width AS S32, height AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_context_begin_frame(ctx AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_context_clear(ctx AS S64, r AS F64, g AS F64, b AS F64, a AS F64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_context_end_frame(ctx AS S64, vsync AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_context_device(ctx AS S64) AS S64 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_context_width(ctx AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_context_height(ctx AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_context_should_close(ctx AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL PROCEDURE alb_d3d9_context_set_should_close(ctx AS S64, v AS S32) FROM ("alb_d3d9.dll")
+IMPORT_DLL PROCEDURE alb_d3d9_poll_events() FROM ("alb_d3d9.dll")
+IMPORT_DLL PROCEDURE alb_d3d9_sleep_ms(ms AS S32) FROM ("alb_d3d9.dll")
+
+-- Memory helpers
+IMPORT_DLL FUNCTION alb_d3d9_alloc(size AS S64) AS S64 FROM ("alb_d3d9.dll")
+IMPORT_DLL PROCEDURE alb_d3d9_free(data_ptr AS S64) FROM ("alb_d3d9.dll")
+IMPORT_DLL PROCEDURE alb_d3d9_write_f32(data_ptr AS S64, index AS S32, value AS F64) FROM ("alb_d3d9.dll")
+IMPORT_DLL PROCEDURE alb_d3d9_write_i32(data_ptr AS S64, index AS S32, value AS S32) FROM ("alb_d3d9.dll")
+IMPORT_DLL PROCEDURE alb_d3d9_write_u32(data_ptr AS S64, index AS S32, value AS S32) FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_read_u32(data_ptr AS S64, index AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_color_rgba(r AS F64, g AS F64, b AS F64, a AS F64) AS S32 FROM ("alb_d3d9.dll")
+
+-- Scene / present (device = AlbD3D9Device* as S64)
+IMPORT_DLL FUNCTION alb_d3d9_Clear(device AS S64, flags AS S32, color_argb AS S32, z AS F64, stencil AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_BeginScene(device AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_EndScene(device AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_Present(device AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_SetViewport(device AS S64, x AS S32, y AS S32, w AS S32, h AS S32, min_z AS F64, max_z AS F64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_SetScissorRect(device AS S64, left AS S32, top AS S32, right AS S32, bottom AS S32) AS S32 FROM ("alb_d3d9.dll")
+
+-- State
+IMPORT_DLL FUNCTION alb_d3d9_SetRenderState(device AS S64, state AS S32, value AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_GetRenderState(device AS S64, state AS S32, out_value_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_SetTransform(device AS S64, ts AS S32, matrix16_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_GetTransform(device AS S64, ts AS S32, matrix16_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_SetRenderTarget(device AS S64, index AS S32, surface_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_GetRenderTarget(device AS S64, index AS S32, out_surface_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_SetDepthStencilSurface(device AS S64, surface_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_GetDepthStencilSurface(device AS S64, out_surface_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+
+-- FVF / streams / textures
+IMPORT_DLL FUNCTION alb_d3d9_SetFVF(device AS S64, fvf AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_SetStreamSource(device AS S64, stream AS S32, vb_ptr AS S64, offset_n AS S32, stride_n AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_SetIndices(device AS S64, ib_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_SetTexture(device AS S64, stage AS S32, texture_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_SetSamplerState(device AS S64, sampler AS S32, stype AS S32, value AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_SetTextureStageState(device AS S64, stage AS S32, stype AS S32, value AS S32) AS S32 FROM ("alb_d3d9.dll")
+
+-- Draw
+IMPORT_DLL FUNCTION alb_d3d9_DrawPrimitive(device AS S64, primitive_type AS S32, start_vertex AS S32, primitive_count AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_DrawIndexedPrimitive(device AS S64, primitive_type AS S32, base_vertex AS S32, min_index AS S32, num_vertices AS S32, start_index AS S32, primitive_count AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_DrawPrimitiveUP(device AS S64, primitive_type AS S32, primitive_count AS S32, data_ptr AS S64, stride_n AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_DrawIndexedPrimitiveUP(device AS S64, primitive_type AS S32, min_vertex AS S32, num_vertices AS S32, primitive_count AS S32, index_data_ptr AS S64, index_format AS S32, vertex_data_ptr AS S64, stride_n AS S32) AS S32 FROM ("alb_d3d9.dll")
+
+-- Resources
+IMPORT_DLL FUNCTION alb_d3d9_CreateVertexBuffer(device AS S64, length AS S32, usage AS S32, fvf AS S32, pool AS S32, out_vb_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_CreateIndexBuffer(device AS S64, length AS S32, usage AS S32, format AS S32, pool AS S32, out_ib_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_CreateTexture(device AS S64, width AS S32, height AS S32, levels AS S32, usage AS S32, format AS S32, pool AS S32, out_tex_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_CreateDepthStencilSurface(device AS S64, width AS S32, height AS S32, format AS S32, multisample AS S32, multisample_quality AS S32, discard AS S32, out_surface_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_CreateRenderTarget(device AS S64, width AS S32, height AS S32, format AS S32, multisample AS S32, multisample_quality AS S32, lockable AS S32, out_surface_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_CreateOffscreenPlainSurface(device AS S64, width AS S32, height AS S32, format AS S32, pool AS S32, out_surface_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_CreateQuery(device AS S64, query_type AS S32, out_query_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+
+-- Lock / Unlock
+IMPORT_DLL FUNCTION alb_d3d9_VertexBuffer_Lock(vb_ptr AS S64, offset_n AS S32, size_n AS S32, out_bits_ptr AS S64, flags AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_VertexBuffer_Unlock(vb_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_IndexBuffer_Lock(ib_ptr AS S64, offset_n AS S32, size_n AS S32, out_bits_ptr AS S64, flags AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_IndexBuffer_Unlock(ib_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_Texture_LockRect(tex_ptr AS S64, level_n AS S32, out_bits_ptr AS S64, out_pitch_ptr AS S64, left AS S32, top AS S32, right AS S32, bottom AS S32, flags AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_Texture_UnlockRect(tex_ptr AS S64, level_n AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_Surface_LockRect(surface_ptr AS S64, out_bits_ptr AS S64, out_pitch_ptr AS S64, left AS S32, top AS S32, right AS S32, bottom AS S32, flags AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_Surface_UnlockRect(surface_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+
+-- Query / misc
+IMPORT_DLL FUNCTION alb_d3d9_Query_Issue(query_ptr AS S64, flags AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_Query_GetData(query_ptr AS S64, data_ptr AS S64, size_n AS S32, flags AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_TestCooperativeLevel(device AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_StretchRect(device AS S64, src_surface AS S64, dst_surface AS S64, filter_n AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_ColorFill(device AS S64, surface_ptr AS S64, color_argb AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_SetClipPlane(device AS S64, index AS S32, plane4_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_LightEnable(device AS S64, index AS S32, enable AS S32) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_SetLight(device AS S64, index AS S32, light_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_SetMaterial(device AS S64, material_ptr AS S64) AS S32 FROM ("alb_d3d9.dll")
+IMPORT_DLL FUNCTION alb_d3d9_ReleaseResource(ptr AS S64) AS S32 FROM ("alb_d3d9.dll")

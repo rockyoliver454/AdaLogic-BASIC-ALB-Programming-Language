@@ -1,0 +1,42 @@
+-- Integer scene id only. Host/cartridges dispatch via Simulate/Present.
+VERSION 1.0
+
+DECLARE MODULE GdRegistry
+    PROCEDURE Boot()
+    PROCEDURE SetScene(id AS S32)
+    FUNCTION GetScene() AS S32
+    FUNCTION PrevScene() AS S32
+END DECLARE MODULE
+
+MODULE GdRegistry
+
+    LET scene_id AS S32 = 2
+    LET prev_id AS S32 = 0
+
+    PROCEDURE Boot()
+        ASSERT(scene_id >= 0)
+        ASSERT(scene_id <= 47)
+        scene_id = 1
+        prev_id = 0
+    END PROCEDURE
+
+    PROCEDURE SetScene(id AS S32) REQUIRE id >= 0
+        ASSERT(id >= 0)
+        ASSERT(id <= 47)
+        prev_id = scene_id
+        scene_id = id
+    END PROCEDURE
+
+    FUNCTION GetScene() AS S32
+        ASSERT(scene_id >= 0)
+        ASSERT(scene_id <= 47)
+        RETURN scene_id
+    END FUNCTION
+
+    FUNCTION PrevScene() AS S32
+        ASSERT(prev_id >= 0)
+        ASSERT(prev_id <= 47)
+        RETURN prev_id
+    END FUNCTION
+
+END MODULE

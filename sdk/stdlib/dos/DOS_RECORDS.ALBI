@@ -1,0 +1,217 @@
+-- ====================================================================
+-- DOS_RECORDS.ALBI
+-- Delimited text-record helpers for DAT and report files.
+-- ====================================================================
+
+FUNCTION DOSREC_Is_Newline_At(blob_text AS STRING, idx AS U16) AS BOOL
+    LET blob_len AS U16 = CAST(LEN(blob_text) AS U16)
+
+    IF idx >= blob_len THEN RETURN FALSE END IF
+    IF MID$(blob_text, idx, 1) <> "\" THEN RETURN FALSE END IF
+    IF MID$(blob_text, idx + 1, 1) <> "n" THEN RETURN FALSE END IF
+    RETURN TRUE
+END FUNCTION
+
+FUNCTION DOSREC_Substr(source_text AS STRING, first_idx AS U16, count AS U16) AS STRING
+    LET out_text AS STRING = ""
+    LET idx AS U16 = 0
+    LET text_len AS U16 = CAST(LEN(source_text) AS U16)
+
+    IF count = 0 THEN RETURN "" END IF
+    IF first_idx = 0 THEN RETURN "" END IF
+    IF first_idx > text_len THEN RETURN "" END IF
+
+    FOR idx = 0 TO count - 1 THEN
+        IF first_idx + idx <= text_len THEN
+            out_text = CONCAT(out_text, MID$(source_text, first_idx + idx, 1))
+        END IF
+    END FOR
+
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSREC_Field_Count(line_text AS STRING) AS U16
+    LET line_len AS U16 = CAST(LEN(line_text) AS U16)
+    LET idx AS U16 = 1
+    LET count AS U16 = 1
+
+    IF line_len = 0 THEN RETURN 0 END IF
+
+    FOR idx = 1 TO line_len THEN
+        IF MID$(line_text, idx, 1) = "|" THEN count = count + 1 END IF
+    END FOR
+
+    RETURN count
+END FUNCTION
+
+FUNCTION DOSREC_Field(line_text AS STRING, field_index AS U16) AS STRING
+    LET idx AS U16 = 1
+    LET line_len AS U16 = CAST(LEN(line_text) AS U16)
+    LET current_field AS U16 = 1
+    LET out_text AS STRING = ""
+    LET ch AS STRING = ""
+
+    IF field_index = 0 THEN RETURN "" END IF
+    IF line_len = 0 THEN RETURN "" END IF
+
+    FOR idx = 1 TO line_len THEN
+        ch = MID$(line_text, idx, 1)
+        IF ch = "|" THEN
+            IF current_field = field_index THEN RETURN out_text END IF
+            current_field = current_field + 1
+            out_text = ""
+        ELSE
+            IF current_field = field_index THEN out_text = CONCAT(out_text, ch) END IF
+        END IF
+    END FOR
+
+    IF current_field = field_index THEN RETURN out_text END IF
+    RETURN ""
+END FUNCTION
+
+FUNCTION DOSREC_Field_Equals(line_text AS STRING, field_index AS U16, expected_text AS STRING) AS BOOL
+    IF DOSREC_Field(line_text, field_index) = expected_text THEN RETURN TRUE END IF
+    RETURN FALSE
+END FUNCTION
+
+FUNCTION DOSREC_Is_Header(line_text AS STRING) AS BOOL
+    IF LEN(line_text) = 0 THEN RETURN FALSE END IF
+    IF MID$(line_text, 1, 1) = "#" THEN RETURN TRUE END IF
+    RETURN FALSE
+END FUNCTION
+
+FUNCTION DOSREC_Make2(a_text AS STRING, b_text AS STRING) AS STRING
+    LET out_text AS STRING = a_text
+
+    out_text = CONCAT(out_text, "|")
+    out_text = CONCAT(out_text, b_text)
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSREC_Make3(a_text AS STRING, b_text AS STRING, c_text AS STRING) AS STRING
+    LET out_text AS STRING = a_text
+
+    out_text = CONCAT(out_text, "|")
+    out_text = CONCAT(out_text, b_text)
+    out_text = CONCAT(out_text, "|")
+    out_text = CONCAT(out_text, c_text)
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSREC_Make4(a_text AS STRING, b_text AS STRING, c_text AS STRING, d_text AS STRING) AS STRING
+    LET out_text AS STRING = a_text
+
+    out_text = CONCAT(out_text, "|")
+    out_text = CONCAT(out_text, b_text)
+    out_text = CONCAT(out_text, "|")
+    out_text = CONCAT(out_text, c_text)
+    out_text = CONCAT(out_text, "|")
+    out_text = CONCAT(out_text, d_text)
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSREC_Make5(a_text AS STRING, b_text AS STRING, c_text AS STRING, d_text AS STRING, e_text AS STRING) AS STRING
+    LET out_text AS STRING = a_text
+
+    out_text = CONCAT(out_text, "|")
+    out_text = CONCAT(out_text, b_text)
+    out_text = CONCAT(out_text, "|")
+    out_text = CONCAT(out_text, c_text)
+    out_text = CONCAT(out_text, "|")
+    out_text = CONCAT(out_text, d_text)
+    out_text = CONCAT(out_text, "|")
+    out_text = CONCAT(out_text, e_text)
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSREC_Append_Line(blob_text AS STRING, line_text AS STRING) AS STRING
+    LET blob_copy AS STRING = CONCAT(blob_text, "")
+    LET line_copy AS STRING = CONCAT(line_text, "")
+    LET blob_len AS U16 = CAST(LEN(blob_copy) AS U16)
+    LET out_text AS STRING = blob_copy
+
+    IF blob_len = 0 THEN
+        out_text = line_copy
+        out_text = CONCAT(out_text, "\n")
+        RETURN CONCAT(out_text, "")
+    END IF
+
+    IF blob_len < 2 THEN
+        out_text = CONCAT(out_text, "\n")
+    ELSE
+        IF DOSREC_Substr(blob_copy, blob_len - 1, 2) <> "\n" THEN
+            out_text = CONCAT(out_text, "\n")
+        END IF
+    END IF
+
+    out_text = CONCAT(out_text, line_copy)
+    out_text = CONCAT(out_text, "\n")
+    RETURN CONCAT(out_text, "")
+END FUNCTION
+
+FUNCTION DOSREC_Data_Line_Count(blob_text AS STRING) AS U16
+    LET blob_len AS U16 = CAST(LEN(blob_text) AS U16)
+    LET idx AS U16 = 1
+    LET line_text AS STRING = ""
+    LET count AS U16 = 0
+    LET ch AS STRING = ""
+    LET skip_next AS BOOL = FALSE
+
+    FOR idx = 1 TO blob_len THEN
+        IF skip_next THEN
+            skip_next = FALSE
+        ELSE
+            ch = MID$(blob_text, idx, 1)
+            IF DOSREC_Is_Newline_At(blob_text, idx) THEN
+                IF LEN(line_text) > 0 THEN
+                    IF DOSREC_Is_Header(line_text) = FALSE THEN count = count + 1 END IF
+                END IF
+                line_text = ""
+                skip_next = TRUE
+            ELSE
+                line_text = CONCAT(line_text, ch)
+            END IF
+        END IF
+    END FOR
+
+    IF LEN(line_text) > 0 THEN
+        IF DOSREC_Is_Header(line_text) = FALSE THEN count = count + 1 END IF
+    END IF
+
+    RETURN count
+END FUNCTION
+
+FUNCTION DOSREC_Find_By_First_Field(blob_text AS STRING, wanted_text AS STRING, fallback_text AS STRING) AS STRING
+    LET blob_len AS U16 = CAST(LEN(blob_text) AS U16)
+    LET idx AS U16 = 1
+    LET line_text AS STRING = ""
+    LET ch AS STRING = ""
+    LET skip_next AS BOOL = FALSE
+
+    FOR idx = 1 TO blob_len THEN
+        IF skip_next THEN
+            skip_next = FALSE
+        ELSE
+            ch = MID$(blob_text, idx, 1)
+            IF DOSREC_Is_Newline_At(blob_text, idx) THEN
+                IF LEN(line_text) > 0 THEN
+                    IF DOSREC_Is_Header(line_text) = FALSE THEN
+                        IF DOSREC_Field(line_text, 1) = wanted_text THEN RETURN line_text END IF
+                    END IF
+                END IF
+                line_text = ""
+                skip_next = TRUE
+            ELSE
+                line_text = CONCAT(line_text, ch)
+            END IF
+        END IF
+    END FOR
+
+    IF LEN(line_text) > 0 THEN
+        IF DOSREC_Is_Header(line_text) = FALSE THEN
+            IF DOSREC_Field(line_text, 1) = wanted_text THEN RETURN line_text END IF
+        END IF
+    END IF
+
+    RETURN fallback_text
+END FUNCTION

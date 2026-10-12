@@ -1,0 +1,29 @@
+-- Twin of C proc_objects/gen_furniture.c.
+VERSION 1.0
+
+DECLARE MODULE GdFurn
+    PROCEDURE PresentChair(x AS S32, y AS S32)
+    PROCEDURE PresentTable(x AS S32, y AS S32)
+END DECLARE MODULE
+
+MODULE GdFurn
+
+    PROCEDURE PresentChair(x AS S32, y AS S32)
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $A16207
+        FILL RECT x, y, 12, 16
+        COLOR $78350F
+        FILL RECT x, y - 8, 12, 8
+    END PROCEDURE
+
+    PROCEDURE PresentTable(x AS S32, y AS S32)
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $854D0E
+        FILL RECT x, y, 28, 8
+        FILL RECT x + 4, y + 8, 4, 10
+        FILL RECT x + 20, y + 8, 4, 10
+    END PROCEDURE
+
+END MODULE

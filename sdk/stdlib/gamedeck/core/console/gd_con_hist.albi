@@ -1,0 +1,97 @@
+-- Twin of Ada core_console history. Cap 64 command ids, cursor, no string slices.
+VERSION 1.0
+
+DECLARE MODULE GdConHist
+    PROCEDURE Setup()
+    PROCEDURE Push(cmd AS S32)
+    FUNCTION CountN() AS S32
+    FUNCTION AtSlot(i AS S32) AS S32
+    PROCEDURE CursorUp()
+    PROCEDURE CursorDown()
+    FUNCTION Cursor() AS S32
+    FUNCTION Current() AS S32
+END DECLARE MODULE
+
+MODULE GdConHist
+
+    STRICT hist[64] AS S32
+    LET n AS S32 = 0
+    LET cur AS S32 = 1
+
+    PROCEDURE Setup()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 64
+            hist[i] = 0
+            i = i + 1
+        END WHILE
+        n = 0
+        cur = 1
+    END PROCEDURE
+
+    PROCEDURE Push(cmd AS S32)
+        ASSERT(cmd >= 0)
+        ASSERT(cmd <= 63)
+        IF n < 64 THEN
+            n = n + 1
+            hist[n] = cmd
+            cur = n
+        ELSE
+            LET i AS S32 = 1
+            WHILE i <= 63
+                hist[i] = hist[i + 1]
+                i = i + 1
+            END WHILE
+            hist[64] = cmd
+            cur = 64
+        END IF
+    END PROCEDURE
+
+    FUNCTION CountN() AS S32
+        ASSERT(n >= 0)
+        ASSERT(n <= 64)
+        RETURN n
+    END FUNCTION
+
+    FUNCTION AtSlot(i AS S32) AS S32
+        ASSERT(i >= 1)
+        ASSERT(i <= 64)
+        RETURN hist[i]
+    END FUNCTION
+
+    PROCEDURE CursorUp()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF cur > 1 THEN
+            cur = cur - 1
+        END IF
+    END PROCEDURE
+
+    PROCEDURE CursorDown()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF cur < n THEN
+            cur = cur + 1
+        END IF
+        IF cur < 1 THEN
+            cur = 1
+        END IF
+    END PROCEDURE
+
+    FUNCTION Cursor() AS S32
+        ASSERT(cur >= 1)
+        ASSERT(cur <= 64)
+        RETURN cur
+    END FUNCTION
+
+    FUNCTION Current() AS S32
+        ASSERT(cur >= 1)
+        ASSERT(cur <= 64)
+        IF n = 0 THEN
+            RETURN 0
+        END IF
+        RETURN hist[cur]
+    END FUNCTION
+
+END MODULE

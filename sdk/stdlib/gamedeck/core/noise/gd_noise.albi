@@ -1,0 +1,66 @@
+-- Multi-octave value noise 0..255 from GdHash (corner-averaged per octave).
+VERSION 1.0
+
+DECLARE MODULE GdNoise
+    FUNCTION ValueAt(x AS S32, y AS S32, seed AS S32) AS S32
+    FUNCTION SelfTest() AS S32
+END DECLARE MODULE
+
+MODULE GdNoise
+
+    FUNCTION CornerAvg(ix AS S32, iy AS S32, seed AS S32) AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        LET c AS S32 = 0
+        LET d AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        a = GdHash.ByteOf(ix, iy, seed)
+        b = GdHash.ByteOf(ix + 1, iy, seed)
+        c = GdHash.ByteOf(ix, iy + 1, seed)
+        d = GdHash.ByteOf(ix + 1, iy + 1, seed)
+        RETURN (a + b + c + d) / 4
+    END FUNCTION
+
+    FUNCTION ValueAt(x AS S32, y AS S32, seed AS S32) AS S32
+        LET o0 AS S32 = 0
+        LET o1 AS S32 = 0
+        LET o2 AS S32 = 0
+        LET o3 AS S32 = 0
+        LET s AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        o0 = CornerAvg(x / 8, y / 8, seed)
+        o1 = CornerAvg(x / 4, y / 4, seed + 1)
+        o2 = CornerAvg(x / 2, y / 2, seed + 2)
+        o3 = CornerAvg(x, y, seed + 3)
+        s = (o0 * 8 + o1 * 4 + o2 * 2 + o3) / 15
+        RETURN GdVec2.ClipI(s, 0, 255)
+    END FUNCTION
+
+    FUNCTION SelfTest() AS S32
+        LET a AS S32 = 0
+        LET b AS S32 = 0
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        a = ValueAt(0, 0, 3)
+        b = ValueAt(40, 24, 3)
+        IF a = b THEN
+            RETURN 0
+        END IF
+        IF a < 0 THEN
+            RETURN 0
+        END IF
+        IF a > 255 THEN
+            RETURN 0
+        END IF
+        IF b < 0 THEN
+            RETURN 0
+        END IF
+        IF b > 255 THEN
+            RETURN 0
+        END IF
+        RETURN 1
+    END FUNCTION
+
+END MODULE

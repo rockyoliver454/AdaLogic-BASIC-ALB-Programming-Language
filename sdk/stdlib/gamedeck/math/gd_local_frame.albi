@@ -1,0 +1,69 @@
+-- Twin of Ada Geo_Frame. Origin + brad heading. FRAME is reserved.
+VERSION 1.0
+
+DECLARE MODULE GdLocalFrame
+    PROCEDURE Identity()
+    PROCEDURE Place(x AS S32, y AS S32, hdg AS S32)
+    FUNCTION OX() AS S32
+    FUNCTION OY() AS S32
+    FUNCTION Hdg() AS S32
+    FUNCTION WorldX(lx AS S32, ly AS S32) AS S32
+    FUNCTION WorldY(lx AS S32, ly AS S32) AS S32
+END DECLARE MODULE
+
+MODULE GdLocalFrame
+
+    LET ox AS S32 = 0
+    LET oy AS S32 = 0
+    LET hdg AS S32 = 0
+
+    PROCEDURE Identity()
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        ox = 0
+        oy = 0
+        hdg = 0
+    END PROCEDURE
+
+    PROCEDURE Place(x AS S32, y AS S32, hdg_in AS S32)
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        ox = x
+        oy = y
+        hdg = hdg_in MOD 256
+        IF hdg < 0 THEN
+            hdg = hdg + 256
+        END IF
+    END PROCEDURE
+
+    FUNCTION OX() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN ox
+    END FUNCTION
+
+    FUNCTION OY() AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN oy
+    END FUNCTION
+
+    FUNCTION Hdg() AS S32
+        ASSERT(hdg >= 0)
+        ASSERT(hdg <= 255)
+        RETURN hdg
+    END FUNCTION
+
+    FUNCTION WorldX(lx AS S32, ly AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN ox + GdXform.RotX(lx, ly, hdg)
+    END FUNCTION
+
+    FUNCTION WorldY(lx AS S32, ly AS S32) AS S32
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        RETURN oy + GdXform.RotY(lx, ly, hdg)
+    END FUNCTION
+
+END MODULE

@@ -1,0 +1,40 @@
+-- Twin of Ada console keys / persist / last text slot.
+VERSION 1.0
+
+DECLARE MODULE GdConMore
+    PROCEDURE NoteKey(k AS S32)
+    FUNCTION LastKey() AS S32
+    PROCEDURE NoteSlot(slot AS S32)
+    FUNCTION SlotOf() AS S32
+END DECLARE MODULE
+
+MODULE GdConMore
+
+    LET last_k AS S32 = 0
+    LET slot AS S32 = 1
+
+    PROCEDURE NoteKey(k AS S32)
+        ASSERT(k >= 0)
+        ASSERT(k <= 255)
+        last_k = k
+    END PROCEDURE
+
+    FUNCTION LastKey() AS S32
+        ASSERT(last_k >= 0)
+        ASSERT(last_k <= 255)
+        RETURN last_k
+    END FUNCTION
+
+    PROCEDURE NoteSlot(slotn AS S32)
+        ASSERT(slotn >= 1)
+        ASSERT(slotn <= 8)
+        slot = slotn
+    END PROCEDURE
+
+    FUNCTION SlotOf() AS S32
+        ASSERT(slot >= 1)
+        ASSERT(slot <= 8)
+        RETURN slot
+    END FUNCTION
+
+END MODULE

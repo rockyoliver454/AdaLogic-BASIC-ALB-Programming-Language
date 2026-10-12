@@ -1,0 +1,130 @@
+-- ============================================================================
+-- ALBGzip — RFC 1952 gzip wrapper (deflate payload)
+-- ============================================================================
+-- Checks 1F 8B 08, skips optional name/comment/CRC16, then raw DEFLATE.
+-- INCLUDE alb_inflate.albi first in the same folder.
+--
+-- From release\examples\:
+--   INCLUDE "../stdlib/io/alb_crc32.albi"
+--   INCLUDE "../stdlib/io/alb_inflate.albi"
+--   INCLUDE "../stdlib/io/alb_gzip.albi"
+--
+-- InflateBuf()  0 ok. OutLen() / OutAt(i) are the inflated bytes (1-based).
+-- Multi-member gzip, encrypt, and unknown compression CM → status 5.
+-- ============================================================================
+
+VERSION 1.0
+
+DECLARE MODULE ALBGzip
+    PROCEDURE Reset()
+    PROCEDURE PutByte(b AS U8)
+    FUNCTION InflateBuf() AS S32
+    FUNCTION OutLen() AS S32
+    FUNCTION OutAt(i AS S32) AS U8
+    FUNCTION Status() AS S32
+END DECLARE MODULE
+
+MODULE ALBGzip
+
+    -- 1-based window. Inflate lives in alb_inflate.albi (INCLUDE it first).
+    STRICT src[8192] AS U8
+    LET srclen AS S32 = 0
+    LET lastst AS S32 = 5
+
+    PROCEDURE Reset()
+        srclen = 0
+        lastst = 5
+    END PROCEDURE
+
+    PROCEDURE PutByte(b AS U8)
+        IF srclen >= 8192 THEN
+            RETURN
+        END IF
+        srclen = srclen + 1
+        src[srclen] = b
+    END PROCEDURE
+
+    FUNCTION SkipCString(i AS S32) AS S32
+        WHILE i <= srclen
+            IF src[i] = 0 THEN
+                RETURN i + 1
+            END IF
+            i = i + 1
+        END WHILE
+        RETURN 0
+    END FUNCTION
+
+    FUNCTION InflateBuf() AS S32
+        LET flg AS S32 = 0
+        LET i AS S32 = 11
+        LET xlen AS S32 = 0
+        IF srclen < 18 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        -- 31 139 08 = 1F 8B CM=deflate.
+        IF src[1] <> 31 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[2] <> 139 THEN
+            lastst = 3
+            RETURN lastst
+        END IF
+        IF src[3] <> 8 THEN
+            lastst = 5
+            RETURN lastst
+        END IF
+        flg = CAST(src[4] AS S32)
+        i = 11
+        IF (flg AND 4) <> 0 THEN
+            IF i + 1 > srclen THEN
+                lastst = 4
+                RETURN lastst
+            END IF
+            xlen = CAST(src[i] AS S32) + CAST(src[i + 1] AS S32) * 256
+            i = i + 2 + xlen
+        END IF
+        IF (flg AND 8) <> 0 THEN
+            i = SkipCString(i)
+            IF i = 0 THEN
+                lastst = 4
+                RETURN lastst
+            END IF
+        END IF
+        IF (flg AND 16) <> 0 THEN
+            i = SkipCString(i)
+            IF i = 0 THEN
+                lastst = 4
+                RETURN lastst
+            END IF
+        END IF
+        IF (flg AND 2) <> 0 THEN
+            i = i + 2
+        END IF
+        IF i > srclen - 8 THEN
+            lastst = 4
+            RETURN lastst
+        END IF
+        PeeEnGee_Inflate.SrcReset()
+        WHILE i <= srclen - 8
+            PeeEnGee_Inflate.SrcPut(src[i])
+            i = i + 1
+        END WHILE
+        lastst = PeeEnGee_Inflate.InflateRaw()
+        RETURN lastst
+    END FUNCTION
+
+    FUNCTION OutLen() AS S32
+        RETURN PeeEnGee_Inflate.OutLen()
+    END FUNCTION
+
+    FUNCTION OutAt(i AS S32) AS U8
+        RETURN PeeEnGee_Inflate.OutAt(i)
+    END FUNCTION
+
+    FUNCTION Status() AS S32
+        RETURN lastst
+    END FUNCTION
+
+END MODULE

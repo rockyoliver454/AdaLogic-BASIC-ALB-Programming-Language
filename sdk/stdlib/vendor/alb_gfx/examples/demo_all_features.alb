@@ -1,0 +1,997 @@
+-- ============================================================================
+-- demo_all_features.alb Ã¢â‚¬â€ pure ALB live demo (alb_gfx + OpenBLAS + Nuklear)
+-- Matches the OpenGL C app control panel: Shapes / GPU gates / OpenBLAS /
+-- kitchen-sink widgets. Render window shows scaled STAR (and other shapes).
+-- ============================================================================
+#SHAPE_TRIANGLE = 0
+#SHAPE_QUAD = 1
+#SHAPE_STAR = 2
+#SHAPE_NGON = 3
+#SHAPE_GRID = 4
+#SHAPE_POINTS = 5
+#SHAPE_CUBE = 6
+#SHAPE_COUNT = 7
+#BLAS_MODE_COUNT = 5
+#NK_FLAGS = 87
+#CHART_N = 24
+
+BEGIN
+VERSION 1.0
+INCLUDE <alb_gfx.albi>
+INCLUDE <alb_openblas.albi>
+INCLUDE <alb_nuklear.albi>
+
+LET pi AS F64 = 3.141592653589793
+LET fails AS S32 = 0
+LET rc AS S32 = 0
+LET i AS S32 = 0
+LET shape AS S32 = #SHAPE_STAR
+LET prev_shape AS S32 = #SHAPE_STAR
+LET enable_blas AS S32 = 0
+LET win_open AS S32 = 0
+LET clicked AS S32 = 0
+LET frame_n AS S32 = 0
+LET st AS S32 = 0
+LET nverts AS S32 = 0
+LET idx AS S32 = 0
+LET tip AS S32 = 0
+LET nbytes AS S32 = 0
+LET paused AS S32 = 0
+LET vsync AS S32 = 1
+LET open_tab AS S32 = 0
+LET scale_i AS S32 = 100
+LET ngon_sides AS S32 = 8
+LET blas_mode AS S32 = 0
+LET option AS S32 = 0
+LET clicks AS S32 = 0
+LET show_about AS S32 = 0
+LET prop_i AS S32 = 50
+LET chart_i AS S32 = 0
+LET msaa_ok AS S32 = 0
+LET gate_async AS S32 = 0
+LET gate_indirect AS S32 = 0
+LET gate_depth AS S32 = 0
+LET gate_ts AS S32 = 0
+LET gate_msaa AS S32 = 0
+LET gate_tex AS S32 = 0
+LET gate_uav AS S32 = 0
+LET gate_points AS S32 = 0
+LET gate_wire AS S32 = 0
+LET instance_count AS S32 = 1
+LET dispatch_x AS S32 = 1
+LET scissor_m AS S32 = 0
+LET inst AS S32 = 0
+LET sc_w AS S32 = 0
+LET sc_h AS S32 = 0
+
+LET gfx AS S64 = 0
+LET nk AS S64 = 0
+LET vb AS S64 = 0
+LET pipe_tri AS S64 = 0
+LET pipe_line AS S64 = 0
+LET pipe_point AS S64 = 0
+LET pipe_cur AS S64 = 0
+LET verts AS S64 = 0
+LET vec_x AS S64 = 0
+LET vec_y AS S64 = 0
+LET ui_i AS S64 = 0
+LET ui_f AS S64 = 0
+LET chart AS S64 = 0
+LET edit_buf AS S64 = 0
+LET bounds AS S64 = 0
+LET angles AS S64 = 0
+LET star_step AS F64 = 1.2566370614359172
+LET star_half AS F64 = 0.6283185307179586
+
+LET tint_r AS F64 = 0.9
+LET tint_g AS F64 = 0.45
+LET tint_b AS F64 = 0.25
+LET clear_r AS F64 = 0.04
+LET clear_g AS F64 = 0.06
+LET clear_b AS F64 = 0.10
+LET rot AS F64 = 0.0
+LET scale AS F64 = 1.0
+LET anim_speed AS F64 = 1.0
+LET ddot AS F64 = 0.0
+LET a0 AS F64 = 0.0
+LET a1 AS F64 = 0.0
+LET am AS F64 = 0.0
+LET ox AS F64 = 0.0
+LET oy AS F64 = 0.0
+LET mx AS F64 = 0.0
+LET my AS F64 = 0.0
+LET nx AS F64 = 0.0
+LET ny AS F64 = 0.0
+LET cs AS F64 = 0.0
+LET sn AS F64 = 0.0
+LET vx AS F64 = 0.0
+LET vy AS F64 = 0.0
+LET pick_r AS F64 = 1.0
+LET pick_g AS F64 = 1.0
+LET pick_b AS F64 = 1.0
+LET cv AS F64 = 0.0
+
+PRINT "demo_all_features start"
+rc = alb_openblas_test_all()
+PRINT "blas test_all=" | rc
+fails = rc
+
+nk = alb_nuklear_context_create_window(1020, 920, 1, "CONTROL - alb_gfx")
+alb_nuklear_set_clear_color(nk, 0.12, 0.16, 0.22, 1.0);
+alb_nuklear_style_set_theme(nk, #ALB_NK_THEME_DARK);
+gfx = gfx_init(960, 540)
+msaa_ok = gfx_msaa_create(gfx, 4)
+PRINT "nk/gfx ready msaa=" | msaa_ok
+
+verts = gfx_alloc_memory(3584)
+vec_x = gfx_alloc_memory(24)
+vec_y = gfx_alloc_memory(24)
+ui_i = gfx_alloc_memory(256)
+ui_f = gfx_alloc_memory(256)
+chart = gfx_alloc_memory(128)
+edit_buf = gfx_alloc_memory(64)
+bounds = gfx_alloc_memory(16)
+angles = gfx_alloc_memory(32)
+vb = gfx_buffer_create(gfx, 3584, #GFX_BUFFER_USAGE_DYNAMIC)
+pipe_tri = gfx_pipeline_create(gfx, 0, 0, #GFX_TOPOLOGY_TRIANGLELIST)
+pipe_line = gfx_pipeline_create(gfx, 0, 0, #GFX_TOPOLOGY_LINELIST)
+pipe_point = gfx_pipeline_create(gfx, 0, 0, #GFX_TOPOLOGY_POINTLIST)
+pipe_cur = pipe_tri
+gfx_pipeline_bind(gfx, pipe_cur);
+gfx_bind_vertex_buffer(gfx, vb);
+
+-- Star tip angles (-pi/2 + k*2pi/5); avoid S32*F64 in the tip loop
+gfx_write_f32(angles, 0, -1.5707963267948966);
+gfx_write_f32(angles, 1, -0.3141592653589793);
+gfx_write_f32(angles, 2, 0.9424777960769379);
+gfx_write_f32(angles, 3, 2.199114857512855);
+gfx_write_f32(angles, 4, 3.455751918948773);
+
+-- ui_i layout: blas/pause/vsync/ngon/tree tabs/gpu gates/widgets
+gfx_write_i32(ui_i, 0, 0);
+gfx_write_i32(ui_i, 1, 0);
+gfx_write_i32(ui_i, 2, 1);
+gfx_write_i32(ui_i, 3, 8);
+gfx_write_i32(ui_i, 4, 1);
+gfx_write_i32(ui_i, 5, 1);
+gfx_write_i32(ui_i, 6, 1);
+gfx_write_i32(ui_i, 7, 0);
+gfx_write_i32(ui_i, 8, 0);
+gfx_write_i32(ui_i, 9, 0);
+gfx_write_i32(ui_i, 10, 0);
+gfx_write_i32(ui_i, 11, 1);
+gfx_write_i32(ui_i, 12, 0);
+gfx_write_i32(ui_i, 13, 0);
+gfx_write_i32(ui_i, 14, 0);
+gfx_write_i32(ui_i, 15, 0);
+gfx_write_i32(ui_i, 16, 0);
+gfx_write_i32(ui_i, 17, 50);
+gfx_write_i32(ui_i, 18, 40);
+gfx_write_i32(ui_i, 19, 0);
+gfx_write_i32(ui_i, 20, 0);
+gfx_write_i32(ui_i, 21, 1);
+gfx_write_i32(ui_i, 22, 1);
+gfx_write_i32(ui_i, 23, 0);
+
+-- ui_f layout: scale/rot/anim/clear/tint/pick/knob
+gfx_write_f32(ui_f, 0, 1.0);
+gfx_write_f32(ui_f, 1, 0.0);
+gfx_write_f32(ui_f, 2, 1.0);
+gfx_write_f32(ui_f, 4, 0.04);
+gfx_write_f32(ui_f, 5, 0.06);
+gfx_write_f32(ui_f, 6, 0.10);
+gfx_write_f32(ui_f, 7, 0.9);
+gfx_write_f32(ui_f, 8, 0.45);
+gfx_write_f32(ui_f, 9, 0.25);
+gfx_write_f32(ui_f, 10, 1.0);
+gfx_write_f32(ui_f, 11, 0.5);
+gfx_write_f32(ui_f, 12, 1.0);
+gfx_write_f32(ui_f, 13, 1.0);
+gfx_write_f32(ui_f, 14, 1.0);
+gfx_write_f32(ui_f, 15, 1.0);
+gfx_write_f32(ui_f, 16, 40.0);
+
+PRINT "entering live"
+FOR i = 1 TO 100000 THEN
+  gfx_poll_events();
+  rc = alb_nuklear_should_close(nk)
+  IF rc != 0 THEN
+    i = 100000
+  ELSE
+    rc = gfx_should_close(gfx)
+    IF rc != 0 THEN
+      i = 100000
+    ELSE
+      st = alb_nuklear_new_frame(nk)
+      win_open = alb_nuklear_begin(nk, "ALL FEATURES Control", 8.0, 8.0, 680.0, 880.0, #NK_FLAGS)
+      IF win_open != 0 THEN
+        alb_nuklear_menubar_begin(nk);
+        alb_nuklear_layout_row_begin(nk, #ALB_NK_STATIC, 25.0, 3);
+        alb_nuklear_layout_row_push(nk, 70.0);
+        clicked = alb_nuklear_menu_begin_label(nk, "Theme", #ALB_NK_TEXT_LEFT, 140.0, 180.0)
+        IF clicked != 0 THEN
+          alb_nuklear_layout_row_dynamic(nk, 22.0, 1);
+          clicked = alb_nuklear_menu_item_label(nk, "Default", #ALB_NK_TEXT_LEFT)
+          IF clicked != 0 THEN
+            alb_nuklear_style_set_theme(nk, #ALB_NK_THEME_DEFAULT);
+          END IF
+          clicked = alb_nuklear_menu_item_label(nk, "White", #ALB_NK_TEXT_LEFT)
+          IF clicked != 0 THEN
+            alb_nuklear_style_set_theme(nk, #ALB_NK_THEME_WHITE);
+          END IF
+          clicked = alb_nuklear_menu_item_label(nk, "Red", #ALB_NK_TEXT_LEFT)
+          IF clicked != 0 THEN
+            alb_nuklear_style_set_theme(nk, #ALB_NK_THEME_RED);
+          END IF
+          clicked = alb_nuklear_menu_item_label(nk, "Blue", #ALB_NK_TEXT_LEFT)
+          IF clicked != 0 THEN
+            alb_nuklear_style_set_theme(nk, #ALB_NK_THEME_BLUE);
+          END IF
+          clicked = alb_nuklear_menu_item_label(nk, "Dark", #ALB_NK_TEXT_LEFT)
+          IF clicked != 0 THEN
+            alb_nuklear_style_set_theme(nk, #ALB_NK_THEME_DARK);
+          END IF
+          alb_nuklear_menu_end(nk);
+        END IF
+        alb_nuklear_layout_row_push(nk, 70.0);
+        clicked = alb_nuklear_menu_begin_label(nk, "Help", #ALB_NK_TEXT_LEFT, 160.0, 80.0)
+        IF clicked != 0 THEN
+          alb_nuklear_layout_row_dynamic(nk, 22.0, 1);
+          clicked = alb_nuklear_menu_item_label(nk, "About...", #ALB_NK_TEXT_LEFT)
+          IF clicked != 0 THEN
+            gfx_write_i32(ui_i, 19, 1);
+          END IF
+          alb_nuklear_menu_end(nk);
+        END IF
+        alb_nuklear_layout_row_push(nk, 80.0);
+        clicked = alb_nuklear_button_symbol_label(nk, #ALB_NK_SYMBOL_X, "Quit", #ALB_NK_TEXT_LEFT)
+        IF clicked != 0 THEN
+          i = 100000
+        END IF
+        alb_nuklear_layout_row_end(nk);
+        alb_nuklear_menubar_end(nk);
+
+        alb_nuklear_layout_row_dynamic(nk, 18.0, 1);
+        alb_nuklear_label_colored(nk, "Pure ALB demo_all_features (gfx+BLAS+nk)", #ALB_NK_TEXT_LEFT, 0.65, 0.9, 1.0, 1.0);
+        alb_nuklear_separator(nk);
+
+        open_tab = alb_nuklear_tree_state_push(nk, #ALB_NK_TREE_TAB, "OpenBLAS", ui_i + 24)
+        IF open_tab != 0 THEN
+          alb_nuklear_layout_row_dynamic(nk, 22.0, 1);
+          rc = alb_nuklear_checkbox_label(nk, "Enable BLAS tint/metrics", ui_i)
+          blas_mode = alb_nuklear_combo_separator(nk, "DGEMM+GEMV|DGESV solve|DSYEV eigen|Norms|SGEMM", blas_mode, #BLAS_MODE_COUNT, 22, 260.0, 180.0)
+          alb_nuklear_label(nk, "Manual tint (when BLAS off)", #ALB_NK_TEXT_LEFT);
+          rc = alb_nuklear_slider_float(nk, 0.0, ui_f + 28, 1.0, 0.01)
+          rc = alb_nuklear_slider_float(nk, 0.0, ui_f + 32, 1.0, 0.01)
+          rc = alb_nuklear_slider_float(nk, 0.0, ui_f + 36, 1.0, 0.01)
+          alb_nuklear_label(nk, "ddot / SIN tint when BLAS enabled", #ALB_NK_TEXT_LEFT);
+          alb_nuklear_tree_pop(nk);
+        END IF
+
+        open_tab = alb_nuklear_tree_state_push(nk, #ALB_NK_TREE_TAB, "Shapes", ui_i + 16)
+        IF open_tab != 0 THEN
+          alb_nuklear_layout_row_dynamic(nk, 25.0, 1);
+          shape = alb_nuklear_combo_separator(nk, "Triangle|Quad|Star|N-gon|Grid|Points|Cube", shape, #SHAPE_COUNT, 22, 240.0, 220.0)
+          rc = alb_nuklear_property_int(nk, "N-gon sides:", 3, ui_i + 12, 48, 1, 1.0)
+          rc = alb_nuklear_property_float(nk, "Scale:", 0.2, ui_f, 2.5, 0.01, 0.005)
+          rc = alb_nuklear_property_float(nk, "Rotation deg:", -180.0, ui_f + 4, 180.0, 1.0, 0.5)
+          rc = alb_nuklear_property_float(nk, "Anim speed:", 0.0, ui_f + 8, 4.0, 0.05, 0.01)
+          rc = alb_nuklear_checkbox_label(nk, "Pause", ui_i + 4)
+          alb_nuklear_tree_pop(nk);
+        END IF
+
+        open_tab = alb_nuklear_tree_state_push(nk, #ALB_NK_TREE_TAB, "GPU Feature Gates", ui_i + 20)
+        IF open_tab != 0 THEN
+          alb_nuklear_layout_row_dynamic(nk, 22.0, 2);
+          rc = alb_nuklear_checkbox_label(nk, "Async compute", ui_i + 28)
+          rc = alb_nuklear_checkbox_label(nk, "ExecuteIndirect", ui_i + 32)
+          rc = alb_nuklear_checkbox_label(nk, "Depth clear", ui_i + 36)
+          rc = alb_nuklear_checkbox_label(nk, "Timestamps", ui_i + 40)
+          rc = alb_nuklear_checkbox_label(nk, "MSAA resolve", ui_i + 44)
+          rc = alb_nuklear_checkbox_label(nk, "Tex re-upload", ui_i + 48)
+          rc = alb_nuklear_checkbox_label(nk, "UAV barrier", ui_i + 52)
+          rc = alb_nuklear_checkbox_label(nk, "VSync", ui_i + 8)
+          rc = alb_nuklear_checkbox_label(nk, "Point overlay", ui_i + 56)
+          rc = alb_nuklear_checkbox_label(nk, "Wire overlay", ui_i + 60)
+          alb_nuklear_layout_row_dynamic(nk, 22.0, 1);
+          rc = alb_nuklear_property_int(nk, "Instances:", 1, ui_i + 84, 8, 1, 1.0)
+          rc = alb_nuklear_property_int(nk, "Dispatch X:", 1, ui_i + 88, 8, 1, 1.0)
+          rc = alb_nuklear_property_int(nk, "Scissor margin:", 0, ui_i + 92, 200, 1, 1.0)
+          alb_nuklear_label(nk, "Depth clear value", #ALB_NK_TEXT_LEFT);
+          rc = alb_nuklear_slider_float(nk, 0.0, ui_f + 40, 1.0, 0.01)
+          alb_nuklear_label(nk, "RTV clear RGB", #ALB_NK_TEXT_LEFT);
+          rc = alb_nuklear_slider_float(nk, 0.0, ui_f + 16, 1.0, 0.01)
+          rc = alb_nuklear_slider_float(nk, 0.0, ui_f + 20, 1.0, 0.01)
+          rc = alb_nuklear_slider_float(nk, 0.0, ui_f + 24, 1.0, 0.01)
+          alb_nuklear_tree_pop(nk);
+        END IF
+
+        alb_nuklear_separator(nk);
+        alb_nuklear_layout_row_dynamic(nk, 24.0, 4);
+        clicked = alb_nuklear_button_label(nk, "Click")
+        IF clicked != 0 THEN
+          clicks = clicks + 1
+        END IF
+        clicked = alb_nuklear_button_symbol(nk, #ALB_NK_SYMBOL_PLUS)
+        IF clicked != 0 THEN
+          clicks = clicks + 1
+        END IF
+        clicked = alb_nuklear_button_symbol(nk, #ALB_NK_SYMBOL_MINUS)
+        IF clicked != 0 THEN
+          clicks = clicks - 1
+        END IF
+        clicked = alb_nuklear_button_color(nk, pick_r, pick_g, pick_b, 1.0)
+
+        alb_nuklear_layout_row_dynamic(nk, 22.0, 3);
+        rc = 0
+        IF option = 0 THEN
+          rc = 1
+        END IF
+        clicked = alb_nuklear_option_label(nk, "easy", rc)
+        IF clicked != 0 THEN
+          option = 0
+        END IF
+        rc = 0
+        IF option = 1 THEN
+          rc = 1
+        END IF
+        clicked = alb_nuklear_option_label(nk, "hard", rc)
+        IF clicked != 0 THEN
+          option = 1
+        END IF
+        rc = alb_nuklear_selectable_label(nk, "sel", #ALB_NK_TEXT_LEFT, ui_i + 64)
+
+        alb_nuklear_layout_row_dynamic(nk, 22.0, 1);
+        rc = alb_nuklear_slider_float(nk, 0.0, ui_f + 44, 1.0, 0.01)
+        rc = alb_nuklear_property_int(nk, "Prop:", 0, ui_i + 68, 100, 5, 1.0)
+        rc = alb_nuklear_progress(nk, ui_i + 72, 100, 1)
+
+        show_about = gfx_read_i32(ui_i, 19)
+        IF show_about != 0 THEN
+          rc = alb_nuklear_popup_begin(nk, #ALB_NK_POPUP_STATIC, "About", 73, 30.0, 80.0, 300.0, 140.0)
+          IF rc != 0 THEN
+            alb_nuklear_layout_row_dynamic(nk, 18.0, 1);
+            alb_nuklear_label(nk, "demo_all_features pure ALB", #ALB_NK_TEXT_LEFT);
+            alb_nuklear_label(nk, "alb_gfx + openblas + nuklear", #ALB_NK_TEXT_LEFT);
+            clicked = alb_nuklear_button_label(nk, "Close")
+            IF clicked != 0 THEN
+              gfx_write_i32(ui_i, 19, 0);
+              alb_nuklear_popup_close(nk);
+            END IF
+            alb_nuklear_popup_end(nk);
+          ELSE
+            gfx_write_i32(ui_i, 19, 0);
+          END IF
+        END IF
+      END IF
+      alb_nuklear_end(nk);
+
+      win_open = alb_nuklear_begin_titled(nk, "blas_panel", "OpenBLAS Control", 700.0, 240.0, 300.0, 320.0, #NK_FLAGS)
+      IF win_open != 0 THEN
+        alb_nuklear_layout_row_dynamic(nk, 22.0, 1);
+        rc = alb_nuklear_checkbox_label(nk, "Enable BLAS tint/metrics", ui_i)
+        blas_mode = alb_nuklear_combo_separator(nk, "DGEMM+GEMV|DGESV solve|DSYEV eigen|Norms|SGEMM", blas_mode, #BLAS_MODE_COUNT, 22, 260.0, 180.0)
+        alb_nuklear_label(nk, "Manual tint RGB", #ALB_NK_TEXT_LEFT);
+        rc = alb_nuklear_slider_float(nk, 0.0, ui_f + 28, 1.0, 0.01)
+        rc = alb_nuklear_slider_float(nk, 0.0, ui_f + 32, 1.0, 0.01)
+        rc = alb_nuklear_slider_float(nk, 0.0, ui_f + 36, 1.0, 0.01)
+        alb_nuklear_label_wrap(nk, "Same settings as OpenBLAS tree in the main control panel.");
+      END IF
+      alb_nuklear_end(nk);
+
+      win_open = alb_nuklear_begin_titled(nk, "space", "Quick Toggles", 700.0, 20.0, 300.0, 200.0, #NK_FLAGS)
+      IF win_open != 0 THEN
+        alb_nuklear_layout_space_begin(nk, #ALB_NK_STATIC, 160.0, 5);
+        alb_nuklear_layout_space_push(nk, 10.0, 10.0, 120.0, 28.0);
+        paused = gfx_read_i32(ui_i, 1)
+        IF paused = 0 THEN
+          clicked = alb_nuklear_button_label(nk, "Pause")
+        ELSE
+          clicked = alb_nuklear_button_label(nk, "Resume")
+        END IF
+        IF clicked != 0 THEN
+          IF paused = 0 THEN
+            gfx_write_i32(ui_i, 1, 1);
+          ELSE
+            gfx_write_i32(ui_i, 1, 0);
+          END IF
+        END IF
+        alb_nuklear_layout_space_push(nk, 140.0, 10.0, 120.0, 28.0);
+        clicked = alb_nuklear_button_label(nk, "Next shape")
+        IF clicked != 0 THEN
+          shape = shape + 1
+          IF shape >= #SHAPE_COUNT THEN
+            shape = 0
+          END IF
+        END IF
+        alb_nuklear_layout_space_push(nk, 10.0, 50.0, 250.0, 36.0);
+        alb_nuklear_label_wrap(nk, "Space-layout pane. Right-click for contextual.");
+        alb_nuklear_layout_space_push(nk, 10.0, 100.0, 120.0, 28.0);
+        clicked = alb_nuklear_button_symbol_label(nk, #ALB_NK_SYMBOL_TRIANGLE_RIGHT, "BLAS", #ALB_NK_TEXT_LEFT)
+        IF clicked != 0 THEN
+          blas_mode = blas_mode + 1
+          IF blas_mode >= #BLAS_MODE_COUNT THEN
+            blas_mode = 0
+          END IF
+        END IF
+        alb_nuklear_layout_space_push(nk, 140.0, 100.0, 120.0, 28.0);
+        clicked = alb_nuklear_button_label(nk, "VSync")
+        IF clicked != 0 THEN
+          vsync = gfx_read_i32(ui_i, 2)
+          IF vsync = 0 THEN
+            gfx_write_i32(ui_i, 2, 1);
+          ELSE
+            gfx_write_i32(ui_i, 2, 0);
+          END IF
+        END IF
+        alb_nuklear_layout_space_end(nk);
+        alb_nuklear_window_get_bounds(nk, bounds, bounds + 4, bounds + 8, bounds + 12);
+        rc = alb_nuklear_contextual_begin(nk, 0, 160.0, 100.0, 540.0, 20.0, 280.0, 200.0)
+        IF rc != 0 THEN
+          alb_nuklear_layout_row_dynamic(nk, 22.0, 1);
+          clicked = alb_nuklear_contextual_item_label(nk, "Reset clicks", #ALB_NK_TEXT_LEFT)
+          IF clicked != 0 THEN
+            clicks = 0
+          END IF
+          clicked = alb_nuklear_contextual_item_label(nk, "Star shape", #ALB_NK_TEXT_LEFT)
+          IF clicked != 0 THEN
+            shape = #SHAPE_STAR
+          END IF
+          alb_nuklear_contextual_end(nk);
+        END IF
+      END IF
+      alb_nuklear_end(nk);
+      st = alb_nuklear_render(nk)
+
+      enable_blas = gfx_read_i32(ui_i, 0)
+      paused = gfx_read_i32(ui_i, 1)
+      vsync = gfx_read_i32(ui_i, 2)
+      ngon_sides = gfx_read_i32(ui_i, 3)
+      gate_async = gfx_read_i32(ui_i, 7)
+      gate_indirect = gfx_read_i32(ui_i, 8)
+      gate_depth = gfx_read_i32(ui_i, 9)
+      gate_ts = gfx_read_i32(ui_i, 10)
+      gate_msaa = gfx_read_i32(ui_i, 11)
+      gate_tex = gfx_read_i32(ui_i, 12)
+      gate_uav = gfx_read_i32(ui_i, 13)
+      gate_points = gfx_read_i32(ui_i, 14)
+      gate_wire = gfx_read_i32(ui_i, 15)
+      instance_count = gfx_read_i32(ui_i, 21)
+      dispatch_x = gfx_read_i32(ui_i, 22)
+      scissor_m = gfx_read_i32(ui_i, 23)
+      IF instance_count < 1 THEN
+        instance_count = 1
+      END IF
+      IF instance_count > 8 THEN
+        instance_count = 8
+      END IF
+      IF scissor_m < 0 THEN
+        scissor_m = 0
+      END IF
+      IF scissor_m > 200 THEN
+        scissor_m = 200
+      END IF
+
+      -- Continuous scale/anim from float UI (centi only used as a safety clamp)
+      scale_i = gfx_read_f32_centi(ui_f, 0)
+      IF scale_i < 20 THEN
+        gfx_write_f32(ui_f, 0, 1.0);
+      END IF
+      IF scale_i > 250 THEN
+        gfx_write_f32(ui_f, 0, 1.0);
+      END IF
+      scale = gfx_read_f32(ui_f, 0)
+      anim_speed = gfx_read_f32(ui_f, 2)
+      scale_i = gfx_read_f32_centi(ui_f, 2)
+      IF scale_i < 0 THEN
+        gfx_write_f32(ui_f, 2, 1.0);
+        anim_speed = 1.0
+      END IF
+      IF scale_i > 400 THEN
+        gfx_write_f32(ui_f, 2, 1.0);
+        anim_speed = 1.0
+      END IF
+      clear_r = gfx_read_f32(ui_f, 4)
+      clear_g = gfx_read_f32(ui_f, 5)
+      clear_b = gfx_read_f32(ui_f, 6)
+      tint_r = 0.9
+      tint_g = 0.45
+      tint_b = 0.25
+      IF enable_blas = 0 THEN
+        tint_r = gfx_read_f32(ui_f, 7)
+        tint_g = gfx_read_f32(ui_f, 8)
+        tint_b = gfx_read_f32(ui_f, 9)
+      END IF
+
+      IF paused = 0 THEN
+        rot = rot + 0.02 * anim_speed
+        IF rot > 6.28318530718 THEN
+          rot = rot - 6.28318530718
+        END IF
+      END IF
+      cs = COS(rot)
+      sn = SIN(rot)
+
+      IF enable_blas != 0 THEN
+        gfx_write_f32(vec_x, 0, 1.0);
+        gfx_write_f32(vec_x, 1, 0.5);
+        gfx_write_f32(vec_x, 2, 0.25);
+        gfx_write_f32(vec_y, 0, 0.8);
+        gfx_write_f32(vec_y, 1, 0.4);
+        gfx_write_f32(vec_y, 2, 0.2);
+        ddot = alb_openblas_ddot(3, vec_x, 1, vec_y, 1)
+        tint_r = 0.35 + 0.25 * (0.5 + 0.5 * SIN(rot))
+        tint_g = 0.45 + 0.25 * (0.5 + 0.5 * COS(rot))
+        tint_b = 0.55 + 0.20 * (0.5 + 0.5 * SIN(rot * 0.7))
+      END IF
+
+      nverts = 0
+      idx = 0
+      pipe_cur = pipe_tri
+
+      IF shape = #SHAPE_STAR THEN
+        FOR tip = 0 TO 4 THEN
+          a0 = gfx_read_f32(angles, tip)
+          a1 = a0 + star_step
+          am = a0 + star_half
+          ox = 0.55 * COS(a0)
+          oy = 0.55 * SIN(a0)
+          mx = 0.22 * COS(am)
+          my = 0.22 * SIN(am)
+          nx = 0.55 * COS(a1)
+          ny = 0.55 * SIN(a1)
+
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+
+          vx = (ox * cs - oy * sn) * scale
+          vy = (ox * sn + oy * cs) * scale
+          gfx_write_f32(verts, idx, vx);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, vy);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+
+          vx = (mx * cs - my * sn) * scale
+          vy = (mx * sn + my * cs) * scale
+          gfx_write_f32(verts, idx, vx);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, vy);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r * 0.9);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b * 0.85);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+
+          vx = (mx * cs - my * sn) * scale
+          vy = (mx * sn + my * cs) * scale
+          gfx_write_f32(verts, idx, vx);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, vy);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r * 0.9);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b * 0.85);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+
+          vx = (nx * cs - ny * sn) * scale
+          vy = (nx * sn + ny * cs) * scale
+          gfx_write_f32(verts, idx, vx);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, vy);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r * 0.9);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b * 0.85);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+        END FOR
+        nverts = 30
+        pipe_cur = pipe_tri
+      END IF
+
+      IF shape = #SHAPE_TRIANGLE THEN
+        vx = (0.0 * cs - 0.55 * sn) * scale
+        vy = (0.0 * sn + 0.55 * cs) * scale
+        gfx_write_f32(verts, 0, vx);
+        gfx_write_f32(verts, 1, vy);
+        gfx_write_f32(verts, 2, 0.0);
+        gfx_write_f32(verts, 3, tint_r);
+        gfx_write_f32(verts, 4, tint_g);
+        gfx_write_f32(verts, 5, tint_b);
+        gfx_write_f32(verts, 6, 1.0);
+        vx = (0.5 * cs - (-0.4) * sn) * scale
+        vy = (0.5 * sn + (-0.4) * cs) * scale
+        gfx_write_f32(verts, 7, vx);
+        gfx_write_f32(verts, 8, vy);
+        gfx_write_f32(verts, 9, 0.0);
+        gfx_write_f32(verts, 10, tint_r);
+        gfx_write_f32(verts, 11, tint_g);
+        gfx_write_f32(verts, 12, tint_b);
+        gfx_write_f32(verts, 13, 1.0);
+        vx = ((-0.5) * cs - (-0.4) * sn) * scale
+        vy = ((-0.5) * sn + (-0.4) * cs) * scale
+        gfx_write_f32(verts, 14, vx);
+        gfx_write_f32(verts, 15, vy);
+        gfx_write_f32(verts, 16, 0.0);
+        gfx_write_f32(verts, 17, tint_r);
+        gfx_write_f32(verts, 18, tint_g);
+        gfx_write_f32(verts, 19, tint_b);
+        gfx_write_f32(verts, 20, 1.0);
+        nverts = 3
+        pipe_cur = pipe_tri
+      END IF
+
+      IF shape = #SHAPE_QUAD THEN
+        ox = ((-0.45) * cs - 0.45 * sn) * scale
+        oy = ((-0.45) * sn + 0.45 * cs) * scale
+        mx = (0.45 * cs - 0.45 * sn) * scale
+        my = (0.45 * sn + 0.45 * cs) * scale
+        nx = (0.45 * cs - (-0.45) * sn) * scale
+        ny = (0.45 * sn + (-0.45) * cs) * scale
+        vx = ((-0.45) * cs - (-0.45) * sn) * scale
+        vy = ((-0.45) * sn + (-0.45) * cs) * scale
+        gfx_write_f32(verts, 0, ox);
+        gfx_write_f32(verts, 1, oy);
+        gfx_write_f32(verts, 2, 0.0);
+        gfx_write_f32(verts, 3, tint_r);
+        gfx_write_f32(verts, 4, tint_g);
+        gfx_write_f32(verts, 5, tint_b);
+        gfx_write_f32(verts, 6, 1.0);
+        gfx_write_f32(verts, 7, mx);
+        gfx_write_f32(verts, 8, my);
+        gfx_write_f32(verts, 9, 0.0);
+        gfx_write_f32(verts, 10, tint_r);
+        gfx_write_f32(verts, 11, tint_g);
+        gfx_write_f32(verts, 12, tint_b);
+        gfx_write_f32(verts, 13, 1.0);
+        gfx_write_f32(verts, 14, nx);
+        gfx_write_f32(verts, 15, ny);
+        gfx_write_f32(verts, 16, 0.0);
+        gfx_write_f32(verts, 17, tint_r);
+        gfx_write_f32(verts, 18, tint_g);
+        gfx_write_f32(verts, 19, tint_b);
+        gfx_write_f32(verts, 20, 1.0);
+        gfx_write_f32(verts, 21, ox);
+        gfx_write_f32(verts, 22, oy);
+        gfx_write_f32(verts, 23, 0.0);
+        gfx_write_f32(verts, 24, tint_r);
+        gfx_write_f32(verts, 25, tint_g);
+        gfx_write_f32(verts, 26, tint_b);
+        gfx_write_f32(verts, 27, 1.0);
+        gfx_write_f32(verts, 28, nx);
+        gfx_write_f32(verts, 29, ny);
+        gfx_write_f32(verts, 30, 0.0);
+        gfx_write_f32(verts, 31, tint_r);
+        gfx_write_f32(verts, 32, tint_g);
+        gfx_write_f32(verts, 33, tint_b);
+        gfx_write_f32(verts, 34, 1.0);
+        gfx_write_f32(verts, 35, vx);
+        gfx_write_f32(verts, 36, vy);
+        gfx_write_f32(verts, 37, 0.0);
+        gfx_write_f32(verts, 38, tint_r);
+        gfx_write_f32(verts, 39, tint_g);
+        gfx_write_f32(verts, 40, tint_b);
+        gfx_write_f32(verts, 41, 1.0);
+        nverts = 6
+        pipe_cur = pipe_tri
+      END IF
+
+      IF shape = #SHAPE_NGON THEN
+        IF ngon_sides < 3 THEN
+          ngon_sides = 3
+        END IF
+        IF ngon_sides > 24 THEN
+          ngon_sides = 24
+        END IF
+        idx = 0
+        FOR tip = 0 TO ngon_sides - 1 THEN
+          a0 = tip * 2.0 * pi / ngon_sides
+          a1 = (tip + 1) * 2.0 * pi / ngon_sides
+          ox = 0.5 * COS(a0)
+          oy = 0.5 * SIN(a0)
+          nx = 0.5 * COS(a1)
+          ny = 0.5 * SIN(a1)
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+          vx = (ox * cs - oy * sn) * scale
+          vy = (ox * sn + oy * cs) * scale
+          gfx_write_f32(verts, idx, vx);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, vy);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+          vx = (nx * cs - ny * sn) * scale
+          vy = (nx * sn + ny * cs) * scale
+          gfx_write_f32(verts, idx, vx);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, vy);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+        END FOR
+        nverts = ngon_sides * 3
+        pipe_cur = pipe_tri
+      END IF
+
+      IF shape = #SHAPE_GRID THEN
+        idx = 0
+        FOR tip = 0 TO 8 THEN
+          a0 = (tip - 4) * 0.12
+          vx = ((-0.5) * cs - a0 * sn) * scale
+          vy = ((-0.5) * sn + a0 * cs) * scale
+          gfx_write_f32(verts, idx, vx);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, vy);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+          vx = (0.5 * cs - a0 * sn) * scale
+          vy = (0.5 * sn + a0 * cs) * scale
+          gfx_write_f32(verts, idx, vx);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, vy);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+        END FOR
+        nverts = 18
+        pipe_cur = pipe_line
+      END IF
+
+      IF shape = #SHAPE_POINTS THEN
+        idx = 0
+        FOR tip = 0 TO 47 THEN
+          a0 = tip * 0.18 + rot
+          ox = (0.08 + tip * 0.007) * COS(a0)
+          oy = (0.08 + tip * 0.007) * SIN(a0)
+          vx = (ox * cs - oy * sn) * scale
+          vy = (ox * sn + oy * cs) * scale
+          gfx_write_f32(verts, idx, vx);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, vy);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+        END FOR
+        nverts = 48
+        pipe_cur = pipe_point
+      END IF
+
+      IF shape = #SHAPE_CUBE THEN
+        idx = 0
+        FOR tip = 0 TO 11 THEN
+          a0 = tip * 0.523598775598
+          a1 = a0 + 0.523598775598
+          ox = 0.35 * COS(a0) * scale
+          oy = 0.25 * SIN(a0) * scale
+          nx = 0.35 * COS(a1) * scale
+          ny = 0.25 * SIN(a1) * scale
+          gfx_write_f32(verts, idx, ox);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, oy);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, nx);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, ny);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 0.0);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_r);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_g);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, tint_b);
+          idx = idx + 1
+          gfx_write_f32(verts, idx, 1.0);
+          idx = idx + 1
+        END FOR
+        nverts = 24
+        pipe_cur = pipe_line
+      END IF
+
+      IF nverts > 0 THEN
+        nbytes = nverts * 28
+        gfx_pipeline_bind(gfx, pipe_cur);
+        gfx_bind_vertex_buffer(gfx, vb);
+        prev_shape = shape
+        gfx_buffer_update(gfx, vb, 0, nbytes, verts);
+      END IF
+
+      st = gfx_begin_frame(gfx)
+      IF gate_msaa != 0 THEN
+        IF msaa_ok != 0 THEN
+          gfx_msaa_begin(gfx);
+        END IF
+      END IF
+      gfx_disable_scissor(gfx);
+      st = gfx_clear(gfx, clear_r, clear_g, clear_b, 1.0)
+      IF scissor_m > 0 THEN
+        sc_w = 960 - scissor_m - scissor_m
+        sc_h = 540 - scissor_m - scissor_m
+        IF sc_w > 0 THEN
+          IF sc_h > 0 THEN
+            gfx_set_scissor(gfx, scissor_m, scissor_m, sc_w, sc_h);
+          END IF
+        END IF
+      END IF
+      gfx_set_depth_test(gfx, gate_depth);
+      IF gate_async != 0 THEN
+        gfx_flush(gfx);
+        IF gate_uav != 0 THEN
+          gfx_finish(gfx);
+        END IF
+      END IF
+      IF nverts > 0 THEN
+        FOR inst = 1 TO instance_count THEN
+          gfx_draw_arrays(gfx, nverts, 0);
+        END FOR
+        IF gate_points != 0 THEN
+          IF shape != #SHAPE_POINTS THEN
+            gfx_set_point_size(gfx, 3.0);
+            gfx_pipeline_bind(gfx, pipe_point);
+            gfx_draw_arrays(gfx, nverts, 0);
+            gfx_pipeline_bind(gfx, pipe_cur);
+          END IF
+        END IF
+        IF gate_wire != 0 THEN
+          IF pipe_cur = pipe_tri THEN
+            gfx_set_wireframe(gfx, 1);
+            gfx_draw_arrays(gfx, nverts, 0);
+            gfx_set_wireframe(gfx, 0);
+          END IF
+        END IF
+      END IF
+      gfx_disable_scissor(gfx);
+      gfx_set_depth_test(gfx, 0);
+      IF gate_msaa != 0 THEN
+        IF msaa_ok != 0 THEN
+          gfx_msaa_end(gfx);
+        END IF
+      END IF
+      IF gate_ts != 0 THEN
+        gfx_finish(gfx);
+      END IF
+      st = gfx_end_frame(gfx, vsync)
+
+      frame_n = frame_n + 1
+      IF frame_n = 60 THEN
+        scale_i = gfx_read_f32_centi(ui_f, 0)
+        PRINT "live tick shape=" | shape | " scale_i=" | scale_i | " nverts=" | nverts | " wire=" | gate_wire | " msaa=" | gate_msaa | " inst=" | instance_count
+        frame_n = 0
+      END IF
+    END IF
+  END IF
+END FOR
+
+gfx_msaa_destroy(gfx);
+gfx_buffer_destroy(gfx, vb);
+gfx_free_memory(verts);
+gfx_free_memory(vec_x);
+gfx_free_memory(vec_y);
+gfx_free_memory(ui_i);
+gfx_free_memory(ui_f);
+gfx_free_memory(chart);
+gfx_free_memory(edit_buf);
+gfx_free_memory(bounds);
+gfx_free_memory(angles);
+gfx_shutdown(gfx);
+alb_nuklear_context_destroy(nk);
+PRINT "demo_all_features done fails=" | fails
+END

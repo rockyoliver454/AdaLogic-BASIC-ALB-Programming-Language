@@ -1,0 +1,24 @@
+INCLUDE "../ALBHASH.ALBI"
+INCLUDE "SaveGame.albi"
+
+IMPORT ALBHash
+IMPORT SaveGame
+
+MODULE SaveGame
+    FUNCTION DigitText(digit_value AS U32) AS STRING
+        RETURN "0"
+    END FUNCTION
+
+    FUNCTION ToStringU32(value AS U32) AS STRING
+        LET result_text AS STRING = ""
+        LET work_value AS U32 = value
+        LET digit_value AS U32 = 0
+        IF work_value = 0 THEN RETURN "0" END IF
+        WHILE work_value > 0
+            digit_value = work_value MOD 10
+            result_text = CONCAT(DigitText(digit_value), result_text)
+            work_value = work_value / 10
+        END WHILE
+        RETURN CONCAT(result_text, "")
+    END FUNCTION
+END MODULE

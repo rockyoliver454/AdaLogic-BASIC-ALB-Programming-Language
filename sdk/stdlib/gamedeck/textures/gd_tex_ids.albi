@@ -1,0 +1,579 @@
+-- Ada Texture_ID names. Values match Core_Texture_Registry order.
+VERSION 1.0
+
+DECLARE MODULE GdTexIds
+    FUNCTION WallLog() AS S32
+    FUNCTION WallTin() AS S32
+    FUNCTION WallTinRusty() AS S32
+    FUNCTION WallConcreteRetaining() AS S32
+    FUNCTION WallSandDrift() AS S32
+    FUNCTION WallGraffitiDecal() AS S32
+    FUNCTION RoofTin() AS S32
+    FUNCTION RoofTinRusty() AS S32
+    FUNCTION RoofThatch() AS S32
+    FUNCTION DoorWood() AS S32
+    FUNCTION DoorMetalIndustrial() AS S32
+    FUNCTION StorefrontGlass() AS S32
+    FUNCTION WindowBoarded() AS S32
+    FUNCTION WindowLattice() AS S32
+    FUNCTION TinShed() AS S32
+    FUNCTION TinShedRusty() AS S32
+    FUNCTION EmptyPool() AS S32
+    FUNCTION FilledPool() AS S32
+    FUNCTION FilledPoolDirty() AS S32
+    FUNCTION ForestTropical() AS S32
+    FUNCTION ForestTemperate() AS S32
+    FUNCTION ForestBoreal() AS S32
+    FUNCTION ForestArid() AS S32
+    FUNCTION Dirt() AS S32
+    FUNCTION CrackedDirt() AS S32
+    FUNCTION DirtPlowed() AS S32
+    FUNCTION Sand() AS S32
+    FUNCTION DesertGrit() AS S32
+    FUNCTION SandstoneRocks() AS S32
+    FUNCTION RoadAsphalt() AS S32
+    FUNCTION RoadConcrete() AS S32
+    FUNCTION RoadDirt() AS S32
+    FUNCTION RoadCobblestone() AS S32
+    FUNCTION RoadPothole() AS S32
+    FUNCTION RoadManhole() AS S32
+    FUNCTION SidewalkConcrete() AS S32
+    FUNCTION ParkingLotAsphalt() AS S32
+    FUNCTION GroundTrashLitter() AS S32
+    FUNCTION GroundOilSlick() AS S32
+    FUNCTION GroundChewingGum() AS S32
+    FUNCTION Dust() AS S32
+    FUNCTION Snow() AS S32
+    FUNCTION Water() AS S32
+    FUNCTION Brick() AS S32
+    FUNCTION ConcreteBlockCmu() AS S32
+    FUNCTION CorrugatedMetalPanels() AS S32
+    FUNCTION Glass() AS S32
+    FUNCTION Moss() AS S32
+    FUNCTION Stone() AS S32
+    FUNCTION Stucco() AS S32
+    FUNCTION StuccoPink() AS S32
+    FUNCTION StuccoWhite() AS S32
+    FUNCTION Wood() AS S32
+    FUNCTION ChainLinkFence() AS S32
+    FUNCTION ChainLinkFenceH() AS S32
+    FUNCTION ChainLinkFenceV() AS S32
+    FUNCTION Fence() AS S32
+    FUNCTION FenceV() AS S32
+    FUNCTION TinShedRoof() AS S32
+    FUNCTION TinShedRustyRoof() AS S32
+    FUNCTION AcUnitWindow() AS S32
+    FUNCTION SatelliteDish() AS S32
+    FUNCTION Scarecrow() AS S32
+    FUNCTION FireHydrant() AS S32
+    FUNCTION TrashCanMetal() AS S32
+    FUNCTION UtilityPoleWood() AS S32
+    FUNCTION WeaponMagnum() AS S32
+    FUNCTION AnimPistolAiming() AS S32
+    FUNCTION AnimPistolHolstered() AS S32
+    FUNCTION FxInsect() AS S32
+    FUNCTION FxLeaf() AS S32
+    FUNCTION FxWind() AS S32
+    FUNCTION CharHumanHead() AS S32
+    FUNCTION CharCoyote() AS S32
+    FUNCTION CharCactusSkink() AS S32
+    FUNCTION PlayerCharacter() AS S32
+    FUNCTION GearBlueJeans() AS S32
+    FUNCTION GearJeanJacket() AS S32
+    FUNCTION GearStetson() AS S32
+    FUNCTION GearWorkBoots() AS S32
+    FUNCTION HumanEyes() AS S32
+    FUNCTION HumanHair() AS S32
+    FUNCTION HumanFacialHair() AS S32
+    FUNCTION TreeOak() AS S32
+    FUNCTION TreeMaple() AS S32
+    FUNCTION TreeWalnut() AS S32
+    FUNCTION TreeBirch() AS S32
+    FUNCTION TreeJoshua() AS S32
+    FUNCTION TreePine() AS S32
+    FUNCTION TreeOakSapling() AS S32
+    FUNCTION TreePineSapling() AS S32
+    FUNCTION Grass() AS S32
+    FUNCTION GrassTall() AS S32
+    FUNCTION Leaves() AS S32
+    FUNCTION CactusSaguaro() AS S32
+    FUNCTION OleanderBush() AS S32
+    FUNCTION Tumbleweed() AS S32
+    FUNCTION CropWheat() AS S32
+    FUNCTION CropCorn() AS S32
+    FUNCTION CropTomato() AS S32
+    FUNCTION FogTex() AS S32
+    FUNCTION DesertSand() AS S32
+    FUNCTION CharModelDef() AS S32
+    FUNCTION EquipmentSnapping() AS S32
+    FUNCTION AssetPhoneBooth() AS S32
+    FUNCTION StructuresTestMonolith() AS S32
+    FUNCTION RadialAiming() AS S32
+    FUNCTION WeaponSnapping() AS S32
+    FUNCTION PackOf(folder AS S32, slot AS S32) AS S32
+    FUNCTION FolderOf(pack AS S32) AS S32
+    FUNCTION SlotOf(pack AS S32) AS S32
+    PROCEDURE PresentPack(pack AS S32, x AS S32, y AS S32)
+    FUNCTION KindN() AS S32
+END DECLARE MODULE
+
+MODULE GdTexIds
+
+    FUNCTION PackOf(folder AS S32, slot AS S32) AS S32
+        ASSERT(folder >= 0)
+        RETURN folder * 16 + slot
+    END FUNCTION
+    FUNCTION FolderOf(pack AS S32) AS S32
+        ASSERT(pack >= 0)
+        RETURN pack / 16
+    END FUNCTION
+    FUNCTION SlotOf(pack AS S32) AS S32
+        ASSERT(pack >= 0)
+        RETURN pack MOD 16
+    END FUNCTION
+
+    FUNCTION WallLog() AS S32
+        ASSERT(1 = 1)
+        RETURN 54
+    END FUNCTION
+    FUNCTION WallTin() AS S32
+        ASSERT(1 = 1)
+        RETURN 62
+    END FUNCTION
+    FUNCTION WallTinRusty() AS S32
+        ASSERT(1 = 1)
+        RETURN 63
+    END FUNCTION
+    FUNCTION WallConcreteRetaining() AS S32
+        ASSERT(1 = 1)
+        RETURN 105
+    END FUNCTION
+    FUNCTION WallSandDrift() AS S32
+        ASSERT(1 = 1)
+        RETURN 97
+    END FUNCTION
+    FUNCTION WallGraffitiDecal() AS S32
+        ASSERT(1 = 1)
+        RETURN 92
+    END FUNCTION
+    FUNCTION RoofTin() AS S32
+        ASSERT(1 = 1)
+        RETURN 64
+    END FUNCTION
+    FUNCTION RoofTinRusty() AS S32
+        ASSERT(1 = 1)
+        RETURN 65
+    END FUNCTION
+    FUNCTION RoofThatch() AS S32
+        ASSERT(1 = 1)
+        RETURN 53
+    END FUNCTION
+    FUNCTION DoorWood() AS S32
+        ASSERT(1 = 1)
+        RETURN 57
+    END FUNCTION
+    FUNCTION DoorMetalIndustrial() AS S32
+        ASSERT(1 = 1)
+        RETURN 89
+    END FUNCTION
+    FUNCTION StorefrontGlass() AS S32
+        ASSERT(1 = 1)
+        RETURN 88
+    END FUNCTION
+    FUNCTION WindowBoarded() AS S32
+        ASSERT(1 = 1)
+        RETURN 96
+    END FUNCTION
+    FUNCTION WindowLattice() AS S32
+        ASSERT(1 = 1)
+        RETURN 58
+    END FUNCTION
+    FUNCTION TinShed() AS S32
+        ASSERT(1 = 1)
+        RETURN 60
+    END FUNCTION
+    FUNCTION TinShedRusty() AS S32
+        ASSERT(1 = 1)
+        RETURN 61
+    END FUNCTION
+    FUNCTION EmptyPool() AS S32
+        ASSERT(1 = 1)
+        RETURN 76
+    END FUNCTION
+    FUNCTION FilledPool() AS S32
+        ASSERT(1 = 1)
+        RETURN 77
+    END FUNCTION
+    FUNCTION FilledPoolDirty() AS S32
+        ASSERT(1 = 1)
+        RETURN 78
+    END FUNCTION
+    FUNCTION ForestTropical() AS S32
+        ASSERT(1 = 1)
+        RETURN 30
+    END FUNCTION
+    FUNCTION ForestTemperate() AS S32
+        ASSERT(1 = 1)
+        RETURN 29
+    END FUNCTION
+    FUNCTION ForestBoreal() AS S32
+        ASSERT(1 = 1)
+        RETURN 28
+    END FUNCTION
+    FUNCTION ForestArid() AS S32
+        ASSERT(1 = 1)
+        RETURN 31
+    END FUNCTION
+    FUNCTION Dirt() AS S32
+        ASSERT(1 = 1)
+        RETURN 21
+    END FUNCTION
+    FUNCTION CrackedDirt() AS S32
+        ASSERT(1 = 1)
+        RETURN 25
+    END FUNCTION
+    FUNCTION DirtPlowed() AS S32
+        ASSERT(1 = 1)
+        RETURN 22
+    END FUNCTION
+    FUNCTION Sand() AS S32
+        ASSERT(1 = 1)
+        RETURN 18
+    END FUNCTION
+    FUNCTION DesertGrit() AS S32
+        ASSERT(1 = 1)
+        RETURN 24
+    END FUNCTION
+    FUNCTION SandstoneRocks() AS S32
+        ASSERT(1 = 1)
+        RETURN 26
+    END FUNCTION
+    FUNCTION RoadAsphalt() AS S32
+        ASSERT(1 = 1)
+        RETURN 69
+    END FUNCTION
+    FUNCTION RoadConcrete() AS S32
+        ASSERT(1 = 1)
+        RETURN 70
+    END FUNCTION
+    FUNCTION RoadDirt() AS S32
+        ASSERT(1 = 1)
+        RETURN 68
+    END FUNCTION
+    FUNCTION RoadCobblestone() AS S32
+        ASSERT(1 = 1)
+        RETURN 71
+    END FUNCTION
+    FUNCTION RoadPothole() AS S32
+        ASSERT(1 = 1)
+        RETURN 72
+    END FUNCTION
+    FUNCTION RoadManhole() AS S32
+        ASSERT(1 = 1)
+        RETURN 73
+    END FUNCTION
+    FUNCTION SidewalkConcrete() AS S32
+        ASSERT(1 = 1)
+        RETURN 74
+    END FUNCTION
+    FUNCTION ParkingLotAsphalt() AS S32
+        ASSERT(1 = 1)
+        RETURN 75
+    END FUNCTION
+    FUNCTION GroundTrashLitter() AS S32
+        ASSERT(1 = 1)
+        RETURN 86
+    END FUNCTION
+    FUNCTION GroundOilSlick() AS S32
+        ASSERT(1 = 1)
+        RETURN 85
+    END FUNCTION
+    FUNCTION GroundChewingGum() AS S32
+        ASSERT(1 = 1)
+        RETURN 87
+    END FUNCTION
+    FUNCTION Dust() AS S32
+        ASSERT(1 = 1)
+        RETURN 33
+    END FUNCTION
+    FUNCTION Snow() AS S32
+        ASSERT(1 = 1)
+        RETURN 20
+    END FUNCTION
+    FUNCTION Water() AS S32
+        ASSERT(1 = 1)
+        RETURN 17
+    END FUNCTION
+    FUNCTION Brick() AS S32
+        ASSERT(1 = 1)
+        RETURN 13
+    END FUNCTION
+    FUNCTION ConcreteBlockCmu() AS S32
+        ASSERT(1 = 1)
+        RETURN 90
+    END FUNCTION
+    FUNCTION CorrugatedMetalPanels() AS S32
+        ASSERT(1 = 1)
+        RETURN 91
+    END FUNCTION
+    FUNCTION Glass() AS S32
+        ASSERT(1 = 1)
+        RETURN 14
+    END FUNCTION
+    FUNCTION Moss() AS S32
+        ASSERT(1 = 1)
+        RETURN 12
+    END FUNCTION
+    FUNCTION Stone() AS S32
+        ASSERT(1 = 1)
+        RETURN 16
+    END FUNCTION
+    FUNCTION Stucco() AS S32
+        ASSERT(1 = 1)
+        RETURN 82
+    END FUNCTION
+    FUNCTION StuccoPink() AS S32
+        ASSERT(1 = 1)
+        RETURN 83
+    END FUNCTION
+    FUNCTION StuccoWhite() AS S32
+        ASSERT(1 = 1)
+        RETURN 84
+    END FUNCTION
+    FUNCTION Wood() AS S32
+        ASSERT(1 = 1)
+        RETURN 19
+    END FUNCTION
+    FUNCTION ChainLinkFence() AS S32
+        ASSERT(1 = 1)
+        RETURN 79
+    END FUNCTION
+    FUNCTION ChainLinkFenceH() AS S32
+        ASSERT(1 = 1)
+        RETURN 80
+    END FUNCTION
+    FUNCTION ChainLinkFenceV() AS S32
+        ASSERT(1 = 1)
+        RETURN 81
+    END FUNCTION
+    FUNCTION Fence() AS S32
+        ASSERT(1 = 1)
+        RETURN 55
+    END FUNCTION
+    FUNCTION FenceV() AS S32
+        ASSERT(1 = 1)
+        RETURN 56
+    END FUNCTION
+    FUNCTION TinShedRoof() AS S32
+        ASSERT(1 = 1)
+        RETURN 66
+    END FUNCTION
+    FUNCTION TinShedRustyRoof() AS S32
+        ASSERT(1 = 1)
+        RETURN 67
+    END FUNCTION
+    FUNCTION AcUnitWindow() AS S32
+        ASSERT(1 = 1)
+        RETURN 98
+    END FUNCTION
+    FUNCTION SatelliteDish() AS S32
+        ASSERT(1 = 1)
+        RETURN 99
+    END FUNCTION
+    FUNCTION Scarecrow() AS S32
+        ASSERT(1 = 1)
+        RETURN 59
+    END FUNCTION
+    FUNCTION FireHydrant() AS S32
+        ASSERT(1 = 1)
+        RETURN 95
+    END FUNCTION
+    FUNCTION TrashCanMetal() AS S32
+        ASSERT(1 = 1)
+        RETURN 94
+    END FUNCTION
+    FUNCTION UtilityPoleWood() AS S32
+        ASSERT(1 = 1)
+        RETURN 93
+    END FUNCTION
+    FUNCTION WeaponMagnum() AS S32
+        ASSERT(1 = 1)
+        RETURN 117
+    END FUNCTION
+    FUNCTION AnimPistolAiming() AS S32
+        ASSERT(1 = 1)
+        RETURN 119
+    END FUNCTION
+    FUNCTION AnimPistolHolstered() AS S32
+        ASSERT(1 = 1)
+        RETURN 118
+    END FUNCTION
+    FUNCTION FxInsect() AS S32
+        ASSERT(1 = 1)
+        RETURN 50
+    END FUNCTION
+    FUNCTION FxLeaf() AS S32
+        ASSERT(1 = 1)
+        RETURN 52
+    END FUNCTION
+    FUNCTION FxWind() AS S32
+        ASSERT(1 = 1)
+        RETURN 51
+    END FUNCTION
+    FUNCTION CharHumanHead() AS S32
+        ASSERT(1 = 1)
+        RETURN 112
+    END FUNCTION
+    FUNCTION CharCoyote() AS S32
+        ASSERT(1 = 1)
+        RETURN 107
+    END FUNCTION
+    FUNCTION CharCactusSkink() AS S32
+        ASSERT(1 = 1)
+        RETURN 106
+    END FUNCTION
+    FUNCTION PlayerCharacter() AS S32
+        ASSERT(1 = 1)
+        RETURN 108
+    END FUNCTION
+    FUNCTION GearBlueJeans() AS S32
+        ASSERT(1 = 1)
+        RETURN 116
+    END FUNCTION
+    FUNCTION GearJeanJacket() AS S32
+        ASSERT(1 = 1)
+        RETURN 114
+    END FUNCTION
+    FUNCTION GearStetson() AS S32
+        ASSERT(1 = 1)
+        RETURN 113
+    END FUNCTION
+    FUNCTION GearWorkBoots() AS S32
+        ASSERT(1 = 1)
+        RETURN 115
+    END FUNCTION
+    FUNCTION HumanEyes() AS S32
+        ASSERT(1 = 1)
+        RETURN 109
+    END FUNCTION
+    FUNCTION HumanHair() AS S32
+        ASSERT(1 = 1)
+        RETURN 111
+    END FUNCTION
+    FUNCTION HumanFacialHair() AS S32
+        ASSERT(1 = 1)
+        RETURN 110
+    END FUNCTION
+    FUNCTION TreeOak() AS S32
+        ASSERT(1 = 1)
+        RETURN 35
+    END FUNCTION
+    FUNCTION TreeMaple() AS S32
+        ASSERT(1 = 1)
+        RETURN 37
+    END FUNCTION
+    FUNCTION TreeWalnut() AS S32
+        ASSERT(1 = 1)
+        RETURN 38
+    END FUNCTION
+    FUNCTION TreeBirch() AS S32
+        ASSERT(1 = 1)
+        RETURN 36
+    END FUNCTION
+    FUNCTION TreeJoshua() AS S32
+        ASSERT(1 = 1)
+        RETURN 39
+    END FUNCTION
+    FUNCTION TreePine() AS S32
+        ASSERT(1 = 1)
+        RETURN 34
+    END FUNCTION
+    FUNCTION TreeOakSapling() AS S32
+        ASSERT(1 = 1)
+        RETURN 41
+    END FUNCTION
+    FUNCTION TreePineSapling() AS S32
+        ASSERT(1 = 1)
+        RETURN 40
+    END FUNCTION
+    FUNCTION Grass() AS S32
+        ASSERT(1 = 1)
+        RETURN 1
+    END FUNCTION
+    FUNCTION GrassTall() AS S32
+        ASSERT(1 = 1)
+        RETURN 11
+    END FUNCTION
+    FUNCTION Leaves() AS S32
+        ASSERT(1 = 1)
+        RETURN 15
+    END FUNCTION
+    FUNCTION CactusSaguaro() AS S32
+        ASSERT(1 = 1)
+        RETURN 27
+    END FUNCTION
+    FUNCTION OleanderBush() AS S32
+        ASSERT(1 = 1)
+        RETURN 100
+    END FUNCTION
+    FUNCTION Tumbleweed() AS S32
+        ASSERT(1 = 1)
+        RETURN 101
+    END FUNCTION
+    FUNCTION CropWheat() AS S32
+        ASSERT(1 = 1)
+        RETURN 46
+    END FUNCTION
+    FUNCTION CropCorn() AS S32
+        ASSERT(1 = 1)
+        RETURN 43
+    END FUNCTION
+    FUNCTION CropTomato() AS S32
+        ASSERT(1 = 1)
+        RETURN 48
+    END FUNCTION
+    FUNCTION FogTex() AS S32
+        ASSERT(1 = 1)
+        RETURN 32
+    END FUNCTION
+    FUNCTION DesertSand() AS S32
+        ASSERT(1 = 1)
+        RETURN 23
+    END FUNCTION
+    FUNCTION CharModelDef() AS S32
+        ASSERT(1 = 1)
+        RETURN 120
+    END FUNCTION
+    FUNCTION EquipmentSnapping() AS S32
+        ASSERT(1 = 1)
+        RETURN 121
+    END FUNCTION
+    FUNCTION AssetPhoneBooth() AS S32
+        ASSERT(1 = 1)
+        RETURN 122
+    END FUNCTION
+    FUNCTION StructuresTestMonolith() AS S32
+        ASSERT(1 = 1)
+        RETURN 123
+    END FUNCTION
+    FUNCTION RadialAiming() AS S32
+        ASSERT(1 = 1)
+        RETURN 124
+    END FUNCTION
+    FUNCTION WeaponSnapping() AS S32
+        ASSERT(1 = 1)
+        RETURN 125
+    END FUNCTION
+
+    PROCEDURE PresentPack(pack AS S32, x AS S32, y AS S32)
+        ASSERT(1 = 1)
+        GdAdaTex.Present(pack, x, y)
+    END PROCEDURE
+
+    FUNCTION KindN() AS S32
+        ASSERT(1 = 1)
+        RETURN GdAdaTex.IdN()
+    END FUNCTION
+
+END MODULE
+

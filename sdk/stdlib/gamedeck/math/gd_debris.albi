@@ -1,0 +1,50 @@
+-- Twin of Ada geo_debris. Cap-8 scatter points.
+VERSION 1.0
+
+DECLARE MODULE GdDebris
+    PROCEDURE Burst(ox AS S32, oy AS S32, seed AS S32)
+    FUNCTION PX(i AS S32) AS S32
+    FUNCTION PY(i AS S32) AS S32
+    PROCEDURE PresentBits()
+END DECLARE MODULE
+
+MODULE GdDebris
+
+    STRICT dx[8] AS S32
+    STRICT dy[8] AS S32
+
+    PROCEDURE Burst(ox AS S32, oy AS S32, seed AS S32)
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        WHILE i <= 8
+            dx[i] = ox + (GdHash.ByteOf(i, 0, seed) / 8) - 16
+            dy[i] = oy + (GdHash.ByteOf(i, 3, seed) / 8) - 16
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+    FUNCTION PX(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 8)
+        RETURN dx[i]
+    END FUNCTION
+
+    FUNCTION PY(i AS S32) AS S32 REQUIRE i >= 1
+        ASSERT(i >= 1)
+        ASSERT(i <= 8)
+        RETURN dy[i]
+    END FUNCTION
+
+    PROCEDURE PresentBits()
+        LET i AS S32 = 1
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        COLOR $F97316
+        WHILE i <= 8
+            FILL RECT dx[i], dy[i], 2, 2
+            i = i + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

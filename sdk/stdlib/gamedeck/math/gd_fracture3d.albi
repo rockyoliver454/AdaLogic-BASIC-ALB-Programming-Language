@@ -1,0 +1,24 @@
+-- Twin of Ada Geo_Fracture3D. Extrude a 2D split down a voxel column.
+VERSION 1.0
+
+DECLARE MODULE GdFracture3
+    PROCEDURE CutCol(x AS S32, depth AS S32)
+END DECLARE MODULE
+
+MODULE GdFracture3
+
+    PROCEDURE CutCol(x AS S32, depth AS S32)
+        LET z AS S32 = 0
+        LET d AS S32 = depth
+        ASSERT(1 = 1)
+        ASSERT(0 = 0)
+        IF d > 8 THEN
+            d = 8
+        END IF
+        WHILE z < d
+            GdVoxel.SetCell(x, 4, z, 0)
+            z = z + 1
+        END WHILE
+    END PROCEDURE
+
+END MODULE

@@ -1,0 +1,95 @@
+-- ====================================================================
+-- C64_PARTICLES.ALBI
+-- Lightweight SoA particle pool for shooters and effects (U16-only).
+-- ====================================================================
+
+#C64PART_POOL = 20
+
+PARALLEL C64PART[#C64PART_POOL]
+    x AS U16
+    y AS U16
+    dx AS S16
+    dy AS S16
+    life AS U8
+    col AS U8
+END PARALLEL
+
+PROCEDURE C64Part_Reset()
+    LET slot AS U16 = 1
+    FOR slot = 1 TO #C64PART_POOL THEN
+        C64PART[slot].life = 0
+    END FOR
+END PROCEDURE
+
+PROCEDURE C64Part_Spawn(slot AS U16, px AS U16, py AS U16,
+                        vx AS S16, vy AS S16, tone AS U8, ttl AS U8)
+    IF slot < 1 THEN RETURN END IF
+    IF slot > #C64PART_POOL THEN RETURN END IF
+    C64PART[slot].x = px
+    C64PART[slot].y = py
+    C64PART[slot].dx = vx
+    C64PART[slot].dy = vy
+    C64PART[slot].col = tone
+    C64PART[slot].life = ttl
+END PROCEDURE
+
+FUNCTION C64Part_FindFree() AS U16
+    LET slot AS U16 = 1
+    FOR slot = 1 TO #C64PART_POOL THEN
+        IF C64PART[slot].life = 0 THEN RETURN slot END IF
+    END FOR
+    RETURN 0
+END FUNCTION
+
+PROCEDURE C64Part_Tick()
+    LET slot AS U16 = 1
+    LET nx AS S16 = 0
+    LET ny AS S16 = 0
+    FOR slot = 1 TO #C64PART_POOL THEN
+        IF C64PART[slot].life > 0 THEN
+            nx = CAST(C64PART[slot].x AS S16) + C64PART[slot].dx
+            ny = CAST(C64PART[slot].y AS S16) + C64PART[slot].dy
+            IF nx < 0 THEN
+                C64PART[slot].life = 0
+            ELSE
+                IF nx > CAST(#C64_W AS S16) THEN
+                    C64PART[slot].life = 0
+                ELSE
+                    C64PART[slot].x = CAST(nx AS U16)
+                END IF
+            END IF
+            IF C64PART[slot].life > 0 THEN
+                IF ny < 0 THEN
+                    C64PART[slot].life = 0
+                ELSE
+                    IF ny > CAST(#C64_H AS S16) THEN
+                        C64PART[slot].life = 0
+                    ELSE
+                        C64PART[slot].y = CAST(ny AS U16)
+                    END IF
+                END IF
+            END IF
+            IF C64PART[slot].life > 0 THEN
+                C64PART[slot].life = C64PART[slot].life - 1
+            END IF
+        END IF
+    END FOR
+END PROCEDURE
+
+PROCEDURE C64Part_Draw()
+    LET slot AS U16 = 1
+    FOR slot = 1 TO #C64PART_POOL THEN
+        IF C64PART[slot].life > 0 THEN
+            CALL C64Gfx_FillRect(C64PART[slot].x, C64PART[slot].y, 3, 3, C64PART[slot].col)
+        END IF
+    END FOR
+END PROCEDURE
+
+PROCEDURE C64Part_SpawnBurst(px AS U16, py AS U16, tone AS U8)
+    LET slot AS U16 = C64Part_FindFree()
+    IF slot > 0 THEN CALL C64Part_Spawn(slot, px, py, -2, -4, tone, 12) END IF
+    slot = C64Part_FindFree()
+    IF slot > 0 THEN CALL C64Part_Spawn(slot, px, py, 2, -4, tone, 12) END IF
+    slot = C64Part_FindFree()
+    IF slot > 0 THEN CALL C64Part_Spawn(slot, px, py, 0, -5, tone, 12) END IF
+END PROCEDURE

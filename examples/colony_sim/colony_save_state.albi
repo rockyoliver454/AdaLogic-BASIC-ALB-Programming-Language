@@ -1,0 +1,4 @@
+DECLARE MODULE ColonySaveState
+    PROCEDURE save_colony_state(filename AS STRING)
+    PROCEDURE load_colony_state(filename AS STRING)
+END DECLARE MODULE
