@@ -45,11 +45,20 @@ package body Emit_Native_Micro_Rust is
 
    type Symbol_Kind is (Sym_Scalar, Sym_Const, Sym_Array, Sym_Struct, Sym_Routine);
 
+   Max_Rank : constant Natural := 4;
+   type Dim_Array is array (1 .. Max_Rank) of Natural;
+
    type Symbol_Record is record
-      Active : Boolean := False;
-      Name   : Unbounded_String := To_Unbounded_String ("");
+      Active    : Boolean := False;
+      Name      : Unbounded_String := To_Unbounded_String ("");
       Rust_Type : Unbounded_String := To_Unbounded_String ("");
-      Kind   : Symbol_Kind := Sym_Scalar;
+      Kind      : Symbol_Kind := Sym_Scalar;
+      Rank      : Natural := 0;
+      Dims      : Dim_Array := (others => 0);
+      Is_Global : Boolean := False;
+      Root_Level : Boolean := False;
+      Const_Val : Long_Long_Integer := 0;
+      Has_Const : Boolean := False;
    end record;
 
    type Routine_Record is record
@@ -75,9 +84,22 @@ package body Emit_Native_Micro_Rust is
    Declared_Names : array (1 .. Max_Declared) of Unbounded_String;
    Declared_Count : Natural := 0;
 
+   Inside_Fn     : Boolean := False;
+   Inside_Module : Boolean := False;
+
    function Is_Declared (Name : String) return Boolean;
    procedure Add_Declared (Name : String);
    procedure Reset_Declared;
+   function  Lookup_Array (Name : String) return Natural;
+   procedure Register_Array
+     (Name : String; Rust_T : String; R : Natural;
+      D : Dim_Array; Global : Boolean; Root_Level : Boolean);
+   function  Eval_Static_Int
+     (N : Node_Index; Value : out Long_Long_Integer) return Boolean;
+   function  Emit_Array_Ref
+     (Sym : Natural; Name : String; First_Idx : Node_Index) return String;
+   function  Zero_Lit (Rust_T : String) return String;
+   function  Trim_LLI (V : Long_Long_Integer) return String;
 
    Comptime_Lines : array (1 .. Max_Strings) of Unbounded_String;
    Comptime_Count : Natural := 0;
@@ -221,7 +243,8 @@ package body Emit_Native_Micro_Rust is
         (Active    => True,
          Name      => To_Unbounded_String (Name),
          Rust_Type => To_Unbounded_String (Rust_Type_Str),
-         Kind      => K);
+         Kind      => K,
+         others    => <>);
    end Add_Symbol;
 
    function Is_Lvalue_Node (N : Node_Index) return Boolean is
@@ -336,8 +359,36 @@ package body Emit_Native_Micro_Rust is
                   return Raw;
                end if;
             end;
+         when AST_Octal_Expr =>
+            declare
+               Raw : constant String := Token_Text (Tree (N).Token_Index);
+            begin
+               if Raw'Length > 2
+                 and then Raw (Raw'First) = '&'
+                 and then Raw (Raw'First + 1) in 'o' | 'O'
+               then
+                  return "0o" & Raw (Raw'First + 2 .. Raw'Last);
+               else
+                  return Raw;
+               end if;
+            end;
          when AST_Var_Expr =>
-            return Node_Name (N);
+            if Tree (N).Left_Child /= 0 then
+               declare
+                  Name : constant String := Node_Name (N);
+                  Sym  : constant Natural := Lookup_Array (Name);
+                  Ref  : constant String :=
+                    Emit_Array_Ref (Sym, Name, Tree (N).Left_Child);
+               begin
+                  if Sym /= 0 and then Symbols (Sym).Is_Global then
+                     return "unsafe { " & Ref & " }";
+                  else
+                     return Ref;
+                  end if;
+               end;
+            else
+               return Node_Name (N);
+            end if;
          when AST_Const_Ref =>
             declare
                Raw : constant String := Token_Text (Tree (N).Token_Index);
@@ -409,8 +460,35 @@ package body Emit_Native_Micro_Rust is
             return "core::mem::size_of::<"
               & Rust_Type (Tree (Tree (N).Left_Child).Token_Index) & ">()";
          when AST_Func_Call =>
-            return Emit_Func_Call (Emit_Call_Target (Tree (N).Left_Child),
-                                   Tree (N).Right_Child);
+            declare
+               Tgt_Node : constant Node_Index := Tree (N).Left_Child;
+               Is_Member : constant Boolean :=
+                 (Tgt_Node /= 0 and then Tree (Tgt_Node).Kind = AST_Member_Expr);
+               Tgt : constant String :=
+                 (if Is_Member then "" else Node_Name (Tgt_Node));
+               Sym : constant Natural :=
+                 (if Tgt'Length > 0 then Lookup_Array (Tgt) else 0);
+            begin
+               if Sym /= 0 then
+                  declare
+                     ArgL      : constant Node_Index := Tree (N).Right_Child;
+                     First_Arg : constant Node_Index :=
+                       (if ArgL /= 0 and then Tree (ArgL).Kind = AST_Arg_List
+                        then Tree (ArgL).Left_Child else ArgL);
+                     Ref : constant String :=
+                       Emit_Array_Ref (Sym, Tgt, First_Arg);
+                  begin
+                     if Symbols (Sym).Is_Global then
+                        return "unsafe { " & Ref & " }";
+                     else
+                        return Ref;
+                     end if;
+                  end;
+               else
+                  return Emit_Func_Call (Emit_Call_Target (Tgt_Node),
+                                         Tree (N).Right_Child);
+               end if;
+            end;
          when AST_Call_Stmt =>
             return Emit_Expr (Tree (N).Left_Child);
          when others =>
@@ -436,6 +514,7 @@ package body Emit_Native_Micro_Rust is
    procedure Emit_Procedure_Decl (N : Node_Index);
    procedure Emit_Function_Decl (N : Node_Index);
    procedure Emit_Module_Decl (N : Node_Index);
+   procedure Emit_Strict_Decl (N : Node_Index; Global : Boolean);
 
    procedure Emit_Stmt (N : Node_Index) is
       K : Node_Kind;
@@ -450,9 +529,51 @@ package body Emit_Native_Micro_Rust is
                Op : constant String := Token_Text (Tree (N).Token_Index);
             begin
                if Op = "=" and then Is_Lvalue_Node (Tree (N).Left_Child) then
-                  Out_Line (Emit_Expr (Tree (N).Left_Child)
-                            & " = "
-                            & Emit_Expr (Tree (N).Right_Child) & ";");
+                  declare
+                     L   : constant Node_Index := Tree (N).Left_Child;
+                     Rhs : constant String := Emit_Expr (Tree (N).Right_Child);
+                  begin
+                     if Tree (L).Kind = AST_Var_Expr
+                       and then Tree (L).Left_Child /= 0
+                     then
+                        declare
+                           Name : constant String := Node_Name (L);
+                           Sym  : constant Natural := Lookup_Array (Name);
+                           Ref  : constant String :=
+                             Emit_Array_Ref (Sym, Name, Tree (L).Left_Child);
+                        begin
+                           if Sym /= 0 and then Symbols (Sym).Is_Global then
+                              Out_Line ("unsafe { " & Ref & " = " & Rhs & "; }");
+                           else
+                              Out_Line (Ref & " = " & Rhs & ";");
+                           end if;
+                        end;
+                     elsif Tree (L).Kind = AST_Func_Call
+                       and then Tree (L).Left_Child /= 0
+                       and then Tree (Tree (L).Left_Child).Kind /= AST_Member_Expr
+                     then
+                        declare
+                           CName : constant String :=
+                             Node_Name (Tree (L).Left_Child);
+                           Sym   : constant Natural := Lookup_Array (CName);
+                           ArgL  : constant Node_Index := Tree (L).Right_Child;
+                           First : constant Node_Index :=
+                             (if ArgL /= 0
+                                and then Tree (ArgL).Kind = AST_Arg_List
+                              then Tree (ArgL).Left_Child else ArgL);
+                           Ref   : constant String :=
+                             Emit_Array_Ref (Sym, CName, First);
+                        begin
+                           if Sym /= 0 and then Symbols (Sym).Is_Global then
+                              Out_Line ("unsafe { " & Ref & " = " & Rhs & "; }");
+                           else
+                              Out_Line (Ref & " = " & Rhs & ";");
+                           end if;
+                        end;
+                     else
+                        Out_Line (Emit_Expr (L) & " = " & Rhs & ";");
+                     end if;
+                  end;
                else
                   Out_Line (Emit_Expr (N) & ";");
                end if;
@@ -460,31 +581,84 @@ package body Emit_Native_Micro_Rust is
 
          when AST_Let_Stmt =>
             declare
-               Name : constant String := Node_Name (Tree (N).Left_Child);
+               Tgt  : constant Node_Index := Tree (N).Left_Child;
+               Name : constant String := Node_Name (Tgt);
                TTok : constant Natural := Tree (N).Token_Index;
                Init : constant String := Emit_Expr (Tree (N).Right_Child);
+               Indexed : constant Boolean :=
+                 (Tgt /= 0
+                  and then Tree (Tgt).Kind = AST_Var_Expr
+                  and then Tree (Tgt).Left_Child /= 0);
+               Call_Idx : constant Boolean :=
+                 (Tgt /= 0
+                  and then Tree (Tgt).Kind = AST_Func_Call
+                  and then Tree (Tgt).Left_Child /= 0
+                  and then Tree (Tree (Tgt).Left_Child).Kind /= AST_Member_Expr
+                  and then Lookup_Array
+                    (Node_Name (Tree (Tgt).Left_Child)) /= 0);
                Already : constant Boolean := Is_Declared (Name);
             begin
-               if Already then
+               if Indexed then
+                  declare
+                     Sym : constant Natural := Lookup_Array (Name);
+                     Ref : constant String :=
+                       Emit_Array_Ref (Sym, Name, Tree (Tgt).Left_Child);
+                  begin
+                     if Sym /= 0 and then Symbols (Sym).Is_Global then
+                        Out_Line ("unsafe { " & Ref & " = " & Init & "; }");
+                     else
+                        Out_Line (Ref & " = " & Init & ";");
+                     end if;
+                  end;
+               elsif Call_Idx then
+                  declare
+                     CName : constant String :=
+                       Node_Name (Tree (Tgt).Left_Child);
+                     Sym   : constant Natural := Lookup_Array (CName);
+                     ArgL  : constant Node_Index := Tree (Tgt).Right_Child;
+                     First : constant Node_Index :=
+                       (if ArgL /= 0
+                          and then Tree (ArgL).Kind = AST_Arg_List
+                        then Tree (ArgL).Left_Child else ArgL);
+                     Ref   : constant String :=
+                       Emit_Array_Ref (Sym, CName, First);
+                  begin
+                     if Symbols (Sym).Is_Global then
+                        Out_Line ("unsafe { " & Ref & " = " & Init & "; }");
+                     else
+                        Out_Line (Ref & " = " & Init & ";");
+                     end if;
+                  end;
+               elsif Already then
                   Out_Line (Name & " = " & Init & ";");
                elsif TTok /= 0 then
                   Out_Line ("let mut " & Name & " : " & Rust_Type (TTok) & " = " & Init & ";");
                else
                   Out_Line ("let mut " & Name & " = " & Init & ";");
                end if;
-               if not Already then
+               if not Indexed and then not Already then
                   Add_Declared (Name);
                   Add_Symbol (Name, (if TTok /= 0 then Rust_Type (TTok) else "i32"));
                end if;
             end;
 
+         when AST_Strict_Stmt | AST_Slide_Stmt =>
+            Emit_Strict_Decl (N, Global => not Inside_Fn);
+
          when AST_Const_Decl =>
             declare
                Name : constant String := Node_Name (Tree (N).Left_Child);
                Init : constant String := Emit_Expr (Tree (N).Right_Child);
+               V    : Long_Long_Integer;
             begin
                Out_Line ("const " & Name & " : i32 = " & Init & ";");
                Add_Symbol (Name, "i32", Sym_Const);
+               if Lookup_Symbol (Name) > 0
+                 and then Eval_Static_Int (Tree (N).Right_Child, V)
+               then
+                  Symbols (Lookup_Symbol (Name)).Const_Val := V;
+                  Symbols (Lookup_Symbol (Name)).Has_Const := True;
+               end if;
             end;
 
          when AST_Print_Stmt =>
@@ -760,7 +934,9 @@ package body Emit_Native_Micro_Rust is
    begin
       Out_Line ("pub fn " & Name & "(" & Params & ") {");
       Indent_Level := Indent_Level + 1;
+      Inside_Fn := True;
       Emit_Node (Body_Node);
+      Inside_Fn := False;
       Indent_Level := Indent_Level - 1;
       Out_Line ("}");
    end Emit_Procedure_Decl;
@@ -775,10 +951,317 @@ package body Emit_Native_Micro_Rust is
    begin
       Out_Line ("pub fn " & Name & "(" & Params & ") -> " & Ret_Type & " {");
       Indent_Level := Indent_Level + 1;
+      Inside_Fn := True;
       Emit_Node (Body_Node);
+      Inside_Fn := False;
       Indent_Level := Indent_Level - 1;
       Out_Line ("}");
    end Emit_Function_Decl;
+
+   function Zero_Lit (Rust_T : String) return String is
+   begin
+      if Rust_T = "f32" or else Rust_T = "f64" then
+         return "0.0";
+      elsif Rust_T = "bool" then
+         return "false";
+      elsif Rust_T = "&'static str" then
+         return """""";
+      else
+         return "0";
+      end if;
+   end Zero_Lit;
+
+   function Trim_LLI (V : Long_Long_Integer) return String is
+      Img : constant String := Long_Long_Integer'Image (V);
+   begin
+      if Img'Length > 0 and then Img (Img'First) = ' ' then
+         return Img (Img'First + 1 .. Img'Last);
+      end if;
+      return Img;
+   end Trim_LLI;
+
+   function Eval_Static_Int
+     (N : Node_Index; Value : out Long_Long_Integer) return Boolean
+   is
+      function Parse_Based (Raw : String; Base : Natural;
+                            First, Last : Natural) return Long_Long_Integer is
+         Result : Long_Long_Integer := 0;
+      begin
+         for I in First .. Last loop
+            declare
+               C : constant Character := Raw (I);
+               D : Natural;
+            begin
+               if C in '0' .. '9' then
+                  D := Character'Pos (C) - Character'Pos ('0');
+               elsif C in 'a' .. 'f' then
+                  D := Character'Pos (C) - Character'Pos ('a') + 10;
+               elsif C in 'A' .. 'F' then
+                  D := Character'Pos (C) - Character'Pos ('A') + 10;
+               else
+                  raise Constraint_Error;
+               end if;
+               if D >= Base then
+                  raise Constraint_Error;
+               end if;
+               Result := Result * Long_Long_Integer (Base) + Long_Long_Integer (D);
+            end;
+         end loop;
+         return Result;
+      end Parse_Based;
+
+      LV, RV : Long_Long_Integer;
+      Op     : Unbounded_String;
+   begin
+      Value := 0;
+      if N = 0 then
+         return False;
+      end if;
+      case Tree (N).Kind is
+         when AST_Number_Expr =>
+            declare
+               Img : constant String := Token_Text (Tree (N).Token_Index);
+               Buf : String (1 .. Img'Length);
+               Len : Natural := 0;
+            begin
+               for C of Img loop
+                  if C /= '_' then
+                     Len := Len + 1;
+                     Buf (Len) := C;
+                  end if;
+               end loop;
+               Value := Long_Long_Integer'Value (Buf (1 .. Len));
+               return True;
+            exception
+               when others => return False;
+            end;
+         when AST_Hex_Expr =>
+            declare
+               Raw : constant String := Token_Text (Tree (N).Token_Index);
+            begin
+               if Raw'Length > 1 and then Raw (Raw'First) = '$' then
+                  Value := Parse_Based (Raw, 16, Raw'First + 1, Raw'Last);
+                  return True;
+               elsif Raw'Length > 2
+                 and then Raw (Raw'First) = '0'
+                 and then Raw (Raw'First + 1) in 'x' | 'X'
+               then
+                  Value := Parse_Based (Raw, 16, Raw'First + 2, Raw'Last);
+                  return True;
+               end if;
+               return False;
+            exception
+               when others => return False;
+            end;
+         when AST_Bin_Expr =>
+            declare
+               Raw : constant String := Token_Text (Tree (N).Token_Index);
+            begin
+               if Raw'Length > 1 and then Raw (Raw'First) = '%' then
+                  Value := Parse_Based (Raw, 2, Raw'First + 1, Raw'Last);
+                  return True;
+               elsif Raw'Length > 2
+                 and then Raw (Raw'First) = '0'
+                 and then Raw (Raw'First + 1) in 'b' | 'B'
+               then
+                  Value := Parse_Based (Raw, 2, Raw'First + 2, Raw'Last);
+                  return True;
+               end if;
+               return False;
+            exception
+               when others => return False;
+            end;
+         when AST_Octal_Expr =>
+            declare
+               Raw : constant String := Token_Text (Tree (N).Token_Index);
+            begin
+               if Raw'Length > 2
+                 and then Raw (Raw'First) = '&'
+                 and then Raw (Raw'First + 1) in 'o' | 'O'
+               then
+                  Value := Parse_Based (Raw, 8, Raw'First + 2, Raw'Last);
+                  return True;
+               elsif Raw'Length > 2
+                 and then Raw (Raw'First) = '0'
+                 and then Raw (Raw'First + 1) in 'o' | 'O'
+               then
+                  Value := Parse_Based (Raw, 8, Raw'First + 2, Raw'Last);
+                  return True;
+               end if;
+               return False;
+            exception
+               when others => return False;
+            end;
+         when AST_Const_Ref =>
+            declare
+               Raw : constant String := Token_Text (Tree (N).Token_Index);
+               Nam : constant String :=
+                 (if Raw'Length > 0 and then Raw (Raw'First) = '#'
+                  then Safe_Ident (Raw (Raw'First + 1 .. Raw'Last))
+                  else Safe_Ident (Raw));
+               Idx : constant Natural := Lookup_Symbol (Nam);
+            begin
+               if Idx /= 0
+                 and then Symbols (Idx).Kind = Sym_Const
+                 and then Symbols (Idx).Has_Const
+               then
+                  Value := Symbols (Idx).Const_Val;
+                  return True;
+               end if;
+               return False;
+            end;
+         when AST_Unary_Minus =>
+            if Eval_Static_Int (Tree (N).Left_Child, LV) then
+               Value := -LV;
+               return True;
+            end if;
+            return False;
+         when AST_BinOp =>
+            Op := To_Unbounded_String (Token_Text (Tree (N).Token_Index));
+            if not Eval_Static_Int (Tree (N).Left_Child, LV)
+              or else not Eval_Static_Int (Tree (N).Right_Child, RV)
+            then
+               return False;
+            end if;
+            declare
+               O : constant String := To_String (Op);
+            begin
+               if O = "+" then Value := LV + RV; return True;
+               elsif O = "-" then Value := LV - RV; return True;
+               elsif O = "*" then Value := LV * RV; return True;
+               elsif O = "/" and then RV /= 0 then Value := LV / RV; return True;
+               elsif O = "MOD" and then RV /= 0 then Value := LV mod RV; return True;
+               else return False;
+               end if;
+            end;
+         when others =>
+            return False;
+      end case;
+   end Eval_Static_Int;
+
+   function Lookup_Array (Name : String) return Natural is
+   begin
+      for I in 1 .. Symbol_Count loop
+         if Symbols (I).Active
+           and then Symbols (I).Kind = Sym_Array
+           and then To_String (Symbols (I).Name) = Name
+         then
+            return I;
+         end if;
+      end loop;
+      return 0;
+   end Lookup_Array;
+
+   procedure Register_Array
+     (Name : String; Rust_T : String; R : Natural;
+      D : Dim_Array; Global : Boolean; Root_Level : Boolean)
+   is
+   begin
+      if Symbol_Count >= Max_Symbols or else Lookup_Array (Name) /= 0 then
+         return;
+      end if;
+      Symbol_Count := Symbol_Count + 1;
+      Symbols (Symbol_Count) :=
+        (Active    => True,
+         Name      => To_Unbounded_String (Name),
+         Rust_Type => To_Unbounded_String (Rust_T),
+         Kind      => Sym_Array,
+         Rank      => R,
+         Dims      => D,
+         Is_Global => Global,
+         Root_Level => Root_Level,
+         Const_Val => 0,
+         Has_Const => False);
+   end Register_Array;
+
+   function Emit_Array_Ref
+     (Sym : Natural; Name : String; First_Idx : Node_Index) return String
+   is
+      Acc     : Unbounded_String := To_Unbounded_String ("");
+      Idx     : Node_Index := First_Idx;
+      Dim_Pos : Natural := 1;
+      E       : Unbounded_String;
+   begin
+      while Idx /= 0 loop
+         E := To_Unbounded_String (Emit_Expr (Idx));
+         if Dim_Pos = 1 then
+            Acc := E;
+         elsif Sym /= 0
+           and then Dim_Pos <= Symbols (Sym).Rank
+           and then Symbols (Sym).Dims (Dim_Pos) > 0
+         then
+            Acc := "(" & Acc & " * "
+              & Trim_LLI (Long_Long_Integer (Symbols (Sym).Dims (Dim_Pos)))
+              & " + " & E & ")";
+         else
+            Acc := "(" & Acc & " + " & E & ")";
+         end if;
+         Dim_Pos := Dim_Pos + 1;
+         Idx := Tree (Idx).Next_Sibling;
+      end loop;
+      if Acc = "" then
+         Acc := To_Unbounded_String ("0");
+      end if;
+      if Sym /= 0 and then Symbols (Sym).Root_Level then
+         return "crate::" & Name & "[(" & To_String (Acc) & ") as usize]";
+      end if;
+      return Name & "[(" & To_String (Acc) & ") as usize]";
+   end Emit_Array_Ref;
+
+   procedure Emit_Strict_Decl (N : Node_Index; Global : Boolean) is
+      Var_Node : constant Node_Index := Tree (N).Left_Child;
+      Name     : constant String := Node_Name (Var_Node);
+      Type_Node : constant Node_Index :=
+        (if Var_Node /= 0 then Tree (Var_Node).Right_Child else 0);
+      Elem_T   : constant String :=
+        (if Type_Node /= 0 and then Tree (Type_Node).Token_Index /= 0
+         then Rust_Type (Tree (Type_Node).Token_Index)
+         else "i32");
+      Dim_Node : Node_Index := Tree (N).Right_Child;
+      D        : Dim_Array := (others => 0);
+      R        : Natural := 0;
+      Total    : Long_Long_Integer := 1;
+      DimV     : Long_Long_Integer;
+      Ok       : Boolean := True;
+   begin
+      if Var_Node = 0 then
+         return;
+      end if;
+      while Dim_Node /= 0 and then R < Max_Rank loop
+         R := R + 1;
+         if Eval_Static_Int (Dim_Node, DimV) and then DimV > 0 then
+            D (R) := Natural (DimV);
+            Total := Total * DimV;
+         else
+            Ok := False;
+            D (R) := 1;
+         end if;
+         Dim_Node := Tree (Dim_Node).Next_Sibling;
+      end loop;
+      if not Ok or else R = 0 then
+         if Global then
+            Out_Line ("// micro-alb: STRICT " & Name
+                      & " skipped (non-static bounds)");
+         else
+            Out_Line ("// micro-alb: STRICT " & Name
+                      & " skipped (non-static bounds)");
+         end if;
+         return;
+      end if;
+      if Global then
+         Out_Line ("#[allow(non_upper_case_globals)]");
+         Out_Line ("static mut " & Name & " : [" & Elem_T & "; "
+                   & Trim_LLI (Total) & "] = [" & Zero_Lit (Elem_T)
+                   & "; " & Trim_LLI (Total) & "];");
+      else
+         Out_Line ("let mut " & Name & " : [" & Elem_T & "; "
+                   & Trim_LLI (Total) & "] = [" & Zero_Lit (Elem_T)
+                   & "; " & Trim_LLI (Total) & "];");
+      end if;
+      Register_Array (Name, Elem_T, R, D, Global,
+                      Root_Level => Global and then not Inside_Module);
+      Add_Declared (Name);
+   end Emit_Strict_Decl;
 
    procedure Emit_Module_Decl (N : Node_Index) is
       Name : constant String := Node_Name (Tree (N).Left_Child);
@@ -786,7 +1269,9 @@ package body Emit_Native_Micro_Rust is
       Out_Line ("pub mod " & Name & " {");
       Indent_Level := Indent_Level + 1;
       Out_Line ("use super::support::{_alb_print_i32, _alb_print_str, _alb_print_newline};");
+      Inside_Module := True;
       Emit_Node (Tree (N).Right_Child);
+      Inside_Module := False;
       Indent_Level := Indent_Level - 1;
       Out_Line ("}");
    end Emit_Module_Decl;
@@ -800,7 +1285,9 @@ package body Emit_Native_Micro_Rust is
       Out_Line ("pub mod " & Name & " {");
       Indent_Level := Indent_Level + 1;
       Out_Line ("use super::support::{_alb_print_i32, _alb_print_str, _alb_print_newline};");
+      Inside_Module := True;
       Emit_Node (Tree (N).Right_Child);
+      Inside_Module := False;
       Indent_Level := Indent_Level - 1;
       Out_Line ("}");
    end Emit_DeclareModule_Decl;
@@ -871,6 +1358,9 @@ package body Emit_Native_Micro_Rust is
       Out_Line ("fn panic(_info: &PanicInfo) -> ! {");
       Out_Line ("    loop {}");
       Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("#[no_mangle]");
+      Out_Line ("extern ""C"" fn rust_eh_personality() {}");
       Out_Line ("");
       Out_Line ("static mut _ALB_ARENA: [u8; 4096] = [0; 4096];");
       Out_Line ("static mut _ALB_ARENA_USED: usize = 0;");
@@ -1013,6 +1503,8 @@ package body Emit_Native_Micro_Rust is
                   Emit_Procedure_Decl (Curr);
                when AST_Function_Decl =>
                   Emit_Function_Decl (Curr);
+               when AST_Strict_Stmt | AST_Slide_Stmt =>
+                  Emit_Strict_Decl (Curr, Global => True);
                when others =>
                   null;
             end case;
@@ -1030,7 +1522,9 @@ package body Emit_Native_Micro_Rust is
          Out_Line ("");
          Out_Line ("fn _alb_main_body() {");
          Indent_Level := 1;
+         Inside_Fn := True;
          Emit_Node (Body_Node);
+         Inside_Fn := False;
          Indent_Level := 0;
          Out_Line ("}");
 

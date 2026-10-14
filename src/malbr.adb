@@ -768,6 +768,68 @@ procedure MALBR is
       Exe_Leaf : constant String := Exe_Name_From_Rs (Rs_Path);
       OK    : Boolean;
 
+      --  Locate rustc's bundled self-contained mingw libs (libgcc_eh etc.)
+      --  so linking works even when the system MinGW lacks them.
+      function Self_Contained_Lib_Dir (Rustc_Path : String) return String is
+         use Ada.Directories;
+         Search : Search_Type;
+         Ent    : Directory_Entry_Type;
+
+         function SC (Sysroot, Triple : String) return String is
+         begin
+            return Compose
+              (Compose (Compose (Compose (Compose
+                (Sysroot, "lib"), "rustlib"), Triple), "lib"),
+               "self-contained");
+         end SC;
+      begin
+         if Rustc_Path'Length = 0 then
+            return "";
+         end if;
+         declare
+            Rust_Bin : constant String := Containing_Directory (Rustc_Path);
+            Sysroot  : constant String := Containing_Directory (Rust_Bin);
+            Rustlib  : constant String := Compose (Compose (Sysroot, "lib"), "rustlib");
+         begin
+            if Rust_Bin'Length = 0 or else Sysroot'Length = 0 then
+               return "";
+            end if;
+            if Target_Len > 0 then
+               declare
+                  Cand : constant String := SC (Sysroot, Target_Triple (1 .. Target_Len));
+               begin
+                  if Path_Exists (Cand) then
+                     return Cand;
+                  end if;
+               end;
+            end if;
+            if not Exists (Rustlib) then
+               return "";
+            end if;
+            Start_Search (Search, Rustlib, "*",
+                          Filter => (Directory => True, others => False));
+            while More_Entries (Search) loop
+               Get_Next_Entry (Search, Ent);
+               declare
+                  Name : constant String := Simple_Name (Ent);
+                  Cand : constant String := SC (Sysroot, Name);
+               begin
+                  if Name /= "." and then Name /= ".."
+                    and then Path_Exists (Cand)
+                  then
+                     End_Search (Search);
+                     return Cand;
+                  end if;
+               end;
+            end loop;
+            End_Search (Search);
+            return "";
+         end;
+      exception
+         when others =>
+            return "";
+      end Self_Contained_Lib_Dir;
+
       procedure Ensure_Link_Path is
          Root : constant String := SDK_Root;
          Mingw : constant String := Ada.Directories.Compose
@@ -824,13 +886,18 @@ procedure MALBR is
       Log ("MALBR: rustc -> " & Rustc);
       --  No SDL/vendor runtime for micro builds
       declare
+         SC_Dir : constant String := Self_Contained_Lib_Dir (Rustc);
+
          function Arg_Count return Natural is
+            N : Natural := 8;
          begin
             if Target_Len > 0 then
-               return 10;
-            else
-               return 8;
+               N := N + 2;
             end if;
+            if SC_Dir'Length > 0 then
+               N := N + 2;
+            end if;
+            return N;
          end Arg_Count;
 
          Args : GNAT.OS_Lib.Argument_List (1 .. Arg_Count);
@@ -841,6 +908,11 @@ procedure MALBR is
          Idx := Idx + 1; Args (Idx) := new String'("-O");
          Idx := Idx + 1; Args (Idx) := new String'("-C");
          Idx := Idx + 1; Args (Idx) := new String'("panic=abort");
+
+         if SC_Dir'Length > 0 then
+            Idx := Idx + 1; Args (Idx) := new String'("-L");
+            Idx := Idx + 1; Args (Idx) := new String'(SC_Dir);
+         end if;
 
          if Target_Len > 0 then
             Idx := Idx + 1; Args (Idx) := new String'("--target");
