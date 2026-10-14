@@ -902,6 +902,28 @@ package body Emit_Native_Micro_Rust is
       end if;
    end Emit_Postamble;
 
+   function Module_Has_Statements (N : Node_Index) return Boolean is
+      B : constant Node_Index := (if N = 0 then 0 else Tree (N).Right_Child);
+   begin
+      return B /= 0 and then Tree (B).Left_Child /= 0;
+   end Module_Has_Statements;
+
+   function Find_Sibling_Module
+     (Start : Node_Index; Kind : Node_Kind; Name : String) return Node_Index
+   is
+      C : Node_Index := Start;
+   begin
+      while C /= 0 loop
+         if Tree (C).Kind = Kind
+           and then Node_Name (Tree (C).Left_Child) = Name
+         then
+            return C;
+         end if;
+         C := Tree (C).Next_Sibling;
+      end loop;
+      return 0;
+   end Find_Sibling_Module;
+
    function Is_Declared (Name : String) return Boolean is
    begin
       for I in 1 .. Declared_Count loop
@@ -959,9 +981,34 @@ package body Emit_Native_Micro_Rust is
                when AST_Range_Type_Decl =>
                   Emit_Range_Type_Decl (Curr);
                when AST_DeclareModule =>
-                  Emit_DeclareModule_Decl (Curr);
+                  declare
+                     MName : constant String := Node_Name (Tree (Curr).Left_Child);
+                     Impl  : constant Node_Index :=
+                       Find_Sibling_Module (Root_Index, AST_Module, MName);
+                  begin
+                     if Impl = 0 or else not Module_Has_Statements (Impl) then
+                        Emit_DeclareModule_Decl (Curr);
+                     end if;
+                  end;
                when AST_Module =>
-                  null;
+                  declare
+                     MName : constant String := Node_Name (Tree (Curr).Left_Child);
+                  begin
+                     if Module_Has_Statements (Curr) then
+                        Emit_Module_Decl (Curr);
+                     else
+                        declare
+                           Spec : constant Node_Index :=
+                             Find_Sibling_Module (Root_Index, AST_DeclareModule, MName);
+                        begin
+                           if Spec /= 0 and then Module_Has_Statements (Spec) then
+                              Emit_DeclareModule_Decl (Spec);
+                           else
+                              Emit_Module_Decl (Curr);
+                           end if;
+                        end;
+                     end if;
+                  end;
                when AST_Procedure_Decl =>
                   Emit_Procedure_Decl (Curr);
                when AST_Function_Decl =>
