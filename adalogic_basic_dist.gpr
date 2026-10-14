@@ -12,6 +12,6 @@ project Adalogic_Basic_Dist is
    end Builder;
    for Main use ("alb.adb", "albt.adb", "albf.adb", "alb_65.adb", "albj.adb", "albn.adb",
                  "alba.adb", "albw.adb", "albl.adb", "albm.adb", "albnasm.adb", "albgd.adb", "albp.adb", "albr.adb", "albh.adb", "albo.adb", "albc3.adb",
-                 "alb_player.adb", "alb_pkg.adb");
+                 "alb_player.adb", "alb_pkg.adb", "malbr.adb");
 
 end Adalogic_Basic_Dist;
