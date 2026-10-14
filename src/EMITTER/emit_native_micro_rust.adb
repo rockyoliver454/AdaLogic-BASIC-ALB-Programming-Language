@@ -255,6 +255,29 @@ package body Emit_Native_Micro_Rust is
       end if;
    end Emit_Func_Call;
 
+   procedure Emit_Print_String (N : Node_Index) is
+      K : Node_Kind;
+      Op : String (1 .. 8) := (others => ' ');
+      Len : Natural := 0;
+   begin
+      if N = 0 then
+         return;
+      end if;
+      K := Tree (N).Kind;
+      if K = AST_BinOp then
+         Op := Token_Text (Tree (N).Token_Index);
+         Len := Op'Length;
+      end if;
+      if K = AST_BinOp and then Len = 1 and then Op (1) = '|' then
+         Emit_Print_String (Tree (N).Left_Child);
+         Emit_Print_String (Tree (N).Right_Child);
+      elsif K = AST_String_Expr then
+         Out_Line ("_alb_print_str(" & Emit_Expr (N) & ");");
+      else
+         Out_Line ("_alb_print_i32(" & Emit_Expr (N) & ");");
+      end if;
+   end Emit_Print_String;
+
    function Emit_Expr (N : Node_Index) return String is
       K : Node_Kind;
    begin
@@ -406,7 +429,11 @@ package body Emit_Native_Micro_Rust is
             end;
 
          when AST_Print_Stmt =>
-            Out_Line ("let _ = " & Emit_Expr (Tree (N).Left_Child) & "; // PRINT (no-std stub)");
+            Out_Line ("_alb_print_i32(" & Emit_Expr (Tree (N).Left_Child) & ");");
+            Out_Line ("_alb_print_newline();");
+
+         when AST_Print_Str_Stmt =>
+            Emit_Print_String (Tree (N).Left_Child);
 
          when AST_Poke_Stmt =>
             Out_Line
@@ -709,6 +736,9 @@ package body Emit_Native_Micro_Rust is
       Out_Line ("#![no_std]");
       Out_Line ("#![no_main]");
       Out_Line ("");
+      Out_Line ("mod support;");
+      Out_Line ("use support::{_alb_print_i32, _alb_print_str, _alb_print_newline};");
+      Out_Line ("");
       Out_Line ("use core::panic::PanicInfo;");
       Out_Line ("use core::ptr::{read_volatile, write_volatile};");
       Out_Line ("");
@@ -720,6 +750,7 @@ package body Emit_Native_Micro_Rust is
       Out_Line ("static mut _ALB_ARENA: [u8; 4096] = [0; 4096];");
       Out_Line ("static mut _ALB_ARENA_USED: usize = 0;");
       Out_Line ("");
+      Out_Line ("#[allow(static_mut_refs)]");
       Out_Line ("unsafe fn _alb_claim(size: usize) -> *mut u8 {");
       Out_Line ("    let p = _ALB_ARENA.as_mut_ptr().add(_ALB_ARENA_USED);");
       Out_Line ("    _ALB_ARENA_USED += size;");
@@ -740,6 +771,7 @@ package body Emit_Native_Micro_Rust is
          Out_Line ("pub extern ""C"" fn _start() {");
          Indent_Level := Indent_Level + 1;
          Out_Line (To_String (Entry_Symbol) & "();");
+         Out_Line ("support::_alb_exit(0);");
          Indent_Level := Indent_Level - 1;
          Out_Line ("}");
       end if;
@@ -794,18 +826,32 @@ package body Emit_Native_Micro_Rust is
       end loop;
 
       --  Entry point
-      if Custom_Entry then
-         Out_Line ("");
-         Out_Line ("fn " & To_String (Entry_Symbol) & "() {");
-      else
-         Out_Line ("");
-         Out_Line ("#[no_mangle]");
-         Out_Line ("pub extern ""C"" fn main() {");
-      end if;
+      Out_Line ("");
+      Out_Line ("fn _alb_main_body() {");
       Indent_Level := 1;
       Emit_Node (Body_Node);
       Indent_Level := 0;
       Out_Line ("}");
+
+      if Custom_Entry then
+         Out_Line ("");
+         Out_Line ("#[no_mangle]");
+         Out_Line ("pub extern ""C"" fn " & To_String (Entry_Symbol) & "() {");
+         Indent_Level := 1;
+         Out_Line ("_alb_main_body();");
+         Out_Line ("support::_alb_exit(0);");
+         Indent_Level := 0;
+         Out_Line ("}");
+      else
+         Out_Line ("");
+         Out_Line ("#[no_mangle]");
+         Out_Line ("pub extern ""C"" fn main() {");
+         Indent_Level := 1;
+         Out_Line ("_alb_main_body();");
+         Out_Line ("support::_alb_exit(0);");
+         Indent_Level := 0;
+         Out_Line ("}");
+      end if;
 
       Emit_Postamble;
       Close_Output;

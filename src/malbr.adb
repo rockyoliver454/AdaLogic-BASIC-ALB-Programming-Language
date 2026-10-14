@@ -824,52 +824,37 @@ procedure MALBR is
       Log ("MALBR: rustc -> " & Rustc);
       --  No SDL/vendor runtime for micro builds
       declare
-         Lib_Dir : constant String := "";
-         OK_Build : Boolean;
+         function Arg_Count return Natural is
+         begin
+            if Target_Len > 0 then
+               return 10;
+            else
+               return 8;
+            end if;
+         end Arg_Count;
+
+         Args : GNAT.OS_Lib.Argument_List (1 .. Arg_Count);
+         Idx  : Natural := 0;
       begin
-         if Lib_Dir'Length > 0 then
-            declare
-               Args : GNAT.OS_Lib.Argument_List :=
-                 (1 => new String'("--edition"),
-                  2 => new String'("2021"),
-                  3 => new String'("-O"),
-                  4 => new String'("-C"),
-                  5 => new String'("link-self-contained=yes"),
-                  6 => new String'("-L"),
-                  7 => new String'(Lib_Dir),
-                  8 => new String'("-l"),
-                  9 => new String'("SDL3"),
-                  10 => new String'("-o"),
-                  11 => new String'(Exe_Leaf),
-                  12 => new String'(Rs_Leaf));
-            begin
-               Log ("MALBR: rustc link -L " & Lib_Dir & " -l SDL3");
-               OK_Build := Spawn_And_Check (Dir, Rustc, Args);
-               for I in Args'Range loop
-                  Free (Args (I));
-               end loop;
-            end;
-         else
-            declare
-               Args : GNAT.OS_Lib.Argument_List :=
-                 (1 => new String'("--edition"),
-                  2 => new String'("2021"),
-                  3 => new String'("-O"),
-                  4 => new String'("-C"),
-                  5 => new String'("link-self-contained=yes"),
-                  6 => new String'("-o"),
-                  7 => new String'(Exe_Leaf),
-                  8 => new String'(Rs_Leaf));
-            begin
-               Put_Line
-                 ("MALBR: warning: libSDL3.a not found; linking without -lSDL3");
-               OK_Build := Spawn_And_Check (Dir, Rustc, Args);
-               for I in Args'Range loop
-                  Free (Args (I));
-               end loop;
-            end;
+         Idx := Idx + 1; Args (Idx) := new String'("--edition");
+         Idx := Idx + 1; Args (Idx) := new String'("2021");
+         Idx := Idx + 1; Args (Idx) := new String'("-O");
+         Idx := Idx + 1; Args (Idx) := new String'("-C");
+         Idx := Idx + 1; Args (Idx) := new String'("panic=abort");
+
+         if Target_Len > 0 then
+            Idx := Idx + 1; Args (Idx) := new String'("--target");
+            Idx := Idx + 1; Args (Idx) := new String'(Target_Triple (1 .. Target_Len));
          end if;
-         OK := OK_Build;
+
+         Idx := Idx + 1; Args (Idx) := new String'("-o");
+         Idx := Idx + 1; Args (Idx) := new String'(Exe_Leaf);
+         Idx := Idx + 1; Args (Idx) := new String'(Rs_Leaf);
+
+         OK := Spawn_And_Check (Dir, Rustc, Args);
+         for I in Args'Range loop
+            Free (Args (I));
+         end loop;
       end;
 
       if OK then
@@ -893,6 +878,101 @@ procedure MALBR is
       end if;
       return Spawn_And_Check (Dir, Exe_Path, Empty);
    end Run_Exe;
+
+   procedure Write_Support_File (Dir : String) is
+      File : Ada.Text_IO.File_Type;
+      Path : constant String := Ada.Directories.Compose (Dir, "support.rs");
+   begin
+      Ada.Text_IO.Create (File, Ada.Text_IO.Out_File, Path);
+      Ada.Text_IO.Put_Line (File, "// support.rs -- host debug shim for malbr-generated micro ALB");
+      Ada.Text_IO.Put_Line (File, "// Replace _alb_putchar with your target UART/write function for embedded builds.");
+      Ada.Text_IO.Put_Line (File, "");
+      Ada.Text_IO.Put_Line (File, "#[cfg(windows)]");
+      Ada.Text_IO.Put_Line (File, "#[no_mangle]");
+      Ada.Text_IO.Put_Line (File, "pub extern ""C"" fn _crt_atexit(_f: usize) -> i32 {");
+      Ada.Text_IO.Put_Line (File, "    0");
+      Ada.Text_IO.Put_Line (File, "}");
+      Ada.Text_IO.Put_Line (File, "");
+      Ada.Text_IO.Put_Line (File, "#[cfg(windows)]");
+      Ada.Text_IO.Put_Line (File, "#[no_mangle]");
+      Ada.Text_IO.Put_Line (File, "pub extern ""C"" fn __p___initenv() -> *mut *mut u8 {");
+      Ada.Text_IO.Put_Line (File, "    static mut DUMMY: *mut u8 = core::ptr::null_mut();");
+      Ada.Text_IO.Put_Line (File, "    unsafe { &mut DUMMY }");
+      Ada.Text_IO.Put_Line (File, "}");
+      Ada.Text_IO.Put_Line (File, "");
+      Ada.Text_IO.Put_Line (File, "const STD_OUTPUT_HANDLE: u32 = (-11i32) as u32;");
+      Ada.Text_IO.Put_Line (File, "");
+      Ada.Text_IO.Put_Line (File, "extern ""system"" {");
+      Ada.Text_IO.Put_Line (File, "    fn GetStdHandle(nStdHandle: u32) -> *mut u8;");
+      Ada.Text_IO.Put_Line (File, "    fn WriteFile(hFile: *mut u8, lpBuffer: *const u8,");
+      Ada.Text_IO.Put_Line (File, "                 nNumberOfBytesToWrite: u32,");
+      Ada.Text_IO.Put_Line (File, "                 lpNumberOfBytesWritten: *mut u32,");
+      Ada.Text_IO.Put_Line (File, "                 lpOverlapped: *mut u8) -> i32;");
+      Ada.Text_IO.Put_Line (File, "}");
+      Ada.Text_IO.Put_Line (File, "");
+      Ada.Text_IO.Put_Line (File, "pub fn _alb_putchar(c: u8) {");
+      Ada.Text_IO.Put_Line (File, "    unsafe {");
+      Ada.Text_IO.Put_Line (File, "        let h = GetStdHandle(STD_OUTPUT_HANDLE);");
+      Ada.Text_IO.Put_Line (File, "        let mut written: u32 = 0;");
+      Ada.Text_IO.Put_Line (File, "        let buf = [c; 1];");
+      Ada.Text_IO.Put_Line (File, "        WriteFile(h, buf.as_ptr(), 1, &mut written, core::ptr::null_mut());");
+      Ada.Text_IO.Put_Line (File, "    }");
+      Ada.Text_IO.Put_Line (File, "}");
+      Ada.Text_IO.Put_Line (File, "");
+      Ada.Text_IO.Put_Line (File, "pub fn _alb_print_newline() {");
+      Ada.Text_IO.Put_Line (File, "    _alb_putchar(10);");
+      Ada.Text_IO.Put_Line (File, "}");
+      Ada.Text_IO.Put_Line (File, "");
+      Ada.Text_IO.Put_Line (File, "pub fn _alb_print_str(s: &str) {");
+      Ada.Text_IO.Put_Line (File, "    for b in s.bytes() {");
+      Ada.Text_IO.Put_Line (File, "        _alb_putchar(b);");
+      Ada.Text_IO.Put_Line (File, "    }");
+      Ada.Text_IO.Put_Line (File, "}");
+      Ada.Text_IO.Put_Line (File, "");
+      Ada.Text_IO.Put_Line (File, "#[cfg(windows)]");
+      Ada.Text_IO.Put_Line (File, "pub fn _alb_exit(code: u32) {");
+      Ada.Text_IO.Put_Line (File, "    extern ""system"" { fn ExitProcess(uExitCode: u32); }");
+      Ada.Text_IO.Put_Line (File, "    unsafe { ExitProcess(code); }");
+      Ada.Text_IO.Put_Line (File, "}");
+      Ada.Text_IO.Put_Line (File, "");
+      Ada.Text_IO.Put_Line (File, "#[cfg(not(windows))]");
+      Ada.Text_IO.Put_Line (File, "pub fn _alb_exit(_code: u32) -> ! {");
+      Ada.Text_IO.Put_Line (File, "    loop {}");
+      Ada.Text_IO.Put_Line (File, "}");
+      Ada.Text_IO.Put_Line (File, "");
+      Ada.Text_IO.Put_Line (File, "pub fn _alb_print_i32(v: i32) {");
+      Ada.Text_IO.Put_Line (File, "    if v == 0 {");
+      Ada.Text_IO.Put_Line (File, "        _alb_putchar(b'0');");
+      Ada.Text_IO.Put_Line (File, "        return;");
+      Ada.Text_IO.Put_Line (File, "    }");
+      Ada.Text_IO.Put_Line (File, "    let mut n: i32 = v;");
+      Ada.Text_IO.Put_Line (File, "    let mut buf: [u8; 12] = [0; 12];");
+      Ada.Text_IO.Put_Line (File, "    let mut i: usize = 0;");
+      Ada.Text_IO.Put_Line (File, "    let neg: bool = n < 0;");
+      Ada.Text_IO.Put_Line (File, "    if neg { n = -n; }");
+      Ada.Text_IO.Put_Line (File, "    while n != 0 {");
+      Ada.Text_IO.Put_Line (File, "        buf[i] = ((n % 10) as u8) + b'0';");
+      Ada.Text_IO.Put_Line (File, "        i += 1;");
+      Ada.Text_IO.Put_Line (File, "        n /= 10;");
+      Ada.Text_IO.Put_Line (File, "    }");
+      Ada.Text_IO.Put_Line (File, "    if neg { _alb_putchar(b'-'); }");
+      Ada.Text_IO.Put_Line (File, "    while i > 0 {");
+      Ada.Text_IO.Put_Line (File, "        i -= 1;");
+      Ada.Text_IO.Put_Line (File, "        _alb_putchar(buf[i]);");
+      Ada.Text_IO.Put_Line (File, "    }");
+      Ada.Text_IO.Put_Line (File, "}");
+      Ada.Text_IO.Close (File);
+      Log ("MALBR: wrote " & Path);
+   exception
+      when others =>
+         Put_Line ("MALBR: could not write support.rs");
+         begin
+            Ada.Text_IO.Close (File);
+         exception
+            when others =>
+               null;
+         end;
+   end Write_Support_File;
 
    procedure Print_Help is
    begin
@@ -1089,6 +1169,12 @@ begin
       Log ("Step 3: Emitting micro Rust");
       Emit_Native_Micro_Rust.Compile_To_File (Root, Final_Output);
       Log ("MALBR: emitted " & Final_Output);
+
+      declare
+         Out_Dir_Path : constant String := Ada.Directories.Containing_Directory (Final_Output);
+      begin
+         Write_Support_File (Out_Dir_Path);
+      end;
 
       if Build_Mode then
          Build_OK := Rustc_Build (Final_Output);
