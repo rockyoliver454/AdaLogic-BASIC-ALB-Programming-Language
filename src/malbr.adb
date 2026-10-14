@@ -894,6 +894,7 @@ procedure MALBR is
       Ada.Text_IO.Put_Line (File, "}");
       Ada.Text_IO.Put_Line (File, "");
       Ada.Text_IO.Put_Line (File, "#[cfg(windows)]");
+      Ada.Text_IO.Put_Line (File, "#[allow(static_mut_refs)]");
       Ada.Text_IO.Put_Line (File, "#[no_mangle]");
       Ada.Text_IO.Put_Line (File, "pub extern ""C"" fn __p___initenv() -> *mut *mut u8 {");
       Ada.Text_IO.Put_Line (File, "    static mut DUMMY: *mut u8 = core::ptr::null_mut();");

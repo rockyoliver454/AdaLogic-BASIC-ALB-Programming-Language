@@ -1,0 +1,5 @@
+BEGIN
+    LET x = 10
+    ASSERT x = 10
+    PRINT$ "assert ok"
+END

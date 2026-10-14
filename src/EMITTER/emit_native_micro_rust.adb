@@ -71,6 +71,14 @@ package body Emit_Native_Micro_Rust is
    Target_Triple  : Unbounded_String := To_Unbounded_String ("");
    No_Console     : Boolean := False;
 
+   Max_Declared   : constant := 1024;
+   Declared_Names : array (1 .. Max_Declared) of Unbounded_String;
+   Declared_Count : Natural := 0;
+
+   function Is_Declared (Name : String) return Boolean;
+   procedure Add_Declared (Name : String);
+   procedure Reset_Declared;
+
    Comptime_Lines : array (1 .. Max_Strings) of Unbounded_String;
    Comptime_Count : Natural := 0;
 
@@ -265,8 +273,14 @@ package body Emit_Native_Micro_Rust is
       end if;
       K := Tree (N).Kind;
       if K = AST_BinOp then
-         Op := Token_Text (Tree (N).Token_Index);
-         Len := Op'Length;
+         declare
+            Raw : constant String := Token_Text (Tree (N).Token_Index);
+         begin
+            Len := Raw'Length;
+            if Len <= Op'Length then
+               Op (1 .. Len) := Raw;
+            end if;
+         end;
       end if;
       if K = AST_BinOp and then Len = 1 and then Op (1) = '|' then
          Emit_Print_String (Tree (N).Left_Child);
@@ -286,8 +300,28 @@ package body Emit_Native_Micro_Rust is
       end if;
       K := Tree (N).Kind;
       case K is
-         when AST_Number_Expr | AST_Hex_Expr | AST_Bin_Expr =>
+         when AST_Number_Expr =>
             return Token_Text (Tree (N).Token_Index);
+         when AST_Hex_Expr =>
+            declare
+               Raw : constant String := Token_Text (Tree (N).Token_Index);
+            begin
+               if Raw'Length > 1 and then Raw (Raw'First) = '$' then
+                  return "0x" & Raw (Raw'First + 1 .. Raw'Last);
+               else
+                  return Raw;
+               end if;
+            end;
+         when AST_Bin_Expr =>
+            declare
+               Raw : constant String := Token_Text (Tree (N).Token_Index);
+            begin
+               if Raw'Length > 1 and then Raw (Raw'First) = '%' then
+                  return "0b" & Raw (Raw'First + 1 .. Raw'Last);
+               else
+                  return Raw;
+               end if;
+            end;
          when AST_Var_Expr =>
             return Node_Name (N);
          when AST_Const_Ref =>
@@ -323,12 +357,15 @@ package body Emit_Native_Micro_Rust is
                elsif Op = "AND" or else Op = "&" then Rust_Op (1 .. 3) := " & "; Len := 3;
                elsif Op = "OR" or else Op = "|" then Rust_Op (1 .. 3) := " | "; Len := 3;
                elsif Op = "XOR" then Rust_Op (1 .. 3) := " ^ "; Len := 3;
+               elsif Op = "MOD" then Rust_Op (1 .. 1) := "%"; Len := 1;
                else Rust_Op (1 .. Op'Length) := Op; Len := Op'Length;
                end if;
                return "(" & L & " " & Rust_Op (1 .. Len) & " " & R & ")";
             end;
          when AST_Unary_Minus =>
             return "(-" & Emit_Expr (Tree (N).Left_Child) & ")";
+         when AST_Not =>
+            return "!" & Emit_Expr (Tree (N).Left_Child);
          when AST_Cast_Expr =>
             return "(" & Emit_Expr (Tree (N).Left_Child) & " as "
               & Rust_Type (Tree (N).Token_Index) & ")";
@@ -410,13 +447,19 @@ package body Emit_Native_Micro_Rust is
                Name : constant String := Node_Name (Tree (N).Left_Child);
                TTok : constant Natural := Tree (N).Token_Index;
                Init : constant String := Emit_Expr (Tree (N).Right_Child);
+               Already : constant Boolean := Is_Declared (Name);
             begin
-               if TTok /= 0 then
+               if Already then
+                  Out_Line (Name & " = " & Init & ";");
+               elsif TTok /= 0 then
                   Out_Line ("let mut " & Name & " : " & Rust_Type (TTok) & " = " & Init & ";");
                else
                   Out_Line ("let mut " & Name & " = " & Init & ";");
                end if;
-               Add_Symbol (Name, (if TTok /= 0 then Rust_Type (TTok) else "i32"));
+               if not Already then
+                  Add_Declared (Name);
+                  Add_Symbol (Name, (if TTok /= 0 then Rust_Type (TTok) else "i32"));
+               end if;
             end;
 
          when AST_Const_Decl =>
@@ -434,6 +477,7 @@ package body Emit_Native_Micro_Rust is
 
          when AST_Print_Str_Stmt =>
             Emit_Print_String (Tree (N).Left_Child);
+            Out_Line ("_alb_print_newline();");
 
          when AST_Poke_Stmt =>
             Out_Line
@@ -468,11 +512,23 @@ package body Emit_Native_Micro_Rust is
             Out_Line ("// SWEEP chunk_size=" & Emit_Expr (Tree (N).Left_Child));
 
          when AST_If_Stmt =>
-            Out_Line ("if " & Emit_Expr (Tree (N).Left_Child) & " {");
-            Indent_Level := Indent_Level + 1;
-            Emit_Node (Tree (N).Right_Child);
-            Indent_Level := Indent_Level - 1;
-            Out_Line ("}");
+            declare
+               Then_Node : constant Node_Index := Tree (N).Right_Child;
+               Else_Node : constant Node_Index := Tree (Then_Node).Next_Sibling;
+            begin
+               Out_Line ("if " & Emit_Expr (Tree (N).Left_Child) & " {");
+               Indent_Level := Indent_Level + 1;
+               Emit_Node (Then_Node);
+               Indent_Level := Indent_Level - 1;
+               Out_Line ("}");
+               if Else_Node /= 0 then
+                  Out_Line ("else {");
+                  Indent_Level := Indent_Level + 1;
+                  Emit_Node (Else_Node);
+                  Indent_Level := Indent_Level - 1;
+                  Out_Line ("}");
+               end if;
+            end;
 
          when AST_For_Stmt =>
             declare
@@ -777,6 +833,29 @@ package body Emit_Native_Micro_Rust is
       end if;
    end Emit_Postamble;
 
+   function Is_Declared (Name : String) return Boolean is
+   begin
+      for I in 1 .. Declared_Count loop
+         if To_String (Declared_Names (I)) = Name then
+            return True;
+         end if;
+      end loop;
+      return False;
+   end Is_Declared;
+
+   procedure Add_Declared (Name : String) is
+   begin
+      if Declared_Count < Max_Declared and then not Is_Declared (Name) then
+         Declared_Count := Declared_Count + 1;
+         Declared_Names (Declared_Count) := To_Unbounded_String (Name);
+      end if;
+   end Add_Declared;
+
+   procedure Reset_Declared is
+   begin
+      Declared_Count := 0;
+   end Reset_Declared;
+
    procedure Compile_To_File
      (Root_Index      : in Node_Index;
       Output_Filename : in String)
@@ -792,6 +871,7 @@ package body Emit_Native_Micro_Rust is
       Routine_Count := 0;
       Comptime_Count := 0;
       Inline_C_Count := 0;
+      Reset_Declared;
       Indent_Level := 0;
 
       Open_Output (Output_Filename);
