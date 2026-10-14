@@ -1412,9 +1412,10 @@ package body Parser is
          begin
             State.Current_Token := State.Current_Token + 1; -- Consume da keyword
             
-            -- Guard: Expect '('
+            -- Guard: Expect '(' -- a bare intrinsic keyword in expression
+            -- position means it was used as an identifier; say so.
             if State.Current_Token > Max_Tokens or else Tokens(State.Current_Token).Kind /= Tok_L_Paren then
-               Set_Error(State, Tokens, Err_Parse_Missing_Bracket);
+               Set_Error(State, Tokens, Err_Parse_Reserved_Keyword);
                Success := False; return;
             end if;
             State.Current_Token := State.Current_Token + 1; -- Consume '('
@@ -1469,7 +1470,7 @@ package body Parser is
             State.Current_Token := State.Current_Token + 1; -- Consume the Function Name
             
             if State.Current_Token > Max_Tokens or else Tokens(State.Current_Token).Kind /= Tok_L_Paren then
-               Set_Error(State, Tokens, Err_Parse_Missing_Bracket); Success := False; return;
+               Set_Error(State, Tokens, Err_Parse_Reserved_Keyword); Success := False; return;
             end if;
             State.Current_Token := State.Current_Token + 1; -- Consume '('
             

@@ -37,6 +37,7 @@ with Ada.Text_IO; use Ada.Text_IO;
 with Compiler_State; use Compiler_State;
 with Tokenizer;      use Tokenizer;
 with Parser;         use Parser;
+with ALB_Oracle;     use ALB_Oracle;
 with AST;            use AST;
 with Emit_Native_Micro_Rust;
 with Code_Information;
@@ -94,6 +95,44 @@ procedure MALBR is
    begin
       return Ada.Strings.Fixed.Trim (S, Ada.Strings.Both);
    end Trim_Image;
+
+   function Oracle_Text (Code : Oracle_Code) return String is
+   begin
+      case Code is
+         when Err_None                       => return "no error";
+         when Err_Lex_Unclosed_String        => return "unclosed string literal";
+         when Err_Lex_Invalid_Hex            => return "invalid hex literal";
+         when Err_Lex_Invalid_Bin            => return "invalid binary literal";
+         when Err_Lex_Rogue_Symbol           => return "unrecognized symbol";
+         when Err_Parse_Missing_Then         => return "expected THEN";
+         when Err_Parse_Missing_Until        => return "expected UNTIL";
+         when Err_Parse_Missing_To           => return "expected TO";
+         when Err_Parse_Missing_Assign       => return "expected '='";
+         when Err_Parse_Missing_Type_Name    => return "expected type name";
+         when Err_Parse_Missing_Bracket      => return "missing bracket/paren";
+         when Err_Parse_Block_Overflow       => return "block too large";
+         when Err_Parse_Expected_Value       => return "expected a value or statement";
+         when Err_Parse_Reserved_Keyword     => return "reserved keyword used as an identifier or called without parens";
+         when Err_Parse_Expected_Type        => return "expected a type";
+         when Err_Parse_Expected_Var         => return "expected a variable name";
+         when Err_Parse_Expected_Block_End   => return "expected block terminator";
+         when Err_Parse_Rogue_Syntax         => return "unrecognized syntax";
+         when Err_Type_Conflict              => return "type conflict";
+         when Err_Symbol_Redeclared          => return "symbol redeclared";
+         when Err_Mem_Out_Of_Bounds          => return "memory out of bounds";
+         when Err_Sandbox_Violation          => return "sandbox violation";
+         when Err_Call_Stack_Overflow        => return "call stack overflow";
+         when Err_Proc_Not_Found             => return "procedure not found";
+         when Err_Runtime_IO_Failure         => return "runtime I/O failure";
+         when Err_Runtime_Invalid_Handle     => return "invalid handle";
+         when Err_Runtime_Unsupported        => return "unsupported at runtime";
+         when Err_Emit_Symbol_Not_Found      => return "emit: symbol not found";
+         when Err_Emit_Invalid_Type_Cast     => return "emit: invalid type cast";
+         when Err_Emit_Struct_Field_Missing  => return "emit: struct field missing";
+         when Err_Emit_Win32_ABI_Mismatch    => return "emit: Win32 ABI mismatch";
+         when Err_Compiler_AST_Mismatch      => return "compiler: AST mismatch";
+      end case;
+   end Oracle_Text;
 
    procedure Log (Msg : String) is
    begin
@@ -1208,6 +1247,37 @@ begin
          Trim_Image (Integer (Parse_Diag.Error_Col)));
       Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Failure);
       return;
+   end if;
+
+   --  Panic-mode statement recovery can mark the parse "successful" while
+   --  still recording errors (dropped statements = wrong program = unsafe
+   --  to emit for a safety-critical target).  Report them all and fail on
+   --  any Fatal.
+   if Parse_Diag.Error_Count > 0 then
+      declare
+         Fatal_Seen : Boolean := False;
+      begin
+         for I in 1 .. Parse_Diag.Error_Count loop
+            declare
+               E : constant Error_Record := Parse_Diag.Errors (I);
+            begin
+               Put_Line
+                 ("MALBR " &
+                  (if E.Severity = Fatal then "error" else "warning") &
+                  " at line " & Trim_Image (E.Line) &
+                  ", col " & Trim_Image (E.Col) &
+                  ": " & Oracle_Text (E.Code));
+               if E.Severity = Fatal then
+                  Fatal_Seen := True;
+               end if;
+            end;
+         end loop;
+         if Fatal_Seen then
+            Put_Line ("MALBR: aborting — parse recovery dropped statements");
+            Ada.Command_Line.Set_Exit_Status (Ada.Command_Line.Failure);
+            return;
+         end if;
+      end;
    end if;
 
    if Walker_Mode then

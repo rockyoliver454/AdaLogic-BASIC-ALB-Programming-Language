@@ -38,6 +38,7 @@ package ALB_Oracle is
       Err_Parse_Missing_Then, Err_Parse_Missing_Until, Err_Parse_Missing_To,
       Err_Parse_Missing_Assign, Err_Parse_Missing_Type_Name, Err_Parse_Missing_Bracket,
       Err_Parse_Block_Overflow, Err_Parse_Expected_Value,
+      Err_Parse_Reserved_Keyword,
                         
                         -- DA NEW PARSER ERRORS FOR STRUCTS
       Err_Parse_Expected_Type, 

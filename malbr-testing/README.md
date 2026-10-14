@@ -124,12 +124,33 @@ reference it with `INCLUDE "filename.albi"`.
   multi-dim row-major indexing.
 * `rust_eh_personality` stub + rustc `self-contained` lib probing for linking
   against a stock Rust GNU install (no bundled MinGW needed for `libgcc_eh`).
+* String values: `&'static str` backed by a 4 KiB static arena (`_alb_concat`,
+  `_alb_left`, `_alb_right`, `_alb_mid`, `_alb_chr`, `_alb_str_i32`,
+  `_alb_copy_out` — all `unsafe fn`, no heap). `|` and `&` concatenate with
+  auto-stringification of numeric operands. `LEN`, `LEFT$`, `RIGHT$`, `MID$`
+  (1-based) count *characters* via `char_indices`, matching the desktop
+  emitter. `ASC` returns the first byte; `CHR` wraps a byte as `&str`.
+  String variables, `AS STRING` params/returns, `s[i]` byte indexing, and
+  `STRICT s[n] AS STRING` arrays all work. Source bytes >= 0x80 in literals
+  are re-emitted as `\u{XX}` escapes so generated `.rs` stays valid UTF-8.
+* Reserved keywords used as identifiers (or intrinsics called without `(`)
+  now produce `Err_Parse_Reserved_Keyword` with line/col and abort the
+  compile. Fatal parse recovery can no longer silently drop statements.
+* Bare top-level statements (no `BEGIN`/`PROGRAM` wrapper) are emitted as
+  the implicit `main` body.
+* Function-local `Declared_Names` is reset per routine; parameters register
+  their types in the symbol table so `PRINT$ s`/`s | x` type-check inside
+  function bodies.
 
 ## Known gaps
 
 * `ELSEIF` is not in the grammar; use nested `IF`/`ELSE`.
-* Strings-as-values, file I/O, enum/struct *bodies*, `SELECT`/`CASE` remain
-  stubs or unsupported comments.
+* `PRINT$` and `PRINT` both newline-terminate; build one line with `|`
+  concat if you need mixed fragments on a single line.
+* File I/O, enum/struct *bodies*, `SELECT`/`CASE` remain stubs or
+  unsupported comments.
+* The 4 KiB string arena is a fixed bump allocator — enough for the test
+  corpus, but a hard ceiling on embedded string churn. `SWEEP` resets it.
 * No array bounds elision — every index goes through Rust's bounds check
   (desired for safety-critical); `rust_eh_personality` stub covers the
   panic-path link on windows-gnu.
