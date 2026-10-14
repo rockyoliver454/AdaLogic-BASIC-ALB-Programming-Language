@@ -40,6 +40,10 @@ package Emit_Native_Micro_Rust with SPARK_Mode => On is
 
    procedure Set_Target_Triple (Triple : in String);
 
+   --  Size of the static string/scratch arena emitted into the generated
+   --  preamble (bytes).  Default 4096.
+   procedure Set_Arena_Size (Bytes : in Natural);
+
    procedure Compile_To_File
      (Root_Index      : in Node_Index;
       Output_Filename : in String);

@@ -24,32 +24,44 @@ Environment variables:
 * `RUST_BIN` — directory containing `rustc.exe` (defaults to `deps\rust\bin`).
 * `MINGW_BIN` — directory containing MinGW `gcc`/`ld` (used by rustc on Windows).
 
-## Current status (45/45 passing)
+## Current status (66/66 passing)
 
 | # | Title | Notes |
 |---|-------|-------|
 | 4 | 99 bottles of beer | loops, `IF`/`ELSE`, pipe concat |
 | 5 | A+B | arithmetic, pipe concat |
 | 8 | Ackermann function | recursion via `FUNCTION`/`RETURN` |
+| 14 | Append a record | `OPEN(..., "a")`, `WRITE`, `FILELEN` |
+| 16 | Arithmetic-geometric mean | `f64`, `^`, `_alb_sqrt_f64` |
 | 18 | Arrays | `STRICT a[5] AS S32`, `a[i]` / `a(i)` access |
 | 19 | Assertions | `ASSERT` -> `debug_assert!` |
 | 22 | Averages/Arithmetic mean | integer loop sum |
 | 25 | Averages/Pythagorean means | fixed-point (x100) rationals |
 | 26 | Averages/Root mean square | sum of squares |
 | 28 | Babbage problem | `MOD` on squares |
+| 29 | Balanced brackets | string byte indexing, counters |
 | 31 | Binary search | top-level `STRICT` -> `static mut` + `crate::` refs |
 | 34 | Bitwise operations | `OR`, `XOR`, `AND` keywords |
 | 35 | Boolean values | comparisons, `NOT` |
+| 37 | Caesar cipher | `ASC`/`CHR`, string building in a loop |
 | 41 | Catalan numbers | recurrence with exact division |
-| 43 | Character codes | numeric output |
+| 43 | Character codes | `ASC`, `MID$` per-char codes |
 | 46 | Collatz sequence | `WHILE`, `MOD`, `/` |
 | 47 | Combinations | multiplicative formula |
 | 49 | Comments | `--` line comments |
+| 50 | Compare a list of strings | `STRICT s[n] AS STRING`, string `=` |
+| 54 | Conditional structures | `SELECT`/`CASE`/`ELSE`, `MATCH`, `CHOOSE` |
+| 58 | Count occurrences of a substring | `MID$` windowing, string `=` |
+| 59 | Create a file | `OPEN(..., "w")`, `WRITE`, `FILELEN` |
+| 66 | Determine if a string is numeric | per-char `ASC` checks |
 | 68 | Dot product | two arrays, element-wise `a[i] * b[i]` |
+| 80 | Evaluate binomial coefficients | integer `^` via `i64::pow` |
 | 81 | Even or odd | `MOD` |
+| 84 | Exponentiation operator | `^`/`**`, int + f64 pow |
 | 86 | Factorial | `WHILE` |
 | 87 | Factors of an integer | loop + `MOD` |
 | 89 | Fibonacci sequence | loop |
+| 90 | File input/output | `OPEN`/`READ`/`FILESEEK`/`FILELEN`/`CLOSE` |
 | 94 | FizzBuzz | nested `IF`/`ELSE` |
 | 96 | Floyd's triangle | nested `WHILE` |
 | 97 | For loop | `FOR ... TO` |
@@ -58,17 +70,26 @@ Environment variables:
 | 105 | Gray code | `XOR` |
 | 106 | Greatest common divisor | Euclidean `MOD` loop |
 | 108 | Hailstone sequence | same as Collatz |
+| 109 | Hamming numbers | u64 state, 3-way min merge |
 | 111 | Happy numbers | nested loops |
+| 114 | Haversine formula | `f64`, `_alb_asin_f64`/`_alb_sqrt_f64` chain |
 | 115 | Hello world/Standard error | `PRINT$` |
 | 116 | Hello world/Text | `PRINT$` |
+| 119 | Hofstadter Q sequence | recursion + nested `qv[n-qv[n-1]]` indexing |
 | 121 | Horner's rule | nested multiply-add |
 | 124 | Identity matrix | 2-D `STRICT m[4,4]`, row-major flat emit |
+| 127 | Increment a numerical string | digit parse, `CHR`, concat |
 | 132 | Integer sequence | `WHILE` |
+| 138 | Josephus problem | array circle, index stepping |
 | 151 | Leap year | `MOD`, `AND`/`OR` |
+| 154 | Letter frequency | `STRICT` int table + `ASC`/`MID$` |
+| 156 | Linear congruential generator | `U64` state, `*`/`+` wraparound |
 | 158 | Logical operations | comparison + keyword ops |
+| 169 | Magic squares of odd order | 2-D `STRICT`, Siamese method |
 | 173 | Matrix transpose | 2-D `m[i,j]` -> flat `m[(i*cols+j)]` |
 | 182 | Modular arithmetic | `MOD` via temp vars |
 | 183 | Modular exponentiation | `MOD` loop |
+| 187 | Morse code | `SELECT` per char, concat build |
 | 188 | Multiplication tables | nested loops, pipe concat |
 | 192 | Mutual recursion | `IsEven`/`IsOdd` cross-calls |
 | 195 | Narcissistic decimal number | digit-extraction loops |
@@ -87,6 +108,23 @@ Environment variables:
   at file scope or inside a module it emits `static mut` and all accesses
   are wrapped in `unsafe { ... }` — honest about shared mutable state.
 
+## File I/O
+
+- `OPEN(path, mode)` -> handle (0 = failure); `mode` is `"r"` / `"w"` / `"a"`
+  (first char decides; `"w"` truncates, `"a"` opens at end, `"r"` requires
+  the file to exist).
+- `WRITE h, data` appends at the cursor (data auto-stringified);
+  `CLOSE h` releases the handle.
+- `READ(h, n)` returns a `&'static str` slice: `n` bytes from the cursor
+  (cursor advances), or the whole file when `n <= 0`.
+- `FILESEEK(h, off)` absolute seek, returns the position; `FILELEN(path)`
+  takes a *path* (not a handle) and returns byte length.
+- Handles come from `support.rs`: by default it is a real-FS host shim
+  (Win32 `CreateFileA`/`ReadFile`/`WriteFile`, 8 open handles). With
+  `malbr --memfs` it is a static in-RAM filesystem instead — 8 named files
+  x 1 KiB, zero OS dependencies, safe for embedded targets. Same ALB API
+  either way; on hardware, keep `--memfs` or supply your own support.rs.
+
 ## Parser quirks to know
 
 - `PRINT$ (expr) OP x` drops the infix operator after a closing `)`. Assign the
@@ -94,8 +132,9 @@ Environment variables:
   `LET s = a + b` then `PRINT$ s MOD m`.
 - `LET` inside a loop redeclares/shadows the Rust binding (by design for now);
   declare with `LET` once and reassign with `x = ...` thereafter.
-- Reserved words cannot be variable names — e.g. `dot` lexes as `TOK_DOT_PROD`
-  and silently swallows the whole statement. Pick another identifier.
+- Reserved words cannot be variable names — e.g. `dot` lexes as `TOK_DOT_PROD`;
+  the compiler now hard-errors with line/col instead of silently dropping the
+  statement. Pick another identifier.
 - `a(i) = v` (paren-style element assignment) is supported when `a` is a
   declared array.
 
@@ -161,6 +200,11 @@ reference it with `INCLUDE "filename.albi"`.
 * `_alb_print_i32`/`_alb_str_i32` take `i64` (u64 prints correctly).
 * Module bodies use `use super::*;` so every crate-root helper resolves
   inside `pub mod` scopes.
+* File I/O via `support.rs` HAL: `OPEN`/`READ`/`WRITE`/`CLOSE`/`FILESEEK`/
+  `FILELEN` lower to `support::_alb_file_*` — real Win32 FS on host,
+  `--memfs` selects a static in-RAM filesystem for embedded/no-OS targets.
+* `malbr --arena <bytes>` resizes the static string/scratch arena in the
+  generated preamble (default 4096).
 
 ## Known gaps
 
@@ -170,9 +214,11 @@ reference it with `INCLUDE "filename.albi"`.
 * Float math helpers are series approximations — accurate to ~6 decimals
   for the test corpus but not IEEE-correct in the last ulp; not for
   guidance computers.  Fixed 6-decimal printing truncates, doesn't round.
-* File I/O, enum/struct *bodies*, `NOT` precedence subtleties remain.
-* The 4 KiB string arena is a fixed bump allocator — enough for the test
-  corpus, but a hard ceiling on embedded string churn. `SWEEP` resets it.
+* Enum/struct *bodies*, `NOT` precedence subtleties remain.
+* The string arena is a fixed bump allocator (4 KiB default, `--arena <bytes>`
+  to resize) — a hard ceiling on embedded string churn. `SWEEP` resets it.
+* Memory-file storage is 8 files x 1 KiB x 64-char names, fixed at compile
+  time in `support.rs` — bump the `ALB_*` constants there if needed.
 * No array bounds elision — every index goes through Rust's bounds check
   (desired for safety-critical); `rust_eh_personality` stub covers the
   panic-path link on windows-gnu.

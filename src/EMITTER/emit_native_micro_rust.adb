@@ -79,6 +79,7 @@ package body Emit_Native_Micro_Rust is
    Entry_Symbol   : Unbounded_String := To_Unbounded_String ("main");
    Target_Triple  : Unbounded_String := To_Unbounded_String ("");
    No_Console     : Boolean := False;
+   Arena_Bytes    : Natural := 4096;
 
    Max_Declared   : constant := 1024;
    Declared_Names : array (1 .. Max_Declared) of Unbounded_String;
@@ -537,6 +538,26 @@ package body Emit_Native_Micro_Rust is
             return "unsafe { _alb_concat("
               & Emit_Str (Tree (N).Left_Child) & ", "
               & Emit_Str (Tree (N).Right_Child) & ") }";
+         when AST_File_Open =>
+            --  OPEN(path, mode) -> i64 handle (0 = failure).  support.rs
+            --  decides backing: real FS on host, static memfs elsewhere.
+            return "(support::_alb_file_open("
+              & Emit_Str (Tree (N).Left_Child) & ", "
+              & Emit_Str (Tree (N).Right_Child) & ") as i32)";
+         when AST_File_Read =>
+            --  READ(handle, bytes) -> &'static str (count<=0 = whole file)
+            return "support::_alb_file_read("
+              & Emit_Expr (Tree (N).Left_Child) & " as i64, "
+              & Emit_Expr (Tree (N).Right_Child) & " as i64)";
+         when AST_File_Len =>
+            --  FILELEN(path) -> byte length
+            return "(support::_alb_file_len("
+              & Emit_Str (Tree (N).Left_Child) & ") as i32)";
+         when AST_File_Seek =>
+            --  FILESEEK(handle, offset) -> new absolute position
+            return "(support::_alb_file_seek("
+              & Emit_Expr (Tree (N).Left_Child) & " as i64, "
+              & Emit_Expr (Tree (N).Right_Child) & " as i64) as i32)";
          when AST_Func_Call =>
             declare
                Tgt_Node : constant Node_Index := Tree (N).Left_Child;
@@ -708,6 +729,9 @@ package body Emit_Native_Micro_Rust is
          when AST_String_Expr =>
             return True;
          when AST_Str_Left | AST_Str_Right | AST_Str_Mid | AST_Str_Concat =>
+            return True;
+         when AST_File_Read =>
+            --  READ(handle, n) yields &'static str from the file layer.
             return True;
          when AST_Var_Expr | AST_Const_Ref =>
             if Tree (N).Left_Child /= 0 then
@@ -1199,6 +1223,21 @@ package body Emit_Native_Micro_Rust is
 
          when AST_Choose =>
             Out_Line ("/* micro-alb: stray CHOOSE in stmt position */");
+
+         when AST_File_Write =>
+            --  WRITE handle, data  (data auto-stringified, appended at cursor)
+            Out_Line ("support::_alb_file_write("
+              & Emit_Expr (Tree (N).Left_Child) & " as i64, "
+              & Emit_Str (Tree (N).Right_Child) & ");");
+
+         when AST_File_Close =>
+            --  CLOSE handle
+            Out_Line ("support::_alb_file_close("
+              & Emit_Expr (Tree (N).Left_Child) & " as i64);");
+
+         when AST_File_Open | AST_File_Read | AST_File_Len | AST_File_Seek =>
+            --  File op used as a bare statement: discard the result.
+            Out_Line (Emit_Expr (N) & ";");
 
          when AST_Import_C =>
             Emit_C_Foreign_Decl (Tree (N).Left_Child);
@@ -1837,7 +1876,8 @@ package body Emit_Native_Micro_Rust is
       Out_Line ("#[no_mangle]");
       Out_Line ("extern ""C"" fn rust_eh_personality() {}");
       Out_Line ("");
-      Out_Line ("static mut _ALB_ARENA: [u8; 4096] = [0; 4096];");
+      Out_Line ("static mut _ALB_ARENA: [u8; " & Trim_LLI (Long_Long_Integer (Arena_Bytes))
+        & "] = [0; " & Trim_LLI (Long_Long_Integer (Arena_Bytes)) & "];");
       Out_Line ("static mut _ALB_ARENA_USED: usize = 0;");
       Out_Line ("");
       Out_Line ("#[allow(static_mut_refs)]");
@@ -2305,6 +2345,11 @@ package body Emit_Native_Micro_Rust is
       Custom_Entry := Use_Custom_Entry;
       Entry_Symbol := To_Unbounded_String (Safe_Ident (Entry_Name));
    end Set_Entry_Mode;
+
+   procedure Set_Arena_Size (Bytes : in Natural) is
+   begin
+      Arena_Bytes := Bytes;
+   end Set_Arena_Size;
 
    procedure Set_Target_Triple (Triple : in String) is
    begin

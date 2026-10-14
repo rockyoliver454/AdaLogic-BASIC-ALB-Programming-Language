@@ -11929,6 +11929,13 @@ package body Parser is
             Tree(Node).Left_Child := Expr_Handle;
          end;
 
+      elsif T.Kind in Tok_Open | Tok_Read | Tok_Fileseek | Tok_Filelen then
+         --  File intrinsics used as bare statements (e.g. FILESEEK(h, 0)).
+         --  They live in the expression grammar; the produced node is the
+         --  statement.
+         Parse_Expression(Tokens, State, Tree, Node, Success);
+         if not Success then return; end if;
+
       -- =====================================================================
       -- DA IF STATEMENT FORGE (Hybrid Single/Multi-Line Parity)
       -- =====================================================================
