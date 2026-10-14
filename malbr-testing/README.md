@@ -24,32 +24,56 @@ Environment variables:
 * `RUST_BIN` — directory containing `rustc.exe` (defaults to `deps\rust\bin`).
 * `MINGW_BIN` — directory containing MinGW `gcc`/`ld` (used by rustc on Windows).
 
-## Current status
+## Current status (38/38 passing)
 
-| # | Title | Status | Notes |
-|---|-------|--------|-------|
-| 4 | 99 bottles of beer | PASS | loops, `IF`/`ELSE`, pipe concat |
-| 5 | A+B | PASS | arithmetic, pipe concat |
-| 19 | Assertions | PASS | `ASSERT` → `debug_assert!` |
-| 34 | Bitwise operations | PASS | `OR`, `XOR`, `AND` keyword ops |
-| 35 | Boolean values | PASS | comparisons, `NOT` |
-| 46 | Collatz sequence | PASS | `WHILE`, `MOD`, integer `/` |
-| 49 | Comments | PASS | `--` line comments |
-| 81 | Even or odd | PASS | `MOD` |
-| 86 | Factorial | PASS | `WHILE`, reassignment |
-| 87 | Factors of an integer | PASS | loop, `MOD` |
-| 89 | Fibonacci sequence | PASS | loop |
-| 94 | FizzBuzz | PASS | nested `IF`/`ELSE` |
-| 96 | Floyd's triangle | PASS | nested `WHILE` |
-| 97 | For loop | PASS | `FOR ... TO ... THEN` |
-| 101 | Function definition | **FAIL** | top-level/module procedures not yet emitted by micro backend |
-| 106 | Greatest common divisor | PASS | `WHILE`, `MOD` |
-| 111 | Happy numbers | PASS | nested loops |
-| 116 | Hello world/Text | PASS | `PRINT$` |
-| 151 | Leap year | PASS | `MOD`, `AND`/`OR` |
-| 158 | Logical operations | PASS | comparisons + keyword ops |
-| 188 | Multiplication tables | PASS | nested loops, pipe concat |
-| 198 | Non-decimal radices/Convert | PASS | `$FF` and `%1010` literals |
+| # | Title | Notes |
+|---|-------|-------|
+| 4 | 99 bottles of beer | loops, `IF`/`ELSE`, pipe concat |
+| 5 | A+B | arithmetic, pipe concat |
+| 19 | Assertions | `ASSERT` -> `debug_assert!` |
+| 22 | Averages/Arithmetic mean | integer loop sum |
+| 25 | Averages/Pythagorean means | fixed-point (x100) rationals |
+| 26 | Averages/Root mean square | sum of squares |
+| 28 | Babbage problem | `MOD` on squares |
+| 34 | Bitwise operations | `OR`, `XOR`, `AND` keywords |
+| 35 | Boolean values | comparisons, `NOT` |
+| 41 | Catalan numbers | recurrence with exact division |
+| 43 | Character codes | numeric output |
+| 46 | Collatz sequence | `WHILE`, `MOD`, `/` |
+| 47 | Combinations | multiplicative formula |
+| 49 | Comments | `--` line comments |
+| 81 | Even or odd | `MOD` |
+| 86 | Factorial | `WHILE` |
+| 87 | Factors of an integer | loop + `MOD` |
+| 89 | Fibonacci sequence | loop |
+| 94 | FizzBuzz | nested `IF`/`ELSE` |
+| 96 | Floyd's triangle | nested `WHILE` |
+| 97 | For loop | `FOR ... TO` |
+| 101 | Function definition | `DECLARE MODULE` + `MODULE`, qualified call |
+| 104 | Generic swap | temp variable |
+| 105 | Gray code | `XOR` |
+| 106 | Greatest common divisor | Euclidean `MOD` loop |
+| 108 | Hailstone sequence | same as Collatz |
+| 111 | Happy numbers | nested loops |
+| 115 | Hello world/Standard error | `PRINT$` |
+| 116 | Hello world/Text | `PRINT$` |
+| 121 | Horner's rule | nested multiply-add |
+| 132 | Integer sequence | `WHILE` |
+| 151 | Leap year | `MOD`, `AND`/`OR` |
+| 158 | Logical operations | comparison + keyword ops |
+| 182 | Modular arithmetic | `MOD` via temp vars |
+| 183 | Modular exponentiation | `MOD` loop |
+| 188 | Multiplication tables | nested loops, pipe concat |
+| 195 | Narcissistic decimal number | digit-extraction loops |
+| 198 | Non-decimal radices/Convert | `$FF` and `%1010` literals |
+
+## Parser quirks to know
+
+- `PRINT$ (expr) OP x` drops the infix operator after a closing `)`. Assign the
+  parenthesized sub-expression to a variable first (or drop the parens):
+  `LET s = a + b` then `PRINT$ s MOD m`.
+- `LET` inside a loop redeclares/shadows the Rust binding (by design for now);
+  declare with `LET` once and reassign with `x = ...` thereafter.
 
 ## Adding a new test
 
@@ -62,20 +86,20 @@ reference it with `INCLUDE "filename.albi"`.
 
 ## Compiler features exercised so far
 
-* `#![no_std]` Rust emission with host `support.rs` shim.
+* `#![no_std]` Rust emission with host `support.rs` shim (replaceable for real targets).
 * Windows host linking via MinGW gcc + C-runtime stubs.
-* Tokenization and parsing of the ALB grammar.
-* `LET`/reassignment tracking.
-* `FOR`, `WHILE`, `IF`/`ELSE` control flow.
-* Arithmetic, `MOD`, comparison, keyword bitwise/logical ops, `NOT`.
+* `LET`/reassignment tracking, `FOR`, `WHILE`, `IF`/`ELSE` control flow.
+* Arithmetic, `MOD`, comparisons, keyword bitwise/logical ops, `NOT`.
 * `PRINT$` string/number output with pipe (`|`) concatenation.
 * Hex (`$FF`) and binary (`%1010`) integer literals.
-* Comments (`--`).
+* `DECLARE MODULE` + `MODULE` emission to `pub mod`, typed parameters,
+  module-qualified calls (`M.Proc(args)`), `RETURN`.
 
 ## Known gaps
 
-* Top-level `PROCEDURE`/`FUNCTION` declarations are parsed but their bodies are
-  not emitted into the generated Rust; module-qualified calls (`M.SayHello()`)
-  are also not yet lowered.
-* Arrays, records, enums, strings-as-values, file I/O, and many advanced nodes
-  remain as stubs or unsupported comments.
+* Function `RETURN` inside a body is parsed but the body block currently emits
+  empty in some forms -- plain `PROCEDURE`/`FUNCTION` bodies without `RETURN`
+  work; function-return paths still being traced.
+* `ELSEIF` is not in the grammar; use nested `IF`/`ELSE`.
+* Arrays, strings-as-values, file I/O, enums/structs bodies, and most advanced
+  nodes remain stubs or unsupported comments.
