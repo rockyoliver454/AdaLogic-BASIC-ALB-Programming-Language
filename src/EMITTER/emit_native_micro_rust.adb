@@ -86,6 +86,7 @@ package body Emit_Native_Micro_Rust is
 
    Inside_Fn     : Boolean := False;
    Inside_Module : Boolean := False;
+   Select_Temp_Id : Natural := 0;
 
    function Is_Declared (Name : String) return Boolean;
    procedure Add_Declared (Name : String);
@@ -101,6 +102,7 @@ package body Emit_Native_Micro_Rust is
    function  Zero_Lit (Rust_T : String) return String;
    function  Trim_LLI (V : Long_Long_Integer) return String;
    function  Expr_Is_String (N : Node_Index) return Boolean;
+   function  Expr_Is_Float (N : Node_Index) return Boolean;
    function  Emit_Str (N : Node_Index) return String;
    function  Emit_String_Lit (Raw : String) return String;
    function  Lookup_Routine (Name : String) return Natural;
@@ -329,8 +331,11 @@ package body Emit_Native_Micro_Rust is
          Emit_Print_String (Tree (N).Right_Child);
       elsif Expr_Is_String (N) then
          Out_Line ("_alb_print_str(" & Emit_Expr (N) & ");");
+      elsif Expr_Is_Float (N) then
+         Out_Line ("unsafe { _alb_print_f64(" & Emit_Expr (N)
+           & " as f64); }");
       else
-         Out_Line ("_alb_print_i32(" & Emit_Expr (N) & ");");
+         Out_Line ("_alb_print_i32((" & Emit_Expr (N) & ") as i64);");
       end if;
    end Emit_Print_String;
 
@@ -428,10 +433,17 @@ package body Emit_Native_Micro_Rust is
                Rust_Op : String (1 .. 8) := (others => ' ');
                Len     : Natural := 0;
             begin
-               if Op = "+" then Rust_Op (1 .. 1) := "+"; Len := 1;
-               elsif Op = "-" then Rust_Op (1 .. 1) := "-"; Len := 1;
-               elsif Op = "*" then Rust_Op (1 .. 1) := "*"; Len := 1;
-               elsif Op = "/" then Rust_Op (1 .. 1) := "/"; Len := 1;
+               if Op = "+" or else Op = "-" or else Op = "*" or else Op = "/"
+               then
+                  --  mixed int+float promotes to f64
+                  if Expr_Is_Float (Tree (N).Left_Child)
+                    or else Expr_Is_Float (Tree (N).Right_Child)
+                  then
+                     return "((" & L & " as f64) " & Op
+                       & " (" & R & " as f64))";
+                  end if;
+                  Rust_Op (1) := Op (Op'First); Len := 1;
+               elsif Op = "MOD" then Rust_Op (1 .. 1) := "%"; Len := 1;
                elsif Op = "=" then Rust_Op (1 .. 2) := "=="; Len := 2;
                elsif Op = "<>" then Rust_Op (1 .. 2) := "!="; Len := 2;
                elsif Op = "<" then Rust_Op (1 .. 1) := "<"; Len := 1;
@@ -441,12 +453,24 @@ package body Emit_Native_Micro_Rust is
                elsif Op = "AND" then Rust_Op (1 .. 3) := " & "; Len := 3;
                elsif Op = "OR" then Rust_Op (1 .. 3) := " | "; Len := 3;
                elsif Op = "XOR" then Rust_Op (1 .. 3) := " ^ "; Len := 3;
-               elsif Op = "MOD" then Rust_Op (1 .. 1) := "%"; Len := 1;
                elsif Op = "|" or else Op = "&" then
                   --  ALB '|' / '&' is STRING CONCAT, never bitwise.
                   return "unsafe { _alb_concat("
                     & Emit_Str (Tree (N).Left_Child) & ", "
                     & Emit_Str (Tree (N).Right_Child) & ") }";
+               elsif Op = "^" or else Op = "**" then
+                  --  ALB '^'/'**' is EXPONENTIATION, never bitwise XOR.
+                  if Expr_Is_Float (Tree (N).Left_Child)
+                    or else Expr_Is_Float (Tree (N).Right_Child)
+                  then
+                     return "_alb_pow_f64("
+                       & Emit_Expr (Tree (N).Left_Child) & " as f64, "
+                       & Emit_Expr (Tree (N).Right_Child) & " as f64)";
+                  else
+                     return "((" & Emit_Expr (Tree (N).Left_Child)
+                       & " as i64).pow("
+                       & Emit_Expr (Tree (N).Right_Child) & " as u32))";
+                  end if;
                else Rust_Op (1 .. Op'Length) := Op; Len := Op'Length;
                end if;
                return "(" & L & " " & Rust_Op (1 .. Len) & " " & R & ")";
@@ -538,6 +562,47 @@ package body Emit_Native_Micro_Rust is
                        else """""")
                     & ".bytes().next().unwrap_or(0) as i32)";
                end if;
+               --  core-math builtins (1-arg and 2-arg dispatch)
+               declare
+                  Up : String (Tgt'Range);
+                  Is1 : Boolean := False;
+                  Is2 : Boolean := False;
+                  Fn  : Unbounded_String := To_Unbounded_String ("");
+               begin
+                  for I in Tgt'Range loop
+                     Up (I) := Ada.Characters.Handling.To_Upper (Tgt (I));
+                  end loop;
+                  if    Up = "SQRT"  then Fn := To_Unbounded_String ("_alb_sqrt_f64");  Is1 := True;
+                  elsif Up = "EXP"   then Fn := To_Unbounded_String ("_alb_exp_f64");   Is1 := True;
+                  elsif Up = "LN" or else Up = "LOG" then Fn := To_Unbounded_String ("_alb_ln_f64"); Is1 := True;
+                  elsif Up = "SIN"   then Fn := To_Unbounded_String ("_alb_sin_f64");   Is1 := True;
+                  elsif Up = "COS"   then Fn := To_Unbounded_String ("_alb_cos_f64");   Is1 := True;
+                  elsif Up = "ATAN"  then Fn := To_Unbounded_String ("_alb_atan_f64");  Is1 := True;
+                  elsif Up = "ASIN"  then Fn := To_Unbounded_String ("_alb_asin_f64");  Is1 := True;
+                  elsif Up = "ACOS"  then Fn := To_Unbounded_String ("_alb_acos_f64");  Is1 := True;
+                  elsif Up = "ABS"   then Fn := To_Unbounded_String ("_alb_abs_f64");   Is1 := True;
+                  elsif Up = "FLOOR" then Fn := To_Unbounded_String ("_alb_floor_f64"); Is1 := True;
+                  elsif Up = "CEIL"  then Fn := To_Unbounded_String ("_alb_ceil_f64");  Is1 := True;
+                  elsif Up = "ATAN2" then Fn := To_Unbounded_String ("_alb_atan2_f64"); Is2 := True;
+                  elsif Up = "POW"   then Fn := To_Unbounded_String ("_alb_pow_f64");   Is2 := True;
+                  end if;
+                  if Is1 then
+                     return To_String (Fn) & "("
+                       & (if First_Arg /= 0 then Emit_Expr (First_Arg) else "0")
+                       & " as f64)";
+                  elsif Is2 then
+                     declare
+                        Second_Arg : constant Node_Index :=
+                          (if First_Arg /= 0 then Tree (First_Arg).Next_Sibling else 0);
+                     begin
+                        return To_String (Fn) & "("
+                          & (if First_Arg /= 0 then Emit_Expr (First_Arg) else "0")
+                          & " as f64, "
+                          & (if Second_Arg /= 0 then Emit_Expr (Second_Arg) else "0")
+                          & " as f64)";
+                     end;
+                  end if;
+               end;
                if Sym /= 0 then
                   declare
                      Ref : constant String :=
@@ -556,6 +621,17 @@ package body Emit_Native_Micro_Rust is
             end;
          when AST_Call_Stmt =>
             return Emit_Expr (Tree (N).Left_Child);
+         when AST_Choose =>
+            --  CHOOSE(cond, a, b): ternary.  Left=cond, Right=dummy node
+            --  whose Left/Right are the true/false arms.
+            declare
+               Dummy : constant Node_Index := Tree (N).Right_Child;
+            begin
+               return "(if " & Emit_Expr (Tree (N).Left_Child)
+                 & " { " & Emit_Expr (Tree (Dummy).Left_Child)
+                 & " } else { " & Emit_Expr (Tree (Dummy).Right_Child)
+                 & " })";
+            end;
          when others =>
             return "/* micro-alb: unsupported expr " & Node_Kind'Image (K) & " */";
       end case;
@@ -695,12 +771,109 @@ package body Emit_Native_Micro_Rust is
       end case;
    end Expr_Is_String;
 
+   --  True when the expression is a float value (f32/f64): a literal with a
+   --  '.', a symbol of float type, a float-returning call, or a float cast.
+   function Expr_Is_Float (N : Node_Index) return Boolean is
+      function Type_Is_Float (T : String) return Boolean is
+        (T = "f32" or else T = "f64");
+   begin
+      if N = 0 then
+         return False;
+      end if;
+      case Tree (N).Kind is
+         when AST_Number_Expr =>
+            declare
+               Raw : constant String := Token_Text (Tree (N).Token_Index);
+            begin
+               for I in Raw'Range loop
+                  if Raw (I) = '.' then
+                     return True;
+                  end if;
+               end loop;
+               return False;
+            end;
+         when AST_Var_Expr | AST_Const_Ref =>
+            if Tree (N).Left_Child /= 0 then
+               return False;  -- indexed element, not the array's declared type
+            end if;
+            declare
+               Nam : constant String := Token_Text (Tree (N).Token_Index);
+               Key : constant String :=
+                 (if Tree (N).Kind = AST_Const_Ref
+                    and then Nam'Length > 0 and then Nam (Nam'First) = '#'
+                  then Safe_Ident (Nam (Nam'First + 1 .. Nam'Last))
+                  else Node_Name (N));
+               Idx : constant Natural := Lookup_Symbol (Key);
+            begin
+               return Idx /= 0
+                 and then Type_Is_Float (To_String (Symbols (Idx).Rust_Type));
+            end;
+         when AST_BinOp =>
+            declare
+               Op : constant String := Token_Text (Tree (N).Token_Index);
+            begin
+               if Op = "+" or else Op = "-" or else Op = "*" or else Op = "/"
+                 or else Op = "^" or else Op = "**"
+               then
+                  return Expr_Is_Float (Tree (N).Left_Child)
+                    or else Expr_Is_Float (Tree (N).Right_Child);
+               end if;
+               return False;
+            end;
+         when AST_Unary_Minus =>
+            return Expr_Is_Float (Tree (N).Left_Child);
+         when AST_Cast_Expr =>
+            return Type_Is_Float (Rust_Type (Tree (N).Token_Index));
+         when AST_Func_Call =>
+            declare
+               Tgt : constant Node_Index := Tree (N).Left_Child;
+               TN  : constant String :=
+                 (if Tgt /= 0
+                    and then Tree (Tgt).Kind /= AST_Member_Expr
+                  then Node_Name (Tgt) else "");
+            begin
+               --  core-math builtins always return f64
+               if TN = "SQRT" or else TN = "EXP" or else TN = "LN"
+                 or else TN = "LOG" or else TN = "SIN" or else TN = "COS"
+                 or else TN = "ATAN" or else TN = "ASIN" or else TN = "ACOS"
+                 or else TN = "ABS" or else TN = "FLOOR" or else TN = "CEIL"
+                 or else TN = "ATAN2" or else TN = "POW"
+               then
+                  return True;
+               end if;
+               if Tgt /= 0 and then Tree (Tgt).Kind = AST_Member_Expr then
+                  declare
+                     R : constant Natural :=
+                       Lookup_Routine (Node_Name (Tree (Tgt).Right_Child));
+                  begin
+                     return R /= 0
+                       and then Type_Is_Float
+                                  (To_String (Routines (R).Returns));
+                  end;
+               else
+                  declare
+                     R : constant Natural := Lookup_Routine (Node_Name (Tgt));
+                  begin
+                     return R /= 0
+                       and then Type_Is_Float
+                                  (To_String (Routines (R).Returns));
+                  end;
+               end if;
+            end;
+         when others =>
+            return False;
+      end case;
+   end Expr_Is_Float;
+
    function Emit_Str (N : Node_Index) return String is
    begin
       if Expr_Is_String (N) then
          return Emit_Expr (N);
+      elsif Expr_Is_Float (N) then
+         return "unsafe { _alb_str_f64(" & Emit_Expr (N)
+           & " as f64) }";
       else
-         return "_alb_str_i32(" & Emit_Expr (N) & ")";
+         return "unsafe { _alb_str_i32(" & Emit_Expr (N) & " as i64) }";
       end if;
    end Emit_Str;
 
@@ -723,6 +896,7 @@ package body Emit_Native_Micro_Rust is
    procedure Emit_Function_Decl (N : Node_Index);
    procedure Emit_Module_Decl (N : Node_Index);
    procedure Emit_Strict_Decl (N : Node_Index; Global : Boolean);
+   procedure Emit_Select (N : Node_Index);
 
    procedure Emit_Stmt (N : Node_Index) is
       K : Node_Kind;
@@ -864,7 +1038,9 @@ package body Emit_Native_Micro_Rust is
                     (Name,
                      (if TTok /= 0 then Rust_Type (TTok)
                       elsif Expr_Is_String (Tree (N).Right_Child)
-                      then "&'static str" else "i32"));
+                      then "&'static str"
+                      elsif Expr_Is_Float (Tree (N).Right_Child)
+                      then "f64" else "i32"));
                end if;
             end;
 
@@ -890,8 +1066,11 @@ package body Emit_Native_Micro_Rust is
          when AST_Print_Stmt =>
             if Expr_Is_String (Tree (N).Left_Child) then
                Out_Line ("_alb_print_str(" & Emit_Expr (Tree (N).Left_Child) & ");");
+            elsif Expr_Is_Float (Tree (N).Left_Child) then
+               Out_Line ("unsafe { _alb_print_f64("
+                 & Emit_Expr (Tree (N).Left_Child) & " as f64); }");
             else
-               Out_Line ("_alb_print_i32(" & Emit_Expr (Tree (N).Left_Child) & ");");
+               Out_Line ("_alb_print_i32((" & Emit_Expr (Tree (N).Left_Child) & ") as i64);");
             end if;
             Out_Line ("_alb_print_newline();");
 
@@ -1011,26 +1190,15 @@ package body Emit_Native_Micro_Rust is
               AST_DeclareModule | AST_Module =>
             null; -- emitted in first pass or skipped as top-level marker
 
-         when AST_Select_Stmt =>
-            Out_Line ("match " & Emit_Expr (Tree (N).Left_Child) & " {");
-            Indent_Level := Indent_Level + 1;
-            Emit_Node (Tree (N).Right_Child);
-            Indent_Level := Indent_Level - 1;
-            Out_Line ("}");
+         when AST_Select_Stmt | AST_Match_Stmt =>
+            Emit_Select (N);
 
          when AST_Case_Stmt =>
-            Out_Line (Emit_Expr (Tree (N).Left_Child) & " => {");
-            Indent_Level := Indent_Level + 1;
-            Emit_Node (Tree (N).Right_Child);
-            Indent_Level := Indent_Level - 1;
-            Out_Line ("},");
+            --  Reached only for a stray case outside SELECT/MATCH.
+            Out_Line ("/* micro-alb: stray CASE arm skipped */");
 
          when AST_Choose =>
-            Out_Line (Emit_Expr (Tree (N).Left_Child) & " => {");
-            Indent_Level := Indent_Level + 1;
-            Emit_Node (Tree (N).Right_Child);
-            Indent_Level := Indent_Level - 1;
-            Out_Line ("},");
+            Out_Line ("/* micro-alb: stray CHOOSE in stmt position */");
 
          when AST_Import_C =>
             Emit_C_Foreign_Decl (Tree (N).Left_Child);
@@ -1534,8 +1702,7 @@ package body Emit_Native_Micro_Rust is
    begin
       Out_Line ("pub mod " & Name & " {");
       Indent_Level := Indent_Level + 1;
-      Out_Line ("use super::support::{_alb_print_i32, _alb_print_str, _alb_print_newline};");
-      Out_Line ("use super::{_alb_concat, _alb_str_i32, _alb_chr, _alb_left, _alb_right, _alb_mid};");
+      Out_Line ("use super::*;");
       Inside_Module := True;
       Emit_Node (Tree (N).Right_Child);
       Inside_Module := False;
@@ -1551,14 +1718,54 @@ package body Emit_Native_Micro_Rust is
       end if;
       Out_Line ("pub mod " & Name & " {");
       Indent_Level := Indent_Level + 1;
-      Out_Line ("use super::support::{_alb_print_i32, _alb_print_str, _alb_print_newline};");
-      Out_Line ("use super::{_alb_concat, _alb_str_i32, _alb_chr, _alb_left, _alb_right, _alb_mid};");
+      Out_Line ("use super::*;");
       Inside_Module := True;
       Emit_Node (Tree (N).Right_Child);
       Inside_Module := False;
       Indent_Level := Indent_Level - 1;
       Out_Line ("}");
    end Emit_DeclareModule_Decl;
+
+   --  SELECT/MATCH -> if/else-if chain on a hoisted temp.  A Rust `match`
+   --  would need const patterns; CASE arms are arbitrary runtime
+   --  expressions (and may be strings), so equality dispatch is the
+   --  correct lowering for the micro target.
+   procedure Emit_Select (N : Node_Index) is
+      Temp  : constant String :=
+        "_sel_" & Trim_LLI (Long_Long_Integer (Select_Temp_Id));
+      C     : Node_Index := Tree (N).Right_Child;
+      First : Boolean := True;
+   begin
+      Select_Temp_Id := Select_Temp_Id + 1;
+      Out_Line ("{");
+      Indent_Level := Indent_Level + 1;
+      Out_Line ("let " & Temp & " = " & Emit_Expr (Tree (N).Left_Child) & ";");
+      while C /= 0 loop
+         if Tree (C).Kind = AST_Case_Stmt then
+            if Tree (C).Left_Child = 0 then
+               if First then
+                  Out_Line ("{");
+               else
+                  Out_Line ("else {");
+               end if;
+            elsif First then
+               Out_Line ("if " & Temp & " == "
+                 & Emit_Expr (Tree (C).Left_Child) & " {");
+            else
+               Out_Line ("else if " & Temp & " == "
+                 & Emit_Expr (Tree (C).Left_Child) & " {");
+            end if;
+            Indent_Level := Indent_Level + 1;
+            Emit_Node (Tree (C).Right_Child);
+            Indent_Level := Indent_Level - 1;
+            Out_Line ("}");
+            First := False;
+         end if;
+         C := Tree (C).Next_Sibling;
+      end loop;
+      Indent_Level := Indent_Level - 1;
+      Out_Line ("}");
+   end Emit_Select;
 
    procedure Emit_Struct_Decl (N : Node_Index) is
       Name : constant String := Node_Name (Tree (N).Left_Child);
@@ -1660,10 +1867,10 @@ package body Emit_Native_Micro_Rust is
       Out_Line ("    core::str::from_utf8_unchecked(core::slice::from_raw_parts(p, na + nb))");
       Out_Line ("}");
       Out_Line ("");
-      Out_Line ("unsafe fn _alb_str_i32(v: i32) -> &'static str {");
-      Out_Line ("    let mut buf: [u8; 12] = [0; 12];");
+      Out_Line ("unsafe fn _alb_str_i32(v: i64) -> &'static str {");
+      Out_Line ("    let mut buf: [u8; 20] = [0; 20];");
       Out_Line ("    let mut n = v;");
-      Out_Line ("    let mut i: usize = 12;");
+      Out_Line ("    let mut i: usize = 20;");
       Out_Line ("    if n < 0 { n = -n; }");
       Out_Line ("    loop {");
       Out_Line ("        i -= 1;");
@@ -1672,12 +1879,182 @@ package body Emit_Native_Micro_Rust is
       Out_Line ("        if n == 0 { break; }");
       Out_Line ("    }");
       Out_Line ("    if v < 0 { i -= 1; buf[i] = b'-'; }");
-      Out_Line ("    _alb_copy_out(&buf[i..], 12 - i)");
+      Out_Line ("    _alb_copy_out(&buf[i..], 20 - i)");
       Out_Line ("}");
       Out_Line ("");
       Out_Line ("unsafe fn _alb_chr(v: i32) -> &'static str {");
       Out_Line ("    let buf: [u8; 1] = [v as u8];");
       Out_Line ("    _alb_copy_out(&buf, 1)");
+      Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("//  f64 -> string, fixed 6 decimals.  Pure core math, no heap.");
+      Out_Line ("unsafe fn _alb_str_f64(v: f64) -> &'static str {");
+      Out_Line ("    let mut buf: [u8; 32] = [0; 32];");
+      Out_Line ("    let mut i: usize = 0;");
+      Out_Line ("    let neg = v < 0.0;");
+      Out_Line ("    let a = if neg { -v } else { v };");
+      Out_Line ("    if neg { buf[i] = b'-'; i += 1; }");
+      Out_Line ("    let ip = a as i64;");
+      Out_Line ("    let mut tmp: [u8; 20] = [0; 20];");
+      Out_Line ("    let mut n = ip;");
+      Out_Line ("    let mut t: usize = 20;");
+      Out_Line ("    loop {");
+      Out_Line ("        t -= 1;");
+      Out_Line ("        tmp[t] = b'0' + (n % 10) as u8;");
+      Out_Line ("        n /= 10;");
+      Out_Line ("        if n == 0 { break; }");
+      Out_Line ("    }");
+      Out_Line ("    for j in t..20 { buf[i] = tmp[j]; i += 1; }");
+      Out_Line ("    buf[i] = b'.'; i += 1;");
+      Out_Line ("    let mut frac = a - ip as f64;");
+      Out_Line ("    for _ in 0..6 {");
+      Out_Line ("        frac *= 10.0;");
+      Out_Line ("        let d = frac as u8;");
+      Out_Line ("        buf[i] = b'0' + d; i += 1;");
+      Out_Line ("        frac -= d as f64;");
+      Out_Line ("    }");
+      Out_Line ("    _alb_copy_out(&buf[..i], i)");
+      Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("#[allow(static_mut_refs)]");
+      Out_Line ("unsafe fn _alb_print_f64(v: f64) {");
+      Out_Line ("    support::_alb_print_str(_alb_str_f64(v));");
+      Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("//  -- core-math helpers: no_std has no libm, so transcendentals are");
+      Out_Line ("//  implemented directly (Newton/Taylor with range reduction).");
+      Out_Line ("const _ALB_PI: f64 = 3.14159265358979323846264338327950288;");
+      Out_Line ("const _ALB_LN2: f64 = 0.693147180559945309417232121458176568;");
+      Out_Line ("");
+      Out_Line ("fn _alb_floor_i64(x: f64) -> i64 {");
+      Out_Line ("    let t = x as i64;");
+      Out_Line ("    if (t as f64) > x { t - 1 } else { t }");
+      Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("fn _alb_abs_f64(x: f64) -> f64 { if x < 0.0 { -x } else { x } }");
+      Out_Line ("");
+      Out_Line ("fn _alb_floor_f64(x: f64) -> f64 { _alb_floor_i64(x) as f64 }");
+      Out_Line ("");
+      Out_Line ("fn _alb_ceil_f64(x: f64) -> f64 {");
+      Out_Line ("    let t = x as i64;");
+      Out_Line ("    if (t as f64) < x { (t + 1) as f64 } else { t as f64 }");
+      Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("fn _alb_sqrt_f64(x: f64) -> f64 {");
+      Out_Line ("    if x <= 0.0 { return if x == 0.0 { 0.0 } else { f64::NAN }; }");
+      Out_Line ("    let mut g = if x >= 1.0 { x } else { 1.0 };");
+      Out_Line ("    for _ in 0..60 {");
+      Out_Line ("        let ng = 0.5 * (g + x / g);");
+      Out_Line ("        if ng == g { break; }");
+      Out_Line ("        g = ng;");
+      Out_Line ("    }");
+      Out_Line ("    g");
+      Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("fn _alb_exp_f64(x: f64) -> f64 {");
+      Out_Line ("    if x == 0.0 { return 1.0; }");
+      Out_Line ("    let kf = x / _ALB_LN2;");
+      Out_Line ("    let k = (if kf >= 0.0 { kf + 0.5 } else { kf - 0.5 }) as i64;");
+      Out_Line ("    let r = x - k as f64 * _ALB_LN2;");
+      Out_Line ("    let mut term = 1.0f64;");
+      Out_Line ("    let mut sum = 1.0f64;");
+      Out_Line ("    for i in 1..30 { term *= r / i as f64; sum += term; }");
+      Out_Line ("    let mut s = sum;");
+      Out_Line ("    let mut kk = k;");
+      Out_Line ("    while kk > 0 { s *= 2.0; kk -= 1; }");
+      Out_Line ("    while kk < 0 { s *= 0.5; kk += 1; }");
+      Out_Line ("    s");
+      Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("fn _alb_ln_f64(x: f64) -> f64 {");
+      Out_Line ("    if x <= 0.0 { return f64::NAN; }");
+      Out_Line ("    let mut v = x;");
+      Out_Line ("    let mut k: i64 = 0;");
+      Out_Line ("    while v >= 2.0 { v *= 0.5; k += 1; }");
+      Out_Line ("    while v < 1.0 { v *= 2.0; k -= 1; }");
+      Out_Line ("    let t = (v - 1.0) / (v + 1.0);");
+      Out_Line ("    let t2 = t * t;");
+      Out_Line ("    let mut term = t;");
+      Out_Line ("    let mut sum = t;");
+      Out_Line ("    for i in 1..40 { term *= t2; sum += term / (2 * i + 1) as f64; }");
+      Out_Line ("    2.0 * sum + k as f64 * _ALB_LN2");
+      Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("fn _alb_pow_f64(base: f64, exp: f64) -> f64 {");
+      Out_Line ("    let ei = exp as i64;");
+      Out_Line ("    if ei as f64 == exp && _alb_abs_f64(exp) < 64.0 {");
+      Out_Line ("        //  integral exponent: binary exponentiation (exact for ints)");
+      Out_Line ("        let mut e = if ei < 0 { -ei } else { ei } as u64;");
+      Out_Line ("        let mut b = base;");
+      Out_Line ("        let mut r = 1.0f64;");
+      Out_Line ("        while e > 0 {");
+      Out_Line ("            if e & 1 == 1 { r *= b; }");
+      Out_Line ("            b *= b;");
+      Out_Line ("            e >>= 1;");
+      Out_Line ("        }");
+      Out_Line ("        if ei < 0 { 1.0 / r } else { r }");
+      Out_Line ("    } else if base > 0.0 {");
+      Out_Line ("        _alb_exp_f64(exp * _alb_ln_f64(base))");
+      Out_Line ("    } else if base == 0.0 {");
+      Out_Line ("        0.0");
+      Out_Line ("    } else {");
+      Out_Line ("        f64::NAN");
+      Out_Line ("    }");
+      Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("fn _alb_sin_f64(x: f64) -> f64 {");
+      Out_Line ("    //  reduce into [-pi, pi] then Taylor");
+      Out_Line ("    let twopi = 2.0 * _ALB_PI;");
+      Out_Line ("    let mut a = x - _alb_floor_f64(x / twopi + 0.5) * twopi;");
+      Out_Line ("    let a2 = a * a;");
+      Out_Line ("    let mut term = a;");
+      Out_Line ("    let mut sum = a;");
+      Out_Line ("    let mut i = 1;");
+      Out_Line ("    while i < 20 {");
+      Out_Line ("        term *= -a2 / ((2 * i) * (2 * i + 1)) as f64;");
+      Out_Line ("        sum += term;");
+      Out_Line ("        i += 1;");
+      Out_Line ("    }");
+      Out_Line ("    sum");
+      Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("fn _alb_cos_f64(x: f64) -> f64 { _alb_sin_f64(x + _ALB_PI / 2.0) }");
+      Out_Line ("");
+      Out_Line ("fn _alb_atan_f64(x: f64) -> f64 {");
+      Out_Line ("    if x > 1.0 { return _ALB_PI / 2.0 - _alb_atan_f64(1.0 / x); }");
+      Out_Line ("    if x < -1.0 { return -_ALB_PI / 2.0 - _alb_atan_f64(1.0 / x); }");
+      Out_Line ("    //  half-angle twice to shrink |x|, then Taylor");
+      Out_Line ("    let mut a = x;");
+      Out_Line ("    for _ in 0..2 { a = a / (1.0 + _alb_sqrt_f64(1.0 + a * a)); }");
+      Out_Line ("    let a2 = a * a;");
+      Out_Line ("    let mut term = a;");
+      Out_Line ("    let mut sum = a;");
+      Out_Line ("    let mut s = -1.0f64;");
+      Out_Line ("    for i in 1..30 {");
+      Out_Line ("        term *= a2;");
+      Out_Line ("        sum += s * term / (2 * i + 1) as f64;");
+      Out_Line ("        s = -s;");
+      Out_Line ("    }");
+      Out_Line ("    4.0 * sum");
+      Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("fn _alb_atan2_f64(y: f64, x: f64) -> f64 {");
+      Out_Line ("    if x > 0.0 { return _alb_atan_f64(y / x); }");
+      Out_Line ("    if x < 0.0 && y >= 0.0 { return _alb_atan_f64(y / x) + _ALB_PI; }");
+      Out_Line ("    if x < 0.0 && y < 0.0 { return _alb_atan_f64(y / x) - _ALB_PI; }");
+      Out_Line ("    if x == 0.0 && y > 0.0 { return _ALB_PI / 2.0; }");
+      Out_Line ("    if x == 0.0 && y < 0.0 { return -_ALB_PI / 2.0; }");
+      Out_Line ("    0.0");
+      Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("fn _alb_asin_f64(x: f64) -> f64 {");
+      Out_Line ("    if _alb_abs_f64(x) > 1.0 { return f64::NAN; }");
+      Out_Line ("    _alb_atan2_f64(x, _alb_sqrt_f64(1.0 - x * x))");
+      Out_Line ("}");
+      Out_Line ("");
+      Out_Line ("fn _alb_acos_f64(x: f64) -> f64 {");
+      Out_Line ("    if _alb_abs_f64(x) > 1.0 { return f64::NAN; }");
+      Out_Line ("    _ALB_PI / 2.0 - _alb_asin_f64(x)");
       Out_Line ("}");
       Out_Line ("");
       Out_Line ("unsafe fn _alb_left(s: &str, n: i32) -> &'static str {");

@@ -1052,13 +1052,13 @@ procedure MALBR is
       Ada.Text_IO.Put_Line (File, "    loop {}");
       Ada.Text_IO.Put_Line (File, "}");
       Ada.Text_IO.Put_Line (File, "");
-      Ada.Text_IO.Put_Line (File, "pub fn _alb_print_i32(v: i32) {");
+      Ada.Text_IO.Put_Line (File, "pub fn _alb_print_i32(v: i64) {");
       Ada.Text_IO.Put_Line (File, "    if v == 0 {");
       Ada.Text_IO.Put_Line (File, "        _alb_putchar(b'0');");
       Ada.Text_IO.Put_Line (File, "        return;");
       Ada.Text_IO.Put_Line (File, "    }");
-      Ada.Text_IO.Put_Line (File, "    let mut n: i32 = v;");
-      Ada.Text_IO.Put_Line (File, "    let mut buf: [u8; 12] = [0; 12];");
+      Ada.Text_IO.Put_Line (File, "    let mut n: i64 = v;");
+      Ada.Text_IO.Put_Line (File, "    let mut buf: [u8; 20] = [0; 20];");
       Ada.Text_IO.Put_Line (File, "    let mut i: usize = 0;");
       Ada.Text_IO.Put_Line (File, "    let neg: bool = n < 0;");
       Ada.Text_IO.Put_Line (File, "    if neg { n = -n; }");

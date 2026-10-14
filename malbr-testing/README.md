@@ -141,14 +141,36 @@ reference it with `INCLUDE "filename.albi"`.
 * Function-local `Declared_Names` is reset per routine; parameters register
   their types in the symbol table so `PRINT$ s`/`s | x` type-check inside
   function bodies.
+* `SELECT expr / CASE v [=>] / [CASE] ELSE / END SELECT` and `MATCH expr /
+  v => / ELSE => / END` both emit an `if`/`else if` chain on a hoisted temp
+  — Rust `match` patterns must be const, and ALB case arms are arbitrary
+  runtime expressions (strings included). `CHOOSE(c,a,b)` is the ternary
+  `(if c { a } else { b })`.
+* `f64` values and mixed int+float promotion (`0 - 42.5` works). Numeric
+  literals with `.` are floats; `PRINT` on floats routes to a fixed
+  6-decimal `_alb_print_f64`, and `|` stringifies them via `_alb_str_f64`.
+* `^`/`**` is exponentiation — `i64::pow` for integral bases/exponents,
+  `_alb_pow_f64` (binary exp for integral, `exp(y*ln x)` otherwise) for
+  floats.  No libm dependency: `_alb_sqrt_f64` (Newton), `_alb_exp_f64`,
+  `_alb_ln_f64`, `_alb_sin_f64`, `_alb_cos_f64`, `_alb_atan_f64`,
+  `_alb_atan2_f64`, `_alb_asin_f64`, `_alb_acos_f64`, `_alb_abs_f64`,
+  `_alb_floor_f64`, `_alb_ceil_f64` are pure f64 Taylor/identity
+  implementations emitted in the preamble.  `SQRT/EXP/LN/LOG/SIN/COS/ATAN/
+  ASIN/ACOS/ABS/FLOOR/CEIL/ATAN2/POW(...)` parse as ordinary calls and are
+  intercepted to those helpers.
+* `_alb_print_i32`/`_alb_str_i32` take `i64` (u64 prints correctly).
+* Module bodies use `use super::*;` so every crate-root helper resolves
+  inside `pub mod` scopes.
 
 ## Known gaps
 
 * `ELSEIF` is not in the grammar; use nested `IF`/`ELSE`.
 * `PRINT$` and `PRINT` both newline-terminate; build one line with `|`
   concat if you need mixed fragments on a single line.
-* File I/O, enum/struct *bodies*, `SELECT`/`CASE` remain stubs or
-  unsupported comments.
+* Float math helpers are series approximations — accurate to ~6 decimals
+  for the test corpus but not IEEE-correct in the last ulp; not for
+  guidance computers.  Fixed 6-decimal printing truncates, doesn't round.
+* File I/O, enum/struct *bodies*, `NOT` precedence subtleties remain.
 * The 4 KiB string arena is a fixed bump allocator — enough for the test
   corpus, but a hard ceiling on embedded string churn. `SWEEP` resets it.
 * No array bounds elision — every index goes through Rust's bounds check
