@@ -252,6 +252,20 @@ package body Emit_Native_Micro_Rust is
       return To_String (Result);
    end Emit_Arg_List;
 
+   function Emit_Call_Target (N : Node_Index) return String is
+      K : Node_Kind;
+   begin
+      if N = 0 then
+         return "";
+      end if;
+      K := Tree (N).Kind;
+      if K = AST_Member_Expr then
+         return Node_Name (Tree (N).Left_Child) & "::" & Node_Name (Tree (N).Right_Child);
+      else
+         return Node_Name (N);
+      end if;
+   end Emit_Call_Target;
+
    function Emit_Func_Call (Target : String; Arg_Node : Node_Index) return String is
    begin
       if Arg_Node /= 0 and then Tree (Arg_Node).Kind = AST_Arg_List then
@@ -395,11 +409,10 @@ package body Emit_Native_Micro_Rust is
             return "core::mem::size_of::<"
               & Rust_Type (Tree (Tree (N).Left_Child).Token_Index) & ">()";
          when AST_Func_Call =>
-            return Emit_Func_Call (Node_Name (Tree (N).Left_Child),
+            return Emit_Func_Call (Emit_Call_Target (Tree (N).Left_Child),
                                    Tree (N).Right_Child);
          when AST_Call_Stmt =>
-            return Emit_Func_Call (Node_Name (Tree (N).Left_Child),
-                                   Tree (N).Right_Child);
+            return Emit_Expr (Tree (N).Left_Child);
          when others =>
             return "/* micro-alb: unsupported expr " & Node_Kind'Image (K) & " */";
       end case;
@@ -420,6 +433,9 @@ package body Emit_Native_Micro_Rust is
    procedure Emit_Node (N : Node_Index);
    procedure Emit_Block (First : Node_Index);
    procedure Emit_Stmt (N : Node_Index);
+   procedure Emit_Procedure_Decl (N : Node_Index);
+   procedure Emit_Function_Decl (N : Node_Index);
+   procedure Emit_Module_Decl (N : Node_Index);
 
    procedure Emit_Stmt (N : Node_Index) is
       K : Node_Kind;
@@ -581,9 +597,14 @@ package body Emit_Native_Micro_Rust is
                & " = "
                & Emit_Expr (Tree (N).Right_Child) & ";");
 
-         when AST_Procedure_Decl | AST_Function_Decl | AST_Struct_Decl |
-              AST_Enum_Decl | AST_Range_Type_Decl | AST_DeclareModule |
-              AST_Module =>
+         when AST_Procedure_Decl =>
+            Emit_Procedure_Decl (N);
+
+         when AST_Function_Decl =>
+            Emit_Function_Decl (N);
+
+         when AST_Struct_Decl | AST_Enum_Decl | AST_Range_Type_Decl |
+              AST_DeclareModule | AST_Module =>
             null; -- emitted in first pass or skipped as top-level marker
 
          when AST_Select_Stmt =>
@@ -696,11 +717,48 @@ package body Emit_Native_Micro_Rust is
       New_Line (Out_File);
    end Emit_C_Foreign_Decl;
 
-   procedure Emit_Procedure_Decl (N : Node_Index) is
-      Name : constant String := Node_Name (Tree (N).Left_Child);
-      Body_Node : constant Node_Index := Tree (N).Right_Child;
+   function Params_For (Name_Node : Node_Index) return String is
+      List_Node : constant Node_Index := Tree (Name_Node).Right_Child;
+      Result    : Unbounded_String := To_Unbounded_String ("");
+      First     : Boolean := True;
+      Param     : Node_Index := 0;
    begin
-      Out_Line ("unsafe fn " & Name & "() {");
+      if List_Node /= 0 and then Tree (List_Node).Kind = AST_Arg_List then
+         Param := Tree (List_Node).Left_Child;
+         while Param /= 0 loop
+            if Tree (Param).Kind = AST_Param_Decl then
+               declare
+                  Param_Name_Node : constant Node_Index := Tree (Param).Left_Child;
+                  Param_Name      : constant String :=
+                    (if Param_Name_Node /= 0
+                     then Safe_Ident (Token_Text (Tree (Param_Name_Node).Token_Index))
+                     else "_");
+                  Type_Node       : constant Node_Index := Tree (Param).Right_Child;
+                  Param_Type      : constant String :=
+                    (if Type_Node /= 0 and then Tree (Type_Node).Token_Index /= 0
+                     then Rust_Type (Tree (Type_Node).Token_Index)
+                     else "i32");
+               begin
+                  if not First then
+                     Append (Result, ", ");
+                  end if;
+                  Append (Result, Param_Name & ": " & Param_Type);
+                  First := False;
+               end;
+            end if;
+            Param := Tree (Param).Next_Sibling;
+         end loop;
+      end if;
+      return To_String (Result);
+   end Params_For;
+
+   procedure Emit_Procedure_Decl (N : Node_Index) is
+      Name_Node : constant Node_Index := Tree (N).Left_Child;
+      Name      : constant String := Node_Name (Name_Node);
+      Body_Node : constant Node_Index := Tree (N).Right_Child;
+      Params    : constant String := Params_For (Name_Node);
+   begin
+      Out_Line ("pub fn " & Name & "(" & Params & ") {");
       Indent_Level := Indent_Level + 1;
       Emit_Node (Body_Node);
       Indent_Level := Indent_Level - 1;
@@ -708,12 +766,14 @@ package body Emit_Native_Micro_Rust is
    end Emit_Procedure_Decl;
 
    procedure Emit_Function_Decl (N : Node_Index) is
-      Name : constant String := Node_Name (Tree (N).Left_Child);
+      Name_Node : constant Node_Index := Tree (N).Left_Child;
+      Name      : constant String := Node_Name (Name_Node);
       Body_Node : constant Node_Index := Tree (N).Right_Child;
-      TTok : constant Natural := Tree (N).Token_Index;
-      Ret_Type : constant String := (if TTok /= 0 then Rust_Type (TTok) else "i32");
+      Params    : constant String := Params_For (Name_Node);
+      TTok      : constant Natural := Tree (N).Token_Index;
+      Ret_Type  : constant String := (if TTok /= 0 then Rust_Type (TTok) else "i32");
    begin
-      Out_Line ("unsafe fn " & Name & "() -> " & Ret_Type & " {");
+      Out_Line ("pub fn " & Name & "(" & Params & ") -> " & Ret_Type & " {");
       Indent_Level := Indent_Level + 1;
       Emit_Node (Body_Node);
       Indent_Level := Indent_Level - 1;
@@ -725,6 +785,7 @@ package body Emit_Native_Micro_Rust is
    begin
       Out_Line ("pub mod " & Name & " {");
       Indent_Level := Indent_Level + 1;
+      Out_Line ("use super::support::{_alb_print_i32, _alb_print_str, _alb_print_newline};");
       Emit_Node (Tree (N).Right_Child);
       Indent_Level := Indent_Level - 1;
       Out_Line ("}");
@@ -733,7 +794,15 @@ package body Emit_Native_Micro_Rust is
    procedure Emit_DeclareModule_Decl (N : Node_Index) is
       Name : constant String := Node_Name (Tree (N).Left_Child);
    begin
-      Out_Line ("// DECLARE MODULE " & Name);
+      if Name = "_" then
+         return;
+      end if;
+      Out_Line ("pub mod " & Name & " {");
+      Indent_Level := Indent_Level + 1;
+      Out_Line ("use super::support::{_alb_print_i32, _alb_print_str, _alb_print_newline};");
+      Emit_Node (Tree (N).Right_Child);
+      Indent_Level := Indent_Level - 1;
+      Out_Line ("}");
    end Emit_DeclareModule_Decl;
 
    procedure Emit_Struct_Decl (N : Node_Index) is
@@ -860,12 +929,9 @@ package body Emit_Native_Micro_Rust is
      (Root_Index      : in Node_Index;
       Output_Filename : in String)
    is
-      Program_Node : constant Node_Index := Root_Index;
-      Body_Node    : constant Node_Index :=
-        (if Tree (Program_Node).Kind = AST_Program
-         then Tree (Program_Node).Left_Child
-         else Program_Node);
-      Curr : Node_Index := Tree (Body_Node).Left_Child;
+      Main_Node : Node_Index := 0;
+      Body_Node : Node_Index := 0;
+      Curr      : Node_Index := Root_Index;
    begin
       Symbol_Count := 0;
       Routine_Count := 0;
@@ -877,13 +943,15 @@ package body Emit_Native_Micro_Rust is
       Open_Output (Output_Filename);
       Emit_Preamble;
 
-      --  First pass: walk top-level declarations to emit struct/enum/function
-      --  signatures and module blocks before the entry point.
+      --  First pass: walk top-level siblings.  Anything that is a program or
+      --  bare block is the main entry; declarations and modules are emitted.
       while Curr /= 0 loop
          declare
             K : constant Node_Kind := Tree (Curr).Kind;
          begin
             case K is
+               when AST_Program | AST_Block_Stmt =>
+                  Main_Node := Curr;
                when AST_Struct_Decl =>
                   Emit_Struct_Decl (Curr);
                when AST_Enum_Decl =>
@@ -893,7 +961,7 @@ package body Emit_Native_Micro_Rust is
                when AST_DeclareModule =>
                   Emit_DeclareModule_Decl (Curr);
                when AST_Module =>
-                  Emit_Module_Decl (Curr);
+                  null;
                when AST_Procedure_Decl =>
                   Emit_Procedure_Decl (Curr);
                when AST_Function_Decl =>
@@ -906,31 +974,38 @@ package body Emit_Native_Micro_Rust is
       end loop;
 
       --  Entry point
-      Out_Line ("");
-      Out_Line ("fn _alb_main_body() {");
-      Indent_Level := 1;
-      Emit_Node (Body_Node);
-      Indent_Level := 0;
-      Out_Line ("}");
+      if Main_Node /= 0 then
+         Body_Node :=
+           (if Tree (Main_Node).Kind = AST_Program
+            then Tree (Main_Node).Left_Child
+            else Main_Node);
 
-      if Custom_Entry then
          Out_Line ("");
-         Out_Line ("#[no_mangle]");
-         Out_Line ("pub extern ""C"" fn " & To_String (Entry_Symbol) & "() {");
+         Out_Line ("fn _alb_main_body() {");
          Indent_Level := 1;
-         Out_Line ("_alb_main_body();");
-         Out_Line ("support::_alb_exit(0);");
+         Emit_Node (Body_Node);
          Indent_Level := 0;
          Out_Line ("}");
-      else
-         Out_Line ("");
-         Out_Line ("#[no_mangle]");
-         Out_Line ("pub extern ""C"" fn main() {");
-         Indent_Level := 1;
-         Out_Line ("_alb_main_body();");
-         Out_Line ("support::_alb_exit(0);");
-         Indent_Level := 0;
-         Out_Line ("}");
+
+         if Custom_Entry then
+            Out_Line ("");
+            Out_Line ("#[no_mangle]");
+            Out_Line ("pub extern ""C"" fn " & To_String (Entry_Symbol) & "() {");
+            Indent_Level := 1;
+            Out_Line ("_alb_main_body();");
+            Out_Line ("support::_alb_exit(0);");
+            Indent_Level := 0;
+            Out_Line ("}");
+         else
+            Out_Line ("");
+            Out_Line ("#[no_mangle]");
+            Out_Line ("pub extern ""C"" fn main() {");
+            Indent_Level := 1;
+            Out_Line ("_alb_main_body();");
+            Out_Line ("support::_alb_exit(0);");
+            Indent_Level := 0;
+            Out_Line ("}");
+         end if;
       end if;
 
       Emit_Postamble;
